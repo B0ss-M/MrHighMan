@@ -1,0 +1,4 @@
+/* Omni Sampler: the renderer draws only controls; panels, labels and the display are art/bg_*.png. */
+.box, .box-label { display: none; }
+/* pad numbers on the pad images */
+.btn-label, .button-label { font-weight: 700; }

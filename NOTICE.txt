@@ -1,0 +1,8 @@
+Omni Sampler by MR HighMan - LGPL-3.0-or-later.
+Source: https://github.com/B0ss-M/MrHighMan
+
+The format readers are C++ translations of ConvertWithMoss by Juergen Mossgraber
+(https://github.com/git-moss/ConvertWithMoss, LGPL-3.0). See LGPL-3.0.txt and GPL-3.0.txt.
+
+Bundled libraries: dr_flac (public domain / MIT-0), stb_vorbis (public domain / MIT),
+tinf by Joergen Ibsen (zlib, tinf-LICENSE.txt). Details: VENDORED.md.

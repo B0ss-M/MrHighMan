@@ -1,0 +1,2551 @@
+{
+ "name": "Omni Sampler",
+ "params": [
+  {
+   "key": "volume",
+   "name": "Volume",
+   "min": -48,
+   "max": 12,
+   "default": 0,
+   "unit": "dB",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "pan",
+   "name": "Pan",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "transpose",
+   "name": "Transpose",
+   "min": -24,
+   "max": 24,
+   "default": 0,
+   "unit": "st",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "tune",
+   "name": "Fine Tune",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "ct",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "cutoff",
+   "name": "Cutoff",
+   "min": 0,
+   "max": 100,
+   "default": 100,
+   "unit": "",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "resonance",
+   "name": "Resonance",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "filter_type",
+   "name": "Filter Type",
+   "options": [
+    "LP",
+    "HP",
+    "BP"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "filter_vel",
+   "name": "Filter Velocity",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "attack",
+   "name": "Attack (+ms)",
+   "min": 0,
+   "max": 2000,
+   "default": 0,
+   "unit": "ms",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "decay",
+   "name": "Decay (scale)",
+   "min": 0,
+   "max": 200,
+   "default": 100,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sustain",
+   "name": "Sustain (scale)",
+   "min": 0,
+   "max": 100,
+   "default": 100,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "release",
+   "name": "Release (+ms)",
+   "min": 0,
+   "max": 5000,
+   "default": 0,
+   "unit": "ms",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "vel_sens",
+   "name": "Velocity Sensitivity",
+   "min": 0,
+   "max": 100,
+   "default": 100,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "bend",
+   "name": "Bend Range",
+   "min": 0,
+   "max": 24,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "polyphony",
+   "name": "Polyphony",
+   "min": 1,
+   "max": 64,
+   "default": 48,
+   "unit": "",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "voice_mode",
+   "name": "Voice Mode",
+   "options": [
+    "Poly",
+    "Mono",
+    "Legato"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "glide",
+   "name": "Glide",
+   "min": 0,
+   "max": 2000,
+   "default": 0,
+   "unit": "ms",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "interp",
+   "name": "Interpolation",
+   "options": [
+    "None",
+    "Linear",
+    "Cubic"
+   ],
+   "default": 2,
+   "live": true
+  },
+  {
+   "key": "rev_mix",
+   "name": "Reverb Mix",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "rev_size",
+   "name": "Reverb Size",
+   "min": 0,
+   "max": 100,
+   "default": 60,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "rev_damp",
+   "name": "Reverb Damping",
+   "min": 0,
+   "max": 100,
+   "default": 40,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "drive",
+   "name": "Drive",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "mem_limit",
+   "name": "Memory Limit",
+   "min": 64,
+   "max": 1536,
+   "default": 512,
+   "unit": "MB",
+   "display": "int"
+  },
+  {
+   "key": "prog_change",
+   "name": "Program Change",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 1
+  },
+  {
+   "key": "prog_prev",
+   "name": "Previous Instrument",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "prog_next",
+   "name": "Next Instrument",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "prog_name",
+   "name": "Instrument",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "prog_info",
+   "name": "Instrument Info",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "prog_format",
+   "name": "Format",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "status",
+   "name": "Status",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "layer_name",
+   "name": "Active Layer",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "layer_root",
+   "name": "Layer Root",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "layer_keys",
+   "name": "Layer Keys",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "layer_vel",
+   "name": "Layer Velocity",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "layer_hit",
+   "name": "Last Velocity",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "br_1",
+   "name": "Browser Row 1",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "display": "string",
+   "live": true
+  },
+  {
+   "key": "br_2",
+   "name": "Browser Row 2",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "display": "string",
+   "live": true
+  },
+  {
+   "key": "br_3",
+   "name": "Browser Row 3",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "display": "string",
+   "live": true
+  },
+  {
+   "key": "br_4",
+   "name": "Browser Row 4",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "display": "string",
+   "live": true
+  },
+  {
+   "key": "br_5",
+   "name": "Browser Row 5",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "display": "string",
+   "live": true
+  },
+  {
+   "key": "br_6",
+   "name": "Browser Row 6",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "display": "string",
+   "live": true
+  },
+  {
+   "key": "br_7",
+   "name": "Browser Row 7",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "display": "string",
+   "live": true
+  },
+  {
+   "key": "br_8",
+   "name": "Browser Row 8",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "display": "string",
+   "live": true
+  },
+  {
+   "key": "br_9",
+   "name": "Browser Row 9",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "display": "string",
+   "live": true
+  },
+  {
+   "key": "br_10",
+   "name": "Browser Row 10",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "display": "string",
+   "live": true
+  },
+  {
+   "key": "br_prev",
+   "name": "Browser Page Up",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "br_next",
+   "name": "Browser Page Down",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "br_up",
+   "name": "Browser Up",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "br_drives",
+   "name": "Browser Drives",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "br_library",
+   "name": "Browser Library",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "br_refresh",
+   "name": "Browser Refresh",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "br_loc",
+   "name": "Browser Folder",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "br_page",
+   "name": "Browser Page",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "br_info",
+   "name": "Browser Info",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "pad_1",
+   "name": "Pad 1",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_2",
+   "name": "Pad 2",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_3",
+   "name": "Pad 3",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_4",
+   "name": "Pad 4",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_5",
+   "name": "Pad 5",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_6",
+   "name": "Pad 6",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_7",
+   "name": "Pad 7",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_8",
+   "name": "Pad 8",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_9",
+   "name": "Pad 9",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_10",
+   "name": "Pad 10",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_11",
+   "name": "Pad 11",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_12",
+   "name": "Pad 12",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_13",
+   "name": "Pad 13",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_14",
+   "name": "Pad 14",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_15",
+   "name": "Pad 15",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_16",
+   "name": "Pad 16",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250,
+   "live": true
+  },
+  {
+   "key": "pad_vel",
+   "name": "Pad Velocity",
+   "min": 1,
+   "max": 127,
+   "default": 100,
+   "unit": "",
+   "display": "int"
+  },
+  {
+   "key": "pad_base",
+   "name": "Pad Bank Note",
+   "min": 0,
+   "max": 112,
+   "default": 36,
+   "unit": "",
+   "display": "int"
+  },
+  {
+   "key": "pad_down",
+   "name": "Pad Bank Down",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "pad_up",
+   "name": "Pad Bank Up",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "pad_info",
+   "name": "Pad Bank",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "auto_extract",
+   "name": "Auto Extract",
+   "options": [
+    "Off",
+    "Disk Images"
+   ],
+   "default": 1
+  },
+  {
+   "key": "br_extract",
+   "name": "Extract To Library",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "lfo1_wave",
+   "name": "LFO 1 Wave",
+   "options": [
+    "Sine",
+    "Triangle",
+    "Saw Up",
+    "Saw Down",
+    "Square",
+    "S&H"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "lfo1_rate",
+   "name": "LFO 1 Rate",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "lfo1_sync",
+   "name": "LFO 1 Sync",
+   "options": [
+    "Free",
+    "4 Bars",
+    "2 Bars",
+    "1 Bar",
+    "1/2",
+    "1/4",
+    "1/8",
+    "1/16",
+    "1/32",
+    "1/4 T",
+    "1/8 T",
+    "1/16 T",
+    "1/4 .",
+    "1/8 .",
+    "1/16 ."
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "lfo1_retrig",
+   "name": "LFO 1 Retrigger",
+   "options": [
+    "Free",
+    "Note"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "lfo2_wave",
+   "name": "LFO 2 Wave",
+   "options": [
+    "Sine",
+    "Triangle",
+    "Saw Up",
+    "Saw Down",
+    "Square",
+    "S&H"
+   ],
+   "default": 1,
+   "live": true
+  },
+  {
+   "key": "lfo2_rate",
+   "name": "LFO 2 Rate",
+   "min": 0,
+   "max": 100,
+   "default": 35,
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "lfo2_sync",
+   "name": "LFO 2 Sync",
+   "options": [
+    "Free",
+    "4 Bars",
+    "2 Bars",
+    "1 Bar",
+    "1/2",
+    "1/4",
+    "1/8",
+    "1/16",
+    "1/32",
+    "1/4 T",
+    "1/8 T",
+    "1/16 T",
+    "1/4 .",
+    "1/8 .",
+    "1/16 ."
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "lfo2_retrig",
+   "name": "LFO 2 Retrigger",
+   "options": [
+    "Free",
+    "Note"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "mod1_src",
+   "name": "Mod 1 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Wheel",
+    "Aftertouch",
+    "Pitch Bend",
+    "Velocity",
+    "Key",
+    "Random",
+    "Amp Env"
+   ],
+   "default": 1,
+   "live": true
+  },
+  {
+   "key": "mod1_dst",
+   "name": "Mod 1 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Volume",
+    "Pan",
+    "Sample Start",
+    "Drive",
+    "Reverb Mix",
+    "LFO 1 Rate",
+    "LFO 2 Rate"
+   ],
+   "default": 1,
+   "live": true
+  },
+  {
+   "key": "mod1_amt",
+   "name": "Mod 1 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "mod2_src",
+   "name": "Mod 2 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Wheel",
+    "Aftertouch",
+    "Pitch Bend",
+    "Velocity",
+    "Key",
+    "Random",
+    "Amp Env"
+   ],
+   "default": 2,
+   "live": true
+  },
+  {
+   "key": "mod2_dst",
+   "name": "Mod 2 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Volume",
+    "Pan",
+    "Sample Start",
+    "Drive",
+    "Reverb Mix",
+    "LFO 1 Rate",
+    "LFO 2 Rate"
+   ],
+   "default": 2,
+   "live": true
+  },
+  {
+   "key": "mod2_amt",
+   "name": "Mod 2 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "mod3_src",
+   "name": "Mod 3 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Wheel",
+    "Aftertouch",
+    "Pitch Bend",
+    "Velocity",
+    "Key",
+    "Random",
+    "Amp Env"
+   ],
+   "default": 3,
+   "live": true
+  },
+  {
+   "key": "mod3_dst",
+   "name": "Mod 3 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Volume",
+    "Pan",
+    "Sample Start",
+    "Drive",
+    "Reverb Mix",
+    "LFO 1 Rate",
+    "LFO 2 Rate"
+   ],
+   "default": 2,
+   "live": true
+  },
+  {
+   "key": "mod3_amt",
+   "name": "Mod 3 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "mod4_src",
+   "name": "Mod 4 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Wheel",
+    "Aftertouch",
+    "Pitch Bend",
+    "Velocity",
+    "Key",
+    "Random",
+    "Amp Env"
+   ],
+   "default": 6,
+   "live": true
+  },
+  {
+   "key": "mod4_dst",
+   "name": "Mod 4 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Volume",
+    "Pan",
+    "Sample Start",
+    "Drive",
+    "Reverb Mix",
+    "LFO 1 Rate",
+    "LFO 2 Rate"
+   ],
+   "default": 2,
+   "live": true
+  },
+  {
+   "key": "mod4_amt",
+   "name": "Mod 4 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "mod5_src",
+   "name": "Mod 5 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Wheel",
+    "Aftertouch",
+    "Pitch Bend",
+    "Velocity",
+    "Key",
+    "Random",
+    "Amp Env"
+   ],
+   "default": 8,
+   "live": true
+  },
+  {
+   "key": "mod5_dst",
+   "name": "Mod 5 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Volume",
+    "Pan",
+    "Sample Start",
+    "Drive",
+    "Reverb Mix",
+    "LFO 1 Rate",
+    "LFO 2 Rate"
+   ],
+   "default": 5,
+   "live": true
+  },
+  {
+   "key": "mod5_amt",
+   "name": "Mod 5 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "mod6_src",
+   "name": "Mod 6 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Wheel",
+    "Aftertouch",
+    "Pitch Bend",
+    "Velocity",
+    "Key",
+    "Random",
+    "Amp Env"
+   ],
+   "default": 7,
+   "live": true
+  },
+  {
+   "key": "mod6_dst",
+   "name": "Mod 6 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Volume",
+    "Pan",
+    "Sample Start",
+    "Drive",
+    "Reverb Mix",
+    "LFO 1 Rate",
+    "LFO 2 Rate"
+   ],
+   "default": 2,
+   "live": true
+  },
+  {
+   "key": "mod6_amt",
+   "name": "Mod 6 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "mod7_src",
+   "name": "Mod 7 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Wheel",
+    "Aftertouch",
+    "Pitch Bend",
+    "Velocity",
+    "Key",
+    "Random",
+    "Amp Env"
+   ],
+   "default": 4,
+   "live": true
+  },
+  {
+   "key": "mod7_dst",
+   "name": "Mod 7 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Volume",
+    "Pan",
+    "Sample Start",
+    "Drive",
+    "Reverb Mix",
+    "LFO 1 Rate",
+    "LFO 2 Rate"
+   ],
+   "default": 4,
+   "live": true
+  },
+  {
+   "key": "mod7_amt",
+   "name": "Mod 7 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "mod8_src",
+   "name": "Mod 8 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Wheel",
+    "Aftertouch",
+    "Pitch Bend",
+    "Velocity",
+    "Key",
+    "Random",
+    "Amp Env"
+   ],
+   "default": 1,
+   "live": true
+  },
+  {
+   "key": "mod8_dst",
+   "name": "Mod 8 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Volume",
+    "Pan",
+    "Sample Start",
+    "Drive",
+    "Reverb Mix",
+    "LFO 1 Rate",
+    "LFO 2 Rate"
+   ],
+   "default": 4,
+   "live": true
+  },
+  {
+   "key": "mod8_amt",
+   "name": "Mod 8 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "target_slot",
+   "name": "Target Slot",
+   "options": [
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0
+  },
+  {
+   "key": "layer_mode",
+   "name": "Layer Mode",
+   "options": [
+    "Layer",
+    "Keyswitch"
+   ],
+   "default": 0
+  },
+  {
+   "key": "ks_base",
+   "name": "Keyswitch Base",
+   "min": 0,
+   "max": 124,
+   "default": 24,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "auto_loop",
+   "name": "Auto Loop",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "slot1_lo",
+   "name": "Slot A Low Key",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "slot1_hi",
+   "name": "Slot A High Key",
+   "min": 0,
+   "max": 127,
+   "default": 127,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "slot1_vol",
+   "name": "Slot A Volume",
+   "min": -48,
+   "max": 12,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "slot1_tune",
+   "name": "Slot A Transpose",
+   "min": -24,
+   "max": 24,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "slot1_mute",
+   "name": "Slot A Mute",
+   "options": [
+    "Play",
+    "Mute"
+   ],
+   "default": 0
+  },
+  {
+   "key": "slot1_name",
+   "name": "Slot A Instrument",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "slot2_lo",
+   "name": "Slot B Low Key",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "slot2_hi",
+   "name": "Slot B High Key",
+   "min": 0,
+   "max": 127,
+   "default": 127,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "slot2_vol",
+   "name": "Slot B Volume",
+   "min": -48,
+   "max": 12,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "slot2_tune",
+   "name": "Slot B Transpose",
+   "min": -24,
+   "max": 24,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "slot2_mute",
+   "name": "Slot B Mute",
+   "options": [
+    "Play",
+    "Mute"
+   ],
+   "default": 0
+  },
+  {
+   "key": "slot2_name",
+   "name": "Slot B Instrument",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "slot3_lo",
+   "name": "Slot C Low Key",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "slot3_hi",
+   "name": "Slot C High Key",
+   "min": 0,
+   "max": 127,
+   "default": 127,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "slot3_vol",
+   "name": "Slot C Volume",
+   "min": -48,
+   "max": 12,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "slot3_tune",
+   "name": "Slot C Transpose",
+   "min": -24,
+   "max": 24,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "slot3_mute",
+   "name": "Slot C Mute",
+   "options": [
+    "Play",
+    "Mute"
+   ],
+   "default": 0
+  },
+  {
+   "key": "slot3_name",
+   "name": "Slot C Instrument",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "slot4_lo",
+   "name": "Slot D Low Key",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "slot4_hi",
+   "name": "Slot D High Key",
+   "min": 0,
+   "max": 127,
+   "default": 127,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "slot4_vol",
+   "name": "Slot D Volume",
+   "min": -48,
+   "max": 12,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "slot4_tune",
+   "name": "Slot D Transpose",
+   "min": -24,
+   "max": 24,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "slot4_mute",
+   "name": "Slot D Mute",
+   "options": [
+    "Play",
+    "Mute"
+   ],
+   "default": 0
+  },
+  {
+   "key": "slot4_name",
+   "name": "Slot D Instrument",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "slot_clear",
+   "name": "Clear Slot",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "auto_split",
+   "name": "Auto Split",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "br_setlib",
+   "name": "Set Library Here",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "lib_path",
+   "name": "Library Location",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "wave_1",
+   "name": "Wave 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_2",
+   "name": "Wave 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_3",
+   "name": "Wave 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_4",
+   "name": "Wave 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_5",
+   "name": "Wave 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_6",
+   "name": "Wave 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_7",
+   "name": "Wave 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_8",
+   "name": "Wave 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_9",
+   "name": "Wave 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_10",
+   "name": "Wave 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_11",
+   "name": "Wave 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_12",
+   "name": "Wave 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_13",
+   "name": "Wave 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_14",
+   "name": "Wave 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_15",
+   "name": "Wave 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_16",
+   "name": "Wave 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_17",
+   "name": "Wave 17",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_18",
+   "name": "Wave 18",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_19",
+   "name": "Wave 19",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_20",
+   "name": "Wave 20",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_21",
+   "name": "Wave 21",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_22",
+   "name": "Wave 22",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_23",
+   "name": "Wave 23",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_24",
+   "name": "Wave 24",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_25",
+   "name": "Wave 25",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_26",
+   "name": "Wave 26",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_27",
+   "name": "Wave 27",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_28",
+   "name": "Wave 28",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_29",
+   "name": "Wave 29",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_30",
+   "name": "Wave 30",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_31",
+   "name": "Wave 31",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_32",
+   "name": "Wave 32",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_33",
+   "name": "Wave 33",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_34",
+   "name": "Wave 34",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_35",
+   "name": "Wave 35",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_36",
+   "name": "Wave 36",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_37",
+   "name": "Wave 37",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_38",
+   "name": "Wave 38",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_39",
+   "name": "Wave 39",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_40",
+   "name": "Wave 40",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_41",
+   "name": "Wave 41",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_42",
+   "name": "Wave 42",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_43",
+   "name": "Wave 43",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_44",
+   "name": "Wave 44",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_45",
+   "name": "Wave 45",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_46",
+   "name": "Wave 46",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_47",
+   "name": "Wave 47",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "wave_48",
+   "name": "Wave 48",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_1",
+   "name": "Zone Map 1",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_2",
+   "name": "Zone Map 2",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_3",
+   "name": "Zone Map 3",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_4",
+   "name": "Zone Map 4",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_5",
+   "name": "Zone Map 5",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_6",
+   "name": "Zone Map 6",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_7",
+   "name": "Zone Map 7",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_8",
+   "name": "Zone Map 8",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_9",
+   "name": "Zone Map 9",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_10",
+   "name": "Zone Map 10",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_11",
+   "name": "Zone Map 11",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_12",
+   "name": "Zone Map 12",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_13",
+   "name": "Zone Map 13",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_14",
+   "name": "Zone Map 14",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_15",
+   "name": "Zone Map 15",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_16",
+   "name": "Zone Map 16",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_17",
+   "name": "Zone Map 17",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_18",
+   "name": "Zone Map 18",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_19",
+   "name": "Zone Map 19",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_20",
+   "name": "Zone Map 20",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_21",
+   "name": "Zone Map 21",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_22",
+   "name": "Zone Map 22",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_23",
+   "name": "Zone Map 23",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_24",
+   "name": "Zone Map 24",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_25",
+   "name": "Zone Map 25",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_26",
+   "name": "Zone Map 26",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_27",
+   "name": "Zone Map 27",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_28",
+   "name": "Zone Map 28",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_29",
+   "name": "Zone Map 29",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_30",
+   "name": "Zone Map 30",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_31",
+   "name": "Zone Map 31",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ptile_32",
+   "name": "Zone Map 32",
+   "min": 0,
+   "max": 2,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_1",
+   "name": "Layer Map 1",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_2",
+   "name": "Layer Map 2",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_3",
+   "name": "Layer Map 3",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_4",
+   "name": "Layer Map 4",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_5",
+   "name": "Layer Map 5",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_6",
+   "name": "Layer Map 6",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_7",
+   "name": "Layer Map 7",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_8",
+   "name": "Layer Map 8",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_9",
+   "name": "Layer Map 9",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_10",
+   "name": "Layer Map 10",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_11",
+   "name": "Layer Map 11",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_12",
+   "name": "Layer Map 12",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_13",
+   "name": "Layer Map 13",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_14",
+   "name": "Layer Map 14",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_15",
+   "name": "Layer Map 15",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_16",
+   "name": "Layer Map 16",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_17",
+   "name": "Layer Map 17",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_18",
+   "name": "Layer Map 18",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_19",
+   "name": "Layer Map 19",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_20",
+   "name": "Layer Map 20",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_21",
+   "name": "Layer Map 21",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_22",
+   "name": "Layer Map 22",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_23",
+   "name": "Layer Map 23",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_24",
+   "name": "Layer Map 24",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_25",
+   "name": "Layer Map 25",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_26",
+   "name": "Layer Map 26",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_27",
+   "name": "Layer Map 27",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_28",
+   "name": "Layer Map 28",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_29",
+   "name": "Layer Map 29",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_30",
+   "name": "Layer Map 30",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_31",
+   "name": "Layer Map 31",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "ltile_32",
+   "name": "Layer Map 32",
+   "min": 0,
+   "max": 15,
+   "default": 0,
+   "display": "int",
+   "live": true
+  }
+ ]
+}
