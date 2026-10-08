@@ -22,6 +22,7 @@ extern "C" {
 #include "engine/loader.hpp"
 #include "engine/sampler.hpp"
 #include "formats/format.hpp"
+#include "formats/omni_native.hpp"
 
 using namespace omni;
 
@@ -91,7 +92,7 @@ struct Omni {
     std::string info_text;           // the last tapped item
     std::string browse_msg;
     std::atomic<int> row_on[ROWS];
-    std::atomic<int> trig_on[14];
+    std::atomic<int> trig_on[15];
     // the skin's 16 pads: a tap queues a note (set_param), the audio thread plays it with a fixed gate (render)
     std::atomic<int> pad_req[16];
     int pad_gate[16] = {}, pad_note[16] = {};   // audio thread only
@@ -210,7 +211,7 @@ bool listable_ext(const std::string &ext) {
 
 bool image_ext(const std::string &ext) {
     static const char *exts[] = {"iso", "img", "bin", "cdr", "hda", "hdf", "hds", "out", "sdk", "hfe", "imd", "dsk",
-                                 "ima", "raw", "toc", "e3", "eiv", "e4", "ei", "em", "emu", "akai", "dmg"};
+                                 "ima", "raw", "toc", "e3", "eiv", "e4", "ei", "em", "emu", "akai", "dmg", "nrg", "mdf"};
     for (auto *e : exts) if (ext == e) return true;
     return false;
 }
@@ -274,7 +275,7 @@ void list_folder(Omni *o, const std::string &dir) {
         if (e.name.empty() || e.name[0] == '.') continue;   // hidden files, macOS "._" resource forks
         std::string full = path_join(dir, e.name), ext = path_ext(e.name);
         if (e.dir) o->rows.push_back({"[" + e.name + "]", full, RowKind::Folder});
-        else if (listable_ext(ext)) o->rows.push_back({e.name, full, RowKind::File});
+        else if (listable_ext(ext) || ext == "omnipatch") o->rows.push_back({e.name, full, RowKind::File});
         else if (image_ext(ext)) o->rows.push_back({"<" + e.name + ">", full, RowKind::Image});
     }
     o->browse_msg.clear();
@@ -289,6 +290,8 @@ void list_presets(Omni *o, const std::string &file, const std::vector<PresetInfo
     for (size_t i = 0; i < presets.size(); i++) o->rows.push_back({presets[i].name, file, RowKind::Preset, int(i)});
     rebuild_on(o);
 }
+
+void load_patch(Omni *o, const std::string &path);
 
 void tap_row(Omni *o, int index) {
     if (index < 0 || index >= int(o->rows.size())) return;
@@ -316,6 +319,13 @@ void tap_row(Omni *o, int index) {
         if (row.kind == RowKind::Image && o->dir != row.path) o->info_text = "Not a disk image this sampler reads";
         break;
     case RowKind::File: {
+        if (path_ext(row.path) == "omnipatch") {
+            o->sel_path = row.path;
+            o->sel_preset = 0;
+            load_patch(o, row.path);
+            rebuild_on(o);
+            break;
+        }
         std::vector<PresetInfo> presets;
         try {
             Location loc = o->vfs.resolve(row.path);
@@ -381,11 +391,18 @@ bool sound_param(const char *key) {
     return std::strncmp(key, "slot", 4) != 0;
 }
 
-std::string settings_json(Omni *o) {
+// a patch also keeps the slots' key ranges, levels and tuning and the layer mode
+bool patch_param(const char *key) {
+    if (sound_param(key)) return true;
+    if (!std::strcmp(key, "layer_mode") || !std::strcmp(key, "ks_base")) return true;
+    return !std::strncmp(key, "slot", 4) && std::isdigit(static_cast<unsigned char>(key[4]));
+}
+
+std::string settings_json(Omni *o, bool (*want)(const char *) = sound_param) {
     std::string s = "{";
     char buf[96];
     for (int i = 0; i < NUM_COUNT; i++) {
-        if (!sound_param(NUM_PARAMS[i].key)) continue;
+        if (!want(NUM_PARAMS[i].key)) continue;
         std::snprintf(buf, sizeof buf, "%s\"%s\":%g", s.size() > 1 ? "," : "", NUM_PARAMS[i].key, o->values[i].load());
         s += buf;
     }
@@ -401,6 +418,33 @@ void apply_saved_settings(Omni *o, const Settings_kv &kv) {
         if (i >= 0) o->values[i].store(p.second);
     }
     apply_settings(o);
+}
+
+// browser worker (ui_mutex held): a patch's settings, then its instruments into their slots (without the settings
+// their own .omni files carry: the patch's win); slots the patch does not use are cleared
+void load_patch(Omni *o, const std::string &path) {
+    Patch p;
+    try { p = read_patch(path); } catch (const std::exception &e) { o->info_text = path_name(path) + ": " + e.what(); return; }
+    if (p.layers.empty()) { o->info_text = "This patch has no instruments"; return; }
+    for (auto &kv : p.settings) {
+        if (!patch_param(kv.first.c_str())) continue;
+        int i = num_index(kv.first.c_str());
+        if (i >= 0) o->values[i].store(kv.second);
+    }
+    apply_settings(o);
+    bool used[SLOTS] = {};
+    int missing = 0;
+    for (auto &l : p.layers) {
+        if (used[l.slot]) continue;
+        used[l.slot] = true;
+        struct stat st;
+        if (stat(l.file.c_str(), &st) != 0) missing++;
+        o->loader.request(l.file, l.preset, l.slot, false);
+    }
+    for (int s = 0; s < SLOTS; s++) if (!used[s]) o->loader.request("", 0, s, false);
+    int n = int(p.layers.size());
+    o->info_text = "Patch " + p.name + ": " + std::to_string(n) + (n == 1 ? " instrument" : " instruments");
+    if (missing) o->info_text += ", " + std::to_string(missing) + " missing";
 }
 
 // key ranges for the loaded slots: the keyboard divided evenly, in slot order
@@ -470,7 +514,8 @@ void set_state(Omni *o, const char *text) {
     }
     apply_settings(o);
     if (!path.empty() && spath[0].empty()) { spath[0] = path; spreset[0] = preset; }
-    for (int i = 0; i < SLOTS; i++) o->loader.request(spath[i], spreset[i], i);   // "" clears the slot
+    // "" clears the slot; the project's own settings win over those an .omni carries
+    for (int i = 0; i < SLOTS; i++) o->loader.request(spath[i], spreset[i], i, false);
     if (path.empty()) path = spath[int(num(o, "target_slot") + 0.5f) & 3];
     std::lock_guard<std::mutex> lock(o->ui_mutex);
     std::string folder = browse.empty() ? path_dir(path) : browse;
@@ -512,7 +557,6 @@ void update_displays(Omni *o) {
     }
 }
 
-std::string settings_json(Omni *o);
 void apply_saved_settings(Omni *o, const Settings_kv &kv);
 
 void diag_loop(Omni *o) {
@@ -592,10 +636,12 @@ void midi(void *inst, const uint8_t *msg, int len) {
 bool is_trigger_on(const char *val) { return std::atof(val) > 0.5f; }
 
 // the trigger buttons, latched while held so the button lights
-const char *const TRIGGERS[14] = {"prog_prev", "prog_next", "br_prev", "br_next", "br_up", "br_drives", "br_library", "br_refresh",
-                                  "pad_down", "pad_up", "br_extract", "slot_clear", "auto_split", "br_setlib"};
+constexpr int TRIGGER_COUNT = 15;
+const char *const TRIGGERS[TRIGGER_COUNT] = {"prog_prev", "prog_next", "br_prev", "br_next", "br_up", "br_drives", "br_library",
+                                             "br_refresh", "pad_down", "pad_up", "br_extract", "slot_clear", "auto_split",
+                                             "br_setlib", "patch_save"};
 int trigger_index(const char *key) {
-    for (int i = 0; i < 14; i++) if (!std::strcmp(key, TRIGGERS[i])) return i;
+    for (int i = 0; i < TRIGGER_COUNT; i++) if (!std::strcmp(key, TRIGGERS[i])) return i;
     return -1;
 }
 
@@ -619,6 +665,7 @@ void set_param(void *inst, const char *key, const char *val) {
         return;
     }
     if (!std::strcmp(key, "br_extract")) { if (is_trigger_on(val)) o->loader.save(); return; }
+    if (!std::strcmp(key, "patch_save")) { if (is_trigger_on(val)) o->loader.save_patch(settings_json(o, patch_param)); return; }
     if (!std::strcmp(key, "br_setlib")) {
         if (!is_trigger_on(val)) return;
         std::lock_guard<std::mutex> lock(o->br_qm);
@@ -871,7 +918,9 @@ int get_param(void *inst, const char *key, char *buf, int len) {
         if (!std::strcmp(k, "info")) {
             if (o->br_busy.load()) return put(buf, len, "Opening...");
             std::string st = o->loader.status();   // a failed load is shown here, where the tap was made
-            if (st.compare(0, 6, "Error:") == 0 || st.compare(0, 7, "Extract") == 0 || st.compare(0, 5, "Saved") == 0) return put(buf, len, st);
+            if (st.compare(0, 6, "Error:") == 0 || st.compare(0, 7, "Extract") == 0 || st.compare(0, 4, "Save") == 0 ||
+                st.compare(0, 7, "Nothing") == 0)
+                return put(buf, len, st);
             return put(buf, len, o->browse_msg.empty() ? o->info_text : o->browse_msg);
         }
         return std::snprintf(buf, size_t(len), "0");

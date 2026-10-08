@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the desktop test tools (x86, ASan/UBSan): build/x86/probe and build/x86/test_engine.
+# Build the desktop test tools (x86, ASan/UBSan): build/x86/probe, test_engine and test_patch.
 #   MPC_VST=/path/to/mpc-vst-plugins tests/build_x86.sh [--fast]   (--fast: -O2, no sanitizers)
 set -euo pipefail
 PORT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -28,4 +28,6 @@ wait
 g++ "${FLAGS[@]}" "${WARN[@]}" -I"$PORT/src" "$PORT/tests/probe.cpp" "${OBJS[@]}" -lpthread -o "$OUT/probe"
 g++ "${FLAGS[@]}" "${WARN[@]}" -I"$PORT/src" -I"$MV/wrapper" "$PORT/tests/test_engine.cpp" "$PORT/src/plugin.cpp" "${OBJS[@]}" \
   -lpthread -o "$OUT/test_engine"
-echo "built $OUT/probe $OUT/test_engine"
+g++ "${FLAGS[@]}" "${WARN[@]}" -I"$PORT/src" -I"$MV/wrapper" "$PORT/tests/test_patch.cpp" "$PORT/src/plugin.cpp" "${OBJS[@]}" \
+  -lpthread -o "$OUT/test_patch"
+echo "built $OUT/probe $OUT/test_engine $OUT/test_patch"

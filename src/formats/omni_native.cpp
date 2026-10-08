@@ -368,6 +368,55 @@ std::string write_omni(const Instrument &inst, const std::vector<PcmPtr> &zone_p
     return out;
 }
 
+std::string omni_file_safe(const std::string &name) { return file_safe(name); }
+
+std::string write_patch(const std::string &dir, const std::string &name, const std::vector<PatchLayer> &layers,
+                        const std::string &settings) {
+    mkdirs(dir);
+    // inside the folder holding the patch folder (the library): relative, so the library can move
+    std::string root = path_dir(dir) + "/";
+    std::string arr = "[";
+    for (auto &l : layers) {
+        std::string f = l.file;
+        if (f.compare(0, dir.size() + 1, dir + "/") == 0) f = f.substr(dir.size() + 1);
+        else if (root.size() > 1 && f.compare(0, root.size(), root) == 0) f = "../" + f.substr(root.size());
+        arr += (arr.size() > 1 ? ",\n" : "\n") + Obj().num("slot", l.slot).str("file", f).num("preset", l.preset).str("name", l.name).done();
+    }
+    arr += "\n]";
+    std::string doc = "{\"omni_patch\":" + std::to_string(PATCH_VERSION) + ",\"name\":" + jstr(name) + ",\n\"layers\":" + arr +
+                      (settings.empty() ? std::string() : ",\n\"settings\":" + settings) + "}\n";
+    std::string out = path_join(dir, file_safe(name) + ".omnipatch");
+    write_file(out, doc);
+    return out;
+}
+
+Patch read_patch(const std::string &host_path) {
+    FILE *f = std::fopen(host_path.c_str(), "rb");
+    if (!f) throw ParseError("cannot open " + path_name(host_path));
+    std::string text;
+    char buf[16384];
+    size_t n;
+    while ((n = std::fread(buf, 1, sizeof buf, f)) > 0 && text.size() < (4u << 20)) text.append(buf, n);
+    std::fclose(f);
+    Json j = parse_json(text);
+    if (j["omni_patch"].as_int(0) < 1 || j["omni_patch"].as_int(0) > PATCH_VERSION) throw ParseError("not an Omni Sampler patch");
+    Patch p;
+    p.name = j["name"].as_str(path_stem(host_path));
+    std::string dir = path_dir(host_path);
+    for (auto &l : j["layers"].arr) {
+        PatchLayer pl;
+        pl.slot = l["slot"].as_int(-1);
+        std::string file = l["file"].as_str("");
+        if (pl.slot < 0 || pl.slot > 3 || file.empty()) continue;
+        pl.file = path_resolve(dir, file);
+        pl.preset = l["preset"].as_int(0);
+        pl.name = l["name"].as_str("");
+        p.layers.push_back(pl);
+    }
+    for (auto &kv : j["settings"].obj) if (kv.second.type == Json::Number) p.settings.push_back({kv.first, float(kv.second.num)});
+    return p;
+}
+
 void register_omni_native() {
     register_reader({"Omni instrument", "omni", probe_omni, list_omni, load_omni});
 }

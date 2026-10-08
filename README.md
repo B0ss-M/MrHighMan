@@ -18,7 +18,7 @@ Requires a modded unit with root access (the installer edits `MPC.settings`). Te
 | Native Instruments | Kontakt `.nki` / `.nkm` (Kontakt 1, 2-4.1, 4.2, 5-8 and both monolith kinds), NCW samples, Maschine 1 `.msnd`, Maschine 2/3 `.mxsnd` |
 | Roland | S-700 series (S-750 / S-760 / S-770, SP-700, DJ-70) CD-ROM, hard-disk and floppy images: volumes (banks), performances and patches; S-50 / S-550 / S-330 / W-30 floppy images and S-500 "LAND" CD-ROMs |
 | Open formats | SoundFont 2 `.sf2`, SFZ `.sfz`; samples in WAV (PCM, float, ADPCM, RF64), AIFF/AIFC, FLAC, Ogg Vorbis |
-| Disk images | ISO 9660 (Joliet, Rock Ridge; `.iso`, raw `.bin`), FAT12/16/32 (floppies, partitioned cards and ZIP disks), Akai and E-mu sampler file systems, HFE and IMD floppy images. Images open like folders, also nested (an Akai CD image on a FAT card) |
+| Disk images | ISO 9660 (Joliet, Rock Ridge; `.iso`, raw `.bin`), FAT12/16/32 (floppies, partitioned cards and ZIP disks), Akai and E-mu sampler file systems, HFE and IMD floppy images, Nero `.nrg` CD images. Images open like folders, also nested (an Akai CD image on a FAT card) |
 
 Roland images mount like folders: S-700 volumes (banks) hold their patches and a Performances folder, "All Patches"
 lists every patch; S-500 disks list their patches (P11-P28), a LAND CD one folder per disk. Multi-floppy S-700 sets
@@ -50,7 +50,8 @@ floppies, IMD. Reports and sample files welcome.
   before tapping a preset. Each slot has a key range (low / high), volume, tune and mute; the keyboard map shows the
   ranges in the slot colours. **Layer Mode** Layer plays every slot whose range holds the key; Keyswitch plays only
   the slot last selected with the four keyswitch notes from **Keyswitch Base** (default C0, 24-27). **AUTO SPLIT**
-  divides the keyboard evenly between the loaded slots; **CLEAR SLOT** empties the selected slot.
+  divides the keyboard evenly between the loaded slots; **CLEAR SLOT** empties the selected slot. **SAVE PATCH** keeps
+  the whole setup (see Patches below).
 - **BROWSE**: drives (Plugin Library, Internal, every USB/SD volume under `/media`), folders, files and disk
   images. Tap a file with several instruments (an SF2 bank, a multi, a disk partition) to list them. The arrows
   next to the instrument name step through the presets of a file, or the files of a folder.
@@ -89,6 +90,17 @@ by an older version from a format since read better (Roland S-500 loops before 1
 when it is still there and rewritten in place, keeping their settings. `.omni` is the plugin's own lossless format (JSON: every zone, envelope, filter and LFO
 setting; 16-bit WAV samples) and loads like any other instrument.
 
+## Patches
+
+**SAVE PATCH** (LAYERS) saves every loaded slot as one patch: `Patches/<A> + <B> + ....omnipatch` in the Plugin
+Library, with the slots' key ranges, volume, tune and mute, the layer mode and keyswitch base, and the sound settings
+(envelope, filter, pitch, MOD page, ...). Each press writes a new file (numbered when the name is taken). A slot that
+is already an `.omni` file on a drive (an extracted or saved instrument) is referred to as it is; anything else (a
+preset of an SF2 bank, a Kontakt file, a preset inside a disk image) is written as an `.omni` into
+`Patches/<patch> Instruments/`, so the patch keeps working without its source. Paths inside the library are stored
+relative, so the library can move to another drive. Tap a `.omnipatch` on BROWSE to load it: its instruments go into
+their slots (slots it does not use are cleared) and its settings come back.
+
 ## Where to put sound files
 
 Anywhere the browser reaches: the **Plugin Library**, the internal storage, or a USB stick / SD card. The Plugin
@@ -122,7 +134,7 @@ export MPC_VST=$PWD/mpc-vst-plugins
 python3 design.py                       # params.json, layout.conf, skin.css, art/ (the skin design)
 ./build.sh                              # build/omni_sampler.so (armhf), build/skin/, pluginlist-entry.xml
 "$MPC_VST/tools/test_port.sh" vst.json  # x86 host test (ASan)
-tests/build_x86.sh                      # build/x86/probe and test_engine (ASan; --fast for -O2)
+tests/build_x86.sh                      # build/x86/probe, test_engine, test_patch (ASan; --fast for -O2)
 build/x86/probe <file|image/path>       # list / dump what a reader makes of a file
 build/x86/test_engine <file> [preset] [notes]  # load, play, browse, save/restore state
 ```

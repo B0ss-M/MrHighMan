@@ -178,6 +178,9 @@ def params():
         add("ptile_%d" % t, "Zone Map %d" % t, min=0, max=2, default=0, display="int", live=True)
     for t in range(1, 33):
         add("ltile_%d" % t, "Layer Map %d" % t, min=0, max=15, default=0, display="int", live=True)
+    # 1.5: patches (every loaded slot, with the slot and sound settings, saved as one .omnipatch); appended last so the
+    # earlier parameters keep their VST indices
+    trigger("patch_save", "Save Patch")
     # settings an extracted instrument restores reach MPC's controls through the live polling
     for p in P:
         if p["key"] in SOUND_KEYS:
@@ -841,6 +844,7 @@ def images():
         button_image("b_setlib", 220, 40, "SET LIBRARY HERE", lit)
         button_image("b_split", 160, 36, "AUTO SPLIT", lit)
         button_image("b_clear", 160, 36, "CLEAR SLOT", lit)
+        button_image("b_patch", 160, 36, "SAVE PATCH", lit)
         for i in range(4):
             seg_image("slot_target_%d" % i, 50, 30, lit, "ABCD"[i], SLOT_COLOURS[i])
             seg_image("slot_load_%d" % i, 200, 30, lit, "LOADS HERE" if lit else "LOAD HERE", SLOT_COLOURS[i])
@@ -950,6 +954,7 @@ def layout():
     L.append('readout cx=%d cy=%d w=80 h=28 label="" key=ks_base text_size=15' % (520, y(ly + 188)))
     L.append('button cx=%d cy=%d label="" key=auto_split img=art/b_split_off.png img_on=art/b_split_on.png w=160 h=36' % (980, y(ly + 188)))
     L.append('button cx=%d cy=%d label="" key=slot_clear img=art/b_clear_off.png img_on=art/b_clear_on.png w=160 h=36' % (1160, y(ly + 188)))
+    L.append('button cx=%d cy=%d label="" key=patch_save img=art/b_patch_off.png img_on=art/b_patch_on.png w=160 h=36' % (800, y(ly + 188)))
     L.append('qlinks "LAYERS" = slot1_lo,slot1_hi,slot1_vol,slot1_tune,slot2_lo,slot2_hi,slot2_vol,slot2_tune,'
              'slot3_lo,slot3_hi,slot3_vol,slot3_tune,slot4_lo,slot4_hi,slot4_vol,slot4_tune')
     L.append("")
