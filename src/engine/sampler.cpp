@@ -2,6 +2,7 @@
 #include "sampler.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace omni {
 
@@ -99,6 +100,18 @@ Sampler::Voice *Sampler::alloc_voice() {
     return best;
 }
 
+// PANIC: every voice fades out at once (5 ms, no click), and nothing is left held: keys, pedal, mono state, wheels
+void Sampler::do_panic() {
+    for (auto &v : voices_)
+        if (v.on) { v.released = true; v.held_by_pedal = false; v.looping = false; v.fading = true; v.amp.fast_release(0.005f); }
+    std::memset(held_, 0, sizeof held_);
+    held_count_ = 0;
+    for (auto &k : key_down) k.store(0);
+    sustain_ = false;
+    last_mono_note_ = -1;
+    bend_ = 0; modwheel_ = 0; at_ = 0;
+}
+
 void Sampler::all_off(bool hard) {
     for (auto &v : voices_) {
         if (!v.on) continue;
@@ -167,9 +180,19 @@ void Sampler::note_on(int chan, int note, int vel) {
 
 void Sampler::note_off(int chan, int note) {
     if (held_[chan][note]) { held_[chan][note] = false; held_count_--; key_down[note].fetch_sub(1); }
+    else {
+        // the key isn't down on this channel: a note-off on another channel than its note-on (a source that changed
+        // channel while the note was held). Release it wherever it is, or the note rings on (a looped sound: forever).
+        for (int c = 0; c < 16; c++)
+            if (held_[c][note]) { held_[c][note] = false; held_count_--; key_down[note].fetch_sub(1); }
+    }
+    bool any_chan = true;   // voices on another channel go too, unless this channel's own voice is there
+    for (auto &v : voices_) if (v.on && v.note == note && v.chan == chan && !v.released) { any_chan = false; break; }
     int vel = 0;
     for (auto &v : voices_) {
-        if (!v.on || v.note != note || v.chan != chan || v.released) continue;
+        if (!v.on || v.note != note || v.released) continue;
+        // channel-bound zones (a multi's parts) only answer their own channel
+        if (v.chan != chan && (!any_chan || v.zone->midi_channel >= 0)) continue;
         vel = std::max(vel, v.vel);
         if (v.one_shot) continue;
         if (sustain_) { v.held_by_pedal = true; continue; }
@@ -603,6 +626,7 @@ struct FlushDenormals {
 
 void Sampler::render(int16_t *out, int frames) {
     FlushDenormals ftz;
+    if (panic_req_.exchange(false)) do_panic();
     if (pending_.load()) swap_program();
     update_mod(frames);
     float *l = mixl_.data(), *r = mixr_.data();

@@ -92,11 +92,12 @@ struct Omni {
     std::string info_text;           // the last tapped item
     std::string browse_msg;
     std::atomic<int> row_on[ROWS];
-    std::atomic<int> trig_on[15];
+    std::atomic<int> trig_on[16];   // one per TRIGGERS entry
     // the skin's 16 pads: a tap queues a note (set_param), the audio thread plays it with a fixed gate (render)
     std::atomic<int> pad_req[16];
     int pad_gate[16] = {}, pad_note[16] = {};   // audio thread only
-    std::atomic<int> pad_base_rev{0};     // trigger buttons held (the wrapper releases them): their highlight
+    std::atomic<int> pad_base_rev{0};
+    std::atomic<int> pad_panic{0};       // PANIC: the audio thread drops the pads' pending notes and gates     // trigger buttons held (the wrapper releases them): their highlight
     // browser actions run on their own thread: listing folders, mounting images and reading a file's presets can
     // take a while, and set_param must return at once whichever thread the host calls it from
     std::thread br_thread;
@@ -636,10 +637,10 @@ void midi(void *inst, const uint8_t *msg, int len) {
 bool is_trigger_on(const char *val) { return std::atof(val) > 0.5f; }
 
 // the trigger buttons, latched while held so the button lights
-constexpr int TRIGGER_COUNT = 15;
+constexpr int TRIGGER_COUNT = 16;
 const char *const TRIGGERS[TRIGGER_COUNT] = {"prog_prev", "prog_next", "br_prev", "br_next", "br_up", "br_drives", "br_library",
                                              "br_refresh", "pad_down", "pad_up", "br_extract", "slot_clear", "auto_split",
-                                             "br_setlib", "patch_save"};
+                                             "br_setlib", "patch_save", "panic"};
 int trigger_index(const char *key) {
     for (int i = 0; i < TRIGGER_COUNT; i++) if (!std::strcmp(key, TRIGGERS[i])) return i;
     return -1;
@@ -665,6 +666,7 @@ void set_param(void *inst, const char *key, const char *val) {
         return;
     }
     if (!std::strcmp(key, "br_extract")) { if (is_trigger_on(val)) o->loader.save(); return; }
+    if (!std::strcmp(key, "panic")) { if (is_trigger_on(val)) { o->pad_panic.store(1); o->sampler.panic(); } return; }
     if (!std::strcmp(key, "patch_save")) { if (is_trigger_on(val)) o->loader.save_patch(settings_json(o, patch_param)); return; }
     if (!std::strcmp(key, "br_setlib")) {
         if (!is_trigger_on(val)) return;
@@ -932,6 +934,8 @@ void render(void *inst, int16_t *out, int frames) {
     Omni *o = static_cast<Omni *>(inst);
     // skin pads: MPC's momentary buttons release on their own, so a tap holds the note for a fixed time: 0.6 s, or
     // the sound's attack plus half a second (slow strings and pads would barely start otherwise), at most 3 s
+    if (o->pad_panic.exchange(0))
+        for (int n = 0; n < 16; n++) { o->pad_gate[n] = 0; o->pad_req[n].store(0); }
     for (int n = 0; n < 16; n++) {
         if (o->pad_gate[n] > 0) {
             o->pad_gate[n] -= frames;

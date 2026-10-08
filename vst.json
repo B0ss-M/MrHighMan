@@ -2,7 +2,7 @@
   "name": "Omni Sampler",
   "vendor": "MR HighMan",
   "uid": "OmSm",
-  "version": 1500,
+  "version": 1600,
   "so": "omni_sampler.so",
   "params": "params.json",
   "layout": "layout.conf",

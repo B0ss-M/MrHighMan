@@ -37,6 +37,10 @@ floppies, IMD. Reports and sample files welcome.
 
 ## Pages
 
+**PANIC** (top right, on every page) stops every sound at once (a 5 ms fade) and clears whatever is still held: keys,
+the sustain pedal, the skin's pads, bend and mod wheel. Use it if a note ever hangs. (1.6 also fixes a cause of hanging
+notes: a note-off that arrived on another MIDI channel than its note-on was ignored, so a looped sound rang forever.)
+
 - **PLAY**: the front panel. Top: instrument stepper and name, format. PITCH (transpose, bend range, fine tune),
   VOICE (glide, voices, drive), REVERB (mix, size, damping); filter type, voice mode and interpolation buttons; the
   display shows the zone the last note played (name, root, keys, velocity range, hit velocity) and the instrument;

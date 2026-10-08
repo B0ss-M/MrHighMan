@@ -64,6 +64,8 @@ public:
     // Loader / UI thread: a program the audio thread no longer uses, or null.
     Program *take_retired();
     bool switching() const { return pending_.load() != nullptr; }
+    // Any thread: PANIC. The audio thread then silences every voice (a 5 ms fade) and forgets held keys and the pedal.
+    void panic() { panic_req_.store(true); }
 
     // Audio thread
     void midi(const uint8_t *msg, int len);
@@ -108,6 +110,8 @@ private:
     };
 
     std::atomic<Program *> pending_{nullptr}, retired_{nullptr};
+    std::atomic<bool> panic_req_{false};
+    void do_panic();
     Program *prog_ = nullptr;
     Voice voices_[MAX_VOICES];
     uint32_t age_counter_ = 0;

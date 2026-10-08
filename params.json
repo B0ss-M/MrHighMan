@@ -2555,6 +2555,15 @@
    "default": 0,
    "momentary": true,
    "hold_ms": 250
+  },
+  {
+   "key": "panic",
+   "name": "Panic",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
   }
  ]
 }
