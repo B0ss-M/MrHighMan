@@ -111,9 +111,11 @@ ExBank parse_bank(Volume &vol, const std::string &path) {
     ExBank b;
     b.d = vol.open(path)->all(256u << 20);
     const auto &d = b.d;
-    if (d.size() < TOC_OFFSET || std::memcmp(d.data(), "FORM", 4) || std::memcmp(d.data() + 8, "E5B0TOC2", 8)) throw ParseError("not an Emulator X bank");
+    if (d.size() < 16 || std::memcmp(d.data(), "FORM", 4) || std::memcmp(d.data() + 8, "E5B0TOC2", 8)) throw ParseError("not an Emulator X bank");
+    // an empty bank (Emulator X saves one as a bare 20-byte header): say so rather than "not a bank"
+    if (d.size() < TOC_OFFSET || !be32(&d[16])) throw ParseError("this Emulator X bank is empty (no presets)");
     size_t toc = be32(&d[16]), toc_end = TOC_OFFSET + toc;
-    if (!toc || toc_end > d.size()) throw ParseError("not an Emulator X bank");
+    if (toc_end > d.size()) throw ParseError("not an Emulator X bank");
     for (size_t pos = TOC_OFFSET; pos + TOC_ENTRY <= toc_end; pos += TOC_ENTRY) {
         size_t size = be32(&d[pos + 4]), off = be32(&d[pos + 8]);
         int index = be16(&d[pos + 12]);

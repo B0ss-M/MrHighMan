@@ -133,6 +133,7 @@ void Sampler::note_on(int chan, int note, int vel) {
     rand_ = rand_ * 1664525u + 1013904223u;
     double rnd = double(rand_ >> 8) / double(1u << 24);
     const auto &list = prog_->by_key[size_t(note)];
+    note_age0_ = age_counter_;
     bool shown = false;
     for (int zi : list) {
         const Zone &z = prog_->inst.zones[size_t(zi)];
@@ -178,6 +179,7 @@ void Sampler::note_off(int chan, int note) {
     if (!prog_ || swap_fade_) return;
     // release triggers
     if (vel == 0) vel = 64;
+    note_age0_ = age_counter_;
     for (int zi : prog_->by_key[size_t(note)]) {
         const Zone &z = prog_->inst.zones[size_t(zi)];
         if (z.trigger != Trigger::Release || vel < z.vel_lo || vel > z.vel_hi) continue;
@@ -187,7 +189,9 @@ void Sampler::note_off(int chan, int note) {
     }
     if (settings.voice_mode.load() != 0 && held_count_ > 0) {
         // mono: fall back to the most recent still held note (simple last-note priority)
-        for (int n = 127; n >= 0; n--) if (held_[chan][n]) { int keep = n; held_[chan][keep] = false; held_count_--; note_on(chan, keep, 100); break; }
+        // (note_on counts it as held again: undo its key first so the pad light is not left on)
+        for (int n = 127; n >= 0; n--)
+            if (held_[chan][n]) { held_[chan][n] = false; held_count_--; key_down[n].fetch_sub(1); note_on(chan, n, 100); break; }
     }
 }
 
@@ -208,7 +212,8 @@ void Sampler::start_voice(int zi, int chan, int note, int vel, bool release_trig
         for (auto &o : voices_) {
             if (!o.on || o.fading) continue;
             int by = o.zone->off_by < 0 ? o.zone->exclusive_group : o.zone->off_by;
-            if (by == z.exclusive_group && !(o.note == note && o.age == age_counter_)) { o.fading = true; o.amp.fast_release(0.004f); }
+            // not the zones this same note started a moment ago (layered zones of one choke group)
+            if (by == z.exclusive_group && !(o.note == note && o.age > note_age0_)) { o.fading = true; o.amp.fast_release(0.004f); }
         }
 
     Voice *vp = alloc_voice();

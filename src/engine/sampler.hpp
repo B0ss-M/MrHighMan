@@ -111,6 +111,7 @@ private:
     Program *prog_ = nullptr;
     Voice voices_[MAX_VOICES];
     uint32_t age_counter_ = 0;
+    uint32_t note_age0_ = 0;                               // age_counter_ when the current note-on began
     uint32_t rand_ = 12345;
     float bend_ = 0, modwheel_ = 0, cc7_ = 1, cc10_ = 0, cc11_ = 1;
     bool sustain_ = false;

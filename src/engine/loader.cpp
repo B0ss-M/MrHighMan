@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <sys/stat.h>
 #include "../formats/omni_native.hpp"
 #include "autoloop.hpp"
 
@@ -21,13 +22,13 @@ Loader::~Loader() {
     if (thread_.joinable()) thread_.join();
 }
 
-void Loader::request(const std::string &path, int preset, int slot) {
+void Loader::request(const std::string &path, int preset, int slot, bool use_settings) {
     if (slot < 0 || slot >= SLOTS) slot = target_.load();
     {
         std::lock_guard<std::mutex> lock(mutex_);
         // only the newest request for a slot matters
         queue_.erase(std::remove_if(queue_.begin(), queue_.end(), [slot](const Request &r) { return r.slot == slot; }), queue_.end());
-        queue_.push_back({path, preset, slot});
+        queue_.push_back({path, preset, slot, use_settings});
         slot_serial_[slot].fetch_add(1);
     }
     cv_.notify_all();
@@ -62,27 +63,34 @@ void Loader::set_status(const std::string &s) {
 void Loader::run() {
     std::unique_lock<std::mutex> lock(mutex_);
     while (!quit_) {
-        cv_.wait_for(lock, std::chrono::milliseconds(50), [this] { return quit_ || !queue_.empty() || save_req_.load(); });
+        cv_.wait_for(lock, std::chrono::milliseconds(50), [this] { return quit_ || !queue_.empty() || save_req_.load() || patch_req_.load(); });
         // free programs the audio thread let go of
         lock.unlock();
         while (Program *old = sampler_.take_retired()) delete old;
         lock.lock();
         if (quit_) break;
-        if (save_req_.exchange(false) && queue_.empty()) {
+        // a save waits until the loads queued before it are done (it saves what they load)
+        if (queue_.empty() && save_req_.exchange(false)) {
             lock.unlock();
             extract(target_.load(), true);
             lock.lock();
             continue;
         }
+        if (queue_.empty() && patch_req_.exchange(false)) {
+            lock.unlock();
+            write_patch();
+            lock.lock();
+            continue;
+        }
         // program change: the target slot's next preset (of its source, for an extracted instrument)
-        int pc = program_req_.exchange(-1);
-        if (pc >= 0 && queue_.empty()) {
+        int pc = queue_.empty() ? program_req_.exchange(-1) : -1;
+        if (pc >= 0) {
             int t = target_.load();
             const LoadedInfo &li = info_[t];
             bool from_source = !li.source.empty();
             int count = from_source ? li.source_presets : int(li.presets.size());
             if (!li.path.empty() && pc < count) {
-                queue_.push_back({from_source ? li.source : li.path, pc, t});
+                queue_.push_back({from_source ? li.source : li.path, pc, t, true});
                 slot_serial_[t].fetch_add(1);
             }
         }
@@ -259,8 +267,9 @@ void Loader::load(const Request &r, uint32_t serial) {
         info_[slot] = li;
     }
     if (!publish(serial, slot)) return;
-    if (!settings.empty() && apply_settings) apply_settings(settings);
+    if (!settings.empty() && apply_settings && r.use_settings) apply_settings(settings);
     std::string note = warnings.empty() ? "" : warnings[0];
+    if (slots_[slot].inst.zones.empty()) note = "This preset has no samples (an empty or credits preset)";
     if (note.empty() && loops_added) note = "Auto Loop: " + std::to_string(loops_added) + " zones looped";
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -268,7 +277,7 @@ void Loader::load(const Request &r, uint32_t serial) {
     }
     revision.fetch_add(1);
     // a preset from inside a disk image: keep it as its own instrument file, so the project needs only that
-    if (in_image && extract_mode_.load() == 1 && !superseded()) extract(slot, false);
+    if (in_image && extract_mode_.load() == 1 && !slots_[slot].inst.zones.empty() && !superseded()) extract(slot, false);
     if (!refresh.empty() && !superseded()) {
         std::string json;
         for (auto &kv : settings) {
@@ -349,20 +358,73 @@ void Loader::extract(int slot, bool with_settings) {
         set_status(std::string("Save failed: ") + e.what());
         return;
     }
+    if (adopt(slot, li.path, out, source, source_preset)) set_status("Saved to Plugin Library: " + path_name(path_dir(out)) + "/" + path_name(out));
+}
+
+// the slot now refers to the .omni written from it (what a project saves); false if something else loaded meanwhile
+bool Loader::adopt(int slot, const std::string &was, const std::string &out, const std::string &source, int source_preset) {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         LoadedInfo &in = info_[slot];
-        if (in.path != li.path) return;   // something else was loaded meanwhile
+        if (in.path != was) return false;
         in.source = source;
         in.source_preset = source_preset;
         if (in.source_presets <= 0) in.source_presets = int(in.presets.size());
         in.path = out;
         in.preset = 0;
-        in.presets = {PresetInfo{li.name, 0}};
+        in.presets = {PresetInfo{in.name, 0}};
         in.extracted_to = out;
-        status_ = "Saved to Plugin Library: " + path_name(path_dir(out)) + "/" + path_name(out);
     }
     revision.fetch_add(1);
+    return true;
+}
+
+void Loader::write_patch() {
+    std::string dir, settings;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        dir = extract_dir_.empty() ? std::string() : path_join(path_dir(extract_dir_), "Patches");
+        settings = patch_settings_;
+    }
+    std::vector<int> loaded;
+    std::string name;
+    for (int s = 0; s < SLOTS; s++) {
+        LoadedInfo li = slot_info(s);
+        if (li.path.empty() || slots_[s].inst.zones.empty()) continue;
+        loaded.push_back(s);
+        name += (name.empty() ? "" : " + ") + li.name;
+    }
+    if (loaded.empty() || dir.empty()) { set_status("Nothing to save: load instruments into the slots first"); return; }
+    // a new file each time: "<A> + <B>", numbered when that name is taken
+    std::string base = omni_file_safe(name);
+    name = base;
+    struct stat st;
+    for (int k = 2; stat(path_join(dir, name + ".omnipatch").c_str(), &st) == 0; k++) name = base + " (" + std::to_string(k) + ")";
+    set_status("Saving patch " + name);
+    std::vector<PatchLayer> layers;
+    std::string out;
+    try {
+        for (int s : loaded) {
+            LoadedInfo li = slot_info(s);
+            PatchLayer pl;
+            pl.slot = s;
+            pl.name = li.name;
+            pl.file = li.path;
+            // an .omni on a drive is used as it is; anything else (a file's preset, a preset inside a disk image) is
+            // written next to the patch, so the patch keeps working without its source
+            bool host_omni = ends_with_ci(li.path, ".omni") && stat(li.path.c_str(), &st) == 0 && S_ISREG(st.st_mode);
+            if (!host_omni) {
+                pl.file = write_omni(slots_[s].inst, slots_[s].pcm, path_join(dir, name + " Instruments"), li.path, li.preset);
+                adopt(s, li.path, pl.file, li.path, li.preset);
+            }
+            layers.push_back(pl);
+        }
+        out = omni::write_patch(dir, name, layers, settings);
+    } catch (const std::exception &e) {
+        set_status(std::string("Save failed: ") + e.what());
+        return;
+    }
+    set_status("Saved patch to Plugin Library: Patches/" + path_name(out));
 }
 
 }  // namespace omni

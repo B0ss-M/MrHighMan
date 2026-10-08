@@ -53,8 +53,9 @@ class Loader {
 public:
     Loader(Sampler &sampler, Vfs &vfs);
     ~Loader();
-    // Load path's preset into slot (-1: the target slot). "" clears the slot.
-    void request(const std::string &path, int preset, int slot = -1);
+    // Load path's preset into slot (-1: the target slot). "" clears the slot. use_settings: apply the sound settings an
+    // .omni carries (off when restoring a project or a patch: their own values win).
+    void request(const std::string &path, int preset, int slot = -1, bool use_settings = true);
     void request_program(int preset) { program_req_.store(preset); }   // audio thread: lock-free, the target slot
     void set_budget_mb(int mb) { budget_mb_.store(mb); }
     void set_target(int slot) { target_.store(slot < 0 || slot >= SLOTS ? 0 : slot); }
@@ -64,6 +65,14 @@ public:
     // slot then refers to that file (what a project saves). save() writes the target slot now, with the settings.
     void set_extract(int mode, const std::string &dir) { extract_mode_.store(mode); std::lock_guard<std::mutex> l(mutex_); extract_dir_ = dir; }
     void save() { save_req_.store(true); cv_.notify_all(); }
+    // Save every loaded slot as one patch: <library>/Patches/<name>.omnipatch, the slots' instruments as .omni files
+    // (those not already .omni files go to "<name> Instruments/"). settings: the sound, slot and layer settings
+    // (JSON object text), taken when the button was pressed.
+    void save_patch(const std::string &settings) {
+        { std::lock_guard<std::mutex> l(mutex_); patch_settings_ = settings; }
+        patch_req_.store(true);
+        cv_.notify_all();
+    }
     // The plugin's sound settings, saved into extracted instruments (JSON object text), and applied when an
     // instrument file carrying them loads. Set once before use.
     std::function<std::string()> get_settings;
@@ -79,7 +88,7 @@ public:
     bool busy() const { return busy_.load(); }
 
 private:
-    struct Request { std::string path; int preset; int slot; };
+    struct Request { std::string path; int preset; int slot; bool use_settings; };
     struct Slot {
         Instrument inst;
         std::vector<PcmPtr> pcm;
@@ -106,14 +115,16 @@ private:
     std::string status_;
     std::map<std::string, std::weak_ptr<const Pcm>> cache_;
     std::atomic<int> extract_mode_{1};
-    std::atomic<bool> save_req_{false};
-    std::string extract_dir_;
+    std::atomic<bool> save_req_{false}, patch_req_{false};
+    std::string extract_dir_, patch_settings_;
     Slot slots_[SLOTS];                // loader thread only
 
     void run();
     void load(const Request &r, uint32_t serial);
     bool publish(uint32_t serial, int slot);   // merge the slots and hand the program over; false if superseded
     void extract(int slot, bool with_settings);
+    void write_patch();
+    bool adopt(int slot, const std::string &was, const std::string &out, const std::string &source, int source_preset);
     void set_status(const std::string &s);
 };
 
