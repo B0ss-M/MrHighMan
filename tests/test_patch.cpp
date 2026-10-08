@@ -132,6 +132,41 @@ int main(int argc, char **argv) {
     check(lit.find('1') == std::string::npos, "mono fallback leaves no pad lit: " + lit);
     e->destroy(d);
 
+    // 5. hanging notes: a note-off on another channel than its note-on; PANIC silences everything and clears held keys
+    {
+        void *h = e->create(data);
+        e->set_param(h, "state", (std::string("omni-sampler 1\nslot1_path=") + argv[3] + "\nslot1_preset=0\n").c_str());
+        settle(h, 800);
+        auto v = [&] { return std::atoi(get(h, "status").c_str()); };
+        auto msg = [&](uint8_t a, uint8_t b, uint8_t c) { uint8_t m[3] = {a, b, c}; e->midi(h, m, 3); };
+        msg(0x90, 62, 100); run(h, 20); msg(0x81, 62, 0); run(h, 800);
+        check(v() == 0, "note-on channel 1, note-off channel 2: released (" + std::to_string(v()) + " voices)");
+        msg(0x90, 60, 100); run(h, 20);
+        int per = v();                                         // voices one note starts (layered zones)
+        msg(0x91, 60, 100); run(h, 20); msg(0x81, 60, 0); run(h, 800);
+        check(per > 0 && v() == per, "the same note held on two channels: one note-off leaves the other sounding (" +
+              std::to_string(v()) + " of " + std::to_string(per) + ")");
+        msg(0x80, 60, 0); run(h, 800);
+        check(v() == 0, "and its own note-off ends it");
+        msg(0xB0, 64, 127);                                    // pedal down, keys held, no note-offs at all
+        for (int n : {48, 52, 55, 60, 64}) msg(0x90, uint8_t(n), 100);
+        e->set_param(h, "pad_base", "48");
+        e->set_param(h, "pad_1", "1");
+        run(h, 20);
+        int before = v();
+        e->set_param(h, "panic", "1"); e->set_param(h, "panic", "0");
+        run(h, 4);                                             // ~12 ms
+        std::string lit;
+        for (int p = 1; p <= 16; p++) lit += get(h, ("pad_" + std::to_string(p)).c_str());
+        check(before >= 5 && v() == 0 && lit.find('1') == std::string::npos,
+              "PANIC: " + std::to_string(before) + " held voices silenced within 12 ms, no pad lit (" + lit + ")");
+        msg(0x90, 67, 100); run(h, 20);
+        int after = v();
+        msg(0x80, 67, 0); run(h, 800);
+        check(after >= 1 && v() == 0, "after PANIC (pedal cleared) a new note plays and releases normally");
+        e->destroy(h);
+    }
+
     std::printf(fails ? "FAILED %d\n" : "PASSED\n", fails);
     return fails ? 1 : 0;
 }

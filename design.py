@@ -181,6 +181,8 @@ def params():
     # 1.5: patches (every loaded slot, with the slot and sound settings, saved as one .omnipatch); appended last so the
     # earlier parameters keep their VST indices
     trigger("patch_save", "Save Patch")
+    # 1.5.1: PANIC (header, every page): silences every voice and clears held notes, pedal and pads
+    trigger("panic", "Panic")
     # settings an extracted instrument restores reach MPC's controls through the live polling
     for p in P:
         if p["key"] in SOUND_KEYS:
@@ -299,8 +301,8 @@ def topbar(c, left_label=None):
     c.grad(0, 0, W, 56, 0, (26, 31, 38), (17, 20, 25))
     c.line([(0, 56), (W, 56)], (58, 66, 78), 1)
     title_glow(c, W / 2, 29, "OMNI SAMPLER", 30)
-    # format readout box (where the image has its gear)
-    c.rrect(946, 10, 320, 36, 7, fill=DARK, outline=(64, 74, 88), width=1.2)
+    # format readout box (where the image has its gear), then PANIC (1.5.1)
+    c.rrect(946, 10, 220, 36, 7, fill=DARK, outline=(64, 74, 88), width=1.2)
     if left_label:
         c.rrect(16, 10, 300, 36, 7, fill=(34, 40, 49), outline=(64, 74, 88), width=1.2)
         for k in range(3):
@@ -845,6 +847,7 @@ def images():
         button_image("b_split", 160, 36, "AUTO SPLIT", lit)
         button_image("b_clear", 160, 36, "CLEAR SLOT", lit)
         button_image("b_patch", 160, 36, "SAVE PATCH", lit)
+        button_image("b_panic", 92, 36, "PANIC", lit, RED)
         for i in range(4):
             seg_image("slot_target_%d" % i, 50, 30, lit, "ABCD"[i], SLOT_COLOURS[i])
             seg_image("slot_load_%d" % i, 200, 30, lit, "LOADS HERE" if lit else "LOAD HERE", SLOT_COLOURS[i])
@@ -873,7 +876,8 @@ def knob_line(cx, cy, r, key, colour, width=92):
 
 
 def header_lines(L):
-    L.append('readout cx=1106 cy=%d w=300 h=34 label="" key=prog_format text_size=16' % y(28))
+    L.append('readout cx=1056 cy=%d w=200 h=34 label="" key=prog_format text_size=14' % y(28))
+    L.append('button cx=1218 cy=%d label="" key=panic img=art/b_panic_off.png img_on=art/b_panic_on.png w=92 h=36' % y(28))
 
 
 def layout():
