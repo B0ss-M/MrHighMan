@@ -22,10 +22,15 @@ Sampler::Sampler() {
     for (int i = 0; i < 4; i++) { settings.slot_hi[i].store(127); settings.slot_gain[i].store(1); }
     mixl_.assign(4096, 0);
     mixr_.assign(4096, 0);
+    pvl_.assign(4096, 0);
+    pvr_.assign(4096, 0);
 }
 
 Sampler::~Sampler() {
     delete prog_;
+    delete prev_;
+    delete prev_req_.exchange(nullptr);
+    delete prev_retired_.exchange(nullptr);
     delete pending_.exchange(nullptr);
     delete retired_.exchange(nullptr);
 }
@@ -100,8 +105,21 @@ Sampler::Voice *Sampler::alloc_voice() {
     return best;
 }
 
+void Sampler::preview(Pcm *p) {
+    if (!p) { prev_stop_.store(true); return; }
+    delete prev_req_.exchange(p);   // one never started (a newer tap came first)
+}
+
+void Sampler::retire_preview() {   // audio thread: hand the finished preview back to be freed
+    if (!prev_) return;
+    delete prev_retired_.exchange(prev_);   // the last one not collected yet (rare): freed here
+    prev_ = nullptr;
+    previewing.store(0);
+}
+
 // PANIC: every voice fades out at once (5 ms, no click), and nothing is left held: keys, pedal, mono state, wheels
 void Sampler::do_panic() {
+    retire_preview();
     for (auto &v : voices_)
         if (v.on) { v.released = true; v.held_by_pedal = false; v.looping = false; v.fading = true; v.amp.fast_release(0.005f); }
     std::memset(held_, 0, sizeof held_);
@@ -145,11 +163,17 @@ void Sampler::note_on(int chan, int note, int vel) {
 
     rand_ = rand_ * 1664525u + 1013904223u;
     double rnd = double(rand_ >> 8) / double(1u << 24);
-    const auto &list = prog_->by_key[size_t(note)];
     note_age0_ = age_counter_;
     bool shown = false;
-    for (int zi : list) {
+    // 1.7.3: each slot answers at its key shift: the zones mapped at note - shift (one pass per distinct shift)
+    for (int si = 0; si < 4; si++) {
+    int shift = settings.slot_shift[si].load(), zn = note - shift;
+    bool done = false;
+    for (int sj = 0; sj < si; sj++) if (settings.slot_shift[sj].load() == shift) done = true;
+    if (done || zn < 0 || zn > 127) continue;
+    for (int zi : prog_->by_key[size_t(zn)]) {
         const Zone &z = prog_->inst.zones[size_t(zi)];
+        if (settings.slot_shift[zone_slot(z)].load() != shift) continue;
         if (vel < std::max(1, z.vel_lo) && !(z.vel_lo == 0 && vel >= 1 && z.vel_hi >= vel)) continue;
         if (vel > z.vel_hi) continue;
         if (z.midi_channel >= 0 && z.midi_channel != chan) continue;
@@ -165,7 +189,7 @@ void Sampler::note_on(int chan, int note, int vel) {
         } else if (z.play_logic == PlayLogic::Random) {
             if (rnd < z.rand_lo || rnd >= z.rand_hi) continue;
         }
-        start_voice(zi, chan, note, vel, false, glide_semis);
+        start_voice(zi, chan, note, vel, false, glide_semis, zn);
         if (!shown) {
             shown = true;
             if (last_zone.load() != zi || last_vel.load() != vel || last_zone_prog.load() != prog_->serial) {
@@ -175,6 +199,7 @@ void Sampler::note_on(int chan, int note, int vel) {
                 layer_events.fetch_add(1);
             }
         }
+    }
     }
 }
 
@@ -203,12 +228,19 @@ void Sampler::note_off(int chan, int note) {
     // release triggers
     if (vel == 0) vel = 64;
     note_age0_ = age_counter_;
-    for (int zi : prog_->by_key[size_t(note)]) {
-        const Zone &z = prog_->inst.zones[size_t(zi)];
-        if (z.trigger != Trigger::Release || vel < z.vel_lo || vel > z.vel_hi) continue;
-        if (z.midi_channel >= 0 && z.midi_channel != chan) continue;
-        if (!slot_plays(z, note)) continue;
-        start_voice(zi, chan, note, vel, true, 0);
+    for (int si = 0; si < 4; si++) {
+        int shift = settings.slot_shift[si].load(), zn = note - shift;
+        bool done = false;
+        for (int sj = 0; sj < si; sj++) if (settings.slot_shift[sj].load() == shift) done = true;
+        if (done || zn < 0 || zn > 127) continue;
+        for (int zi : prog_->by_key[size_t(zn)]) {
+            const Zone &z = prog_->inst.zones[size_t(zi)];
+            if (settings.slot_shift[zone_slot(z)].load() != shift) continue;
+            if (z.trigger != Trigger::Release || vel < z.vel_lo || vel > z.vel_hi) continue;
+            if (z.midi_channel >= 0 && z.midi_channel != chan) continue;
+            if (!slot_plays(z, note)) continue;
+            start_voice(zi, chan, note, vel, true, 0, zn);
+        }
     }
     if (settings.voice_mode.load() != 0 && held_count_ > 0) {
         // mono: fall back to the most recent still held note (simple last-note priority)
@@ -225,7 +257,8 @@ bool Sampler::slot_plays(const Zone &z, int note) const {
     return note >= settings.slot_lo[s].load() && note <= settings.slot_hi[s].load();
 }
 
-void Sampler::start_voice(int zi, int chan, int note, int vel, bool release_trigger, float glide_semis) {
+void Sampler::start_voice(int zi, int chan, int note, int vel, bool release_trigger, float glide_semis, int znote) {
+    if (znote < 0) znote = note;
     const Zone &z = prog_->inst.zones[size_t(zi)];
     const Pcm *pcm = prog_->pcm[size_t(zi)].get();
     if (!pcm || pcm->frames() == 0) return;
@@ -246,7 +279,7 @@ void Sampler::start_voice(int zi, int chan, int note, int vel, bool release_trig
     v.on = true;
     v.zone = &z;
     v.pcm = pcm;
-    v.zi = zi; v.note = note; v.vel = vel; v.chan = chan;
+    v.zi = zi; v.note = note; v.znote = znote; v.vel = vel; v.chan = chan;
     v.age = ++age_counter_;
     int64_t frames = pcm->frames();
     v.start = std::min<int64_t>(std::max<int64_t>(0, z.start), frames - 1);
@@ -282,11 +315,11 @@ void Sampler::start_voice(int zi, int chan, int note, int vel, bool release_trig
     double curve = std::pow(vel01, 2.0 * std::pow(3.0, z.amp_vel_curve));
     double depth = clampd_(z.amp_vel_depth * vel_sens, 0, 1);
     double velgain = (1 - depth) + depth * curve;
-    double db = z.gain_db + prog_->inst.gain_db + z.amp_key_tracking * (note - z.root);
+    double db = z.gain_db + prog_->inst.gain_db + z.amp_key_tracking * (znote - z.root);
     double g = velgain * std::pow(10.0, db / 20.0);
     // crossfades (equal power)
-    if (z.key_xfade_lo > 0 && note < z.key_lo + z.key_xfade_lo) g *= std::sqrt(double(note - z.key_lo + 1) / (z.key_xfade_lo + 1));
-    if (z.key_xfade_hi > 0 && note > z.key_hi - z.key_xfade_hi) g *= std::sqrt(double(z.key_hi - note + 1) / (z.key_xfade_hi + 1));
+    if (z.key_xfade_lo > 0 && znote < z.key_lo + z.key_xfade_lo) g *= std::sqrt(double(znote - z.key_lo + 1) / (z.key_xfade_lo + 1));
+    if (z.key_xfade_hi > 0 && znote > z.key_hi - z.key_xfade_hi) g *= std::sqrt(double(z.key_hi - znote + 1) / (z.key_xfade_hi + 1));
     if (z.vel_xfade_lo > 0 && vel < z.vel_lo + z.vel_xfade_lo) g *= std::sqrt(double(vel - z.vel_lo + 1) / (z.vel_xfade_lo + 1));
     if (z.vel_xfade_hi > 0 && vel > z.vel_hi - z.vel_xfade_hi) g *= std::sqrt(double(z.vel_hi - vel + 1) / (z.vel_xfade_hi + 1));
     v.gain = float(g) * settings.slot_gain[z.slot < 0 || z.slot > 3 ? 0 : z.slot].load();
@@ -300,9 +333,12 @@ void Sampler::start_voice(int zi, int chan, int note, int vel, bool release_trig
     if (ae.release < 0.004) ae.release = 0.004;
     float tvel = float(1.0 - ae.time_vel_tracking * (vel01 - 0.5));   // + tracking shortens towards high velocities
     float tkey = float(std::pow(2.0, -ae.time_key_tracking * (note - 60) / 24.0));
-    v.amp.begin(ae, tvel * tkey, tkey, settings.attack_add.load(), settings.release_add.load(), settings.sustain_scale.load());
-    v.amp.decay_s *= settings.decay_scale.load();
-    if (v.amp.stage == Env::Attack) v.amp.enter(Env::Attack);   // re-read the scaled times
+    v.amp.begin(ae, tvel * tkey, tkey, settings.attack_add.load() + settings.d_attack.load(), settings.release_add.load() + settings.d_release.load(),
+                settings.sustain_scale.load(), settings.d_sustain.load());
+    v.amp.decay_s = std::max(0.0f, v.amp.decay_s * settings.decay_scale.load() + settings.d_decay.load());
+    v.amp.attack_s = std::max(0.0f, v.amp.attack_s);              // the faders may take a zone's times below zero
+    v.amp.release_s = std::max(0.004f, v.amp.release_s);
+    if (v.amp.stage == Env::Attack) v.amp.enter(Env::Attack);   // re-read the changed times
     if (release_trigger || v.one_shot) { v.amp.sustain = 1; }
     if (z.filter.env.set) v.fenv.begin(z.filter.env, 1, 1, 0, 0, 1);
     if (z.pitch_env.set) v.penv.begin(z.pitch_env, 1, 1, 0, 0, 1);
@@ -334,7 +370,7 @@ void Sampler::block_mod(Voice &v, int n, double &step, float &cutoff_mul) {
     float bend_cents = bend_ >= 0 ? bend_ * float(z.bend_up) : -bend_ * float(z.bend_down);
     float br = settings.bend_range.load();
     if (br > 0) bend_cents = bend_ * br * 100.0f;
-    double semis = (v.note - z.root) * z.key_tracking + z.tune + settings.transpose.load() + settings.tune_cents.load() / 100.0 +
+    double semis = (v.znote - z.root) * z.key_tracking + z.tune + settings.transpose.load() + settings.tune_cents.load() / 100.0 +
                    settings.slot_tune[z.slot < 0 || z.slot > 3 ? 0 : z.slot].load() +
                    bend_cents / 100.0 + pe * z.pitch_env_depth * (MAX_ENVELOPE_DEPTH / 100.0) +
                    pl * (z.pitch_lfo.set ? z.pitch_lfo_depth * (MAX_ENVELOPE_DEPTH / 100.0) : 0) + pl * modwheel_ * 0.5 + v.glide;
@@ -343,7 +379,7 @@ void Sampler::block_mod(Voice &v, int n, double &step, float &cutoff_mul) {
         if ((v.glide_inc < 0 && v.glide < 0) || (v.glide_inc > 0 && v.glide > 0)) v.glide = 0;
     }
     // the matrix's per-voice destinations
-    float m_pitch = 0, m_cut = 0, m_res = 0, m_vol = 0, m_pan = 0;
+    float m_pitch = 0, m_cut = 0, m_res = 0, m_vol = 0, m_pan = 0, m_wt = 0;
     for (int k = 0; k < MOD_SLOTS; k++) {
         if (slot_amt_[k] == 0 || slot_src_[k] == MS_OFF) continue;
         float x = slot_amt_[k] * src_val(v, slot_src_[k]);
@@ -353,6 +389,7 @@ void Sampler::block_mod(Voice &v, int n, double &step, float &cutoff_mul) {
         case MD_RES: m_res += x; break;
         case MD_VOL: m_vol += x; break;
         case MD_PAN: m_pan += x; break;
+        case MD_WTPOS: m_wt += x; break;
         default: break;
         }
     }
@@ -362,12 +399,13 @@ void Sampler::block_mod(Voice &v, int n, double &step, float &cutoff_mul) {
     v.mod_res = m_res * MOD_RES;
     v.mod_gain = std::max(0.0f, std::min(2.0f, 1.0f + m_vol));
     v.mod_pan = std::max(-1.0f, std::min(1.0f, m_pan));
+    v.mod_wt = m_wt;
     step = std::pow(2.0, semis / 12.0) * double(v.pcm->rate) / double(SR);
     float cents = 0;
     if (z.filter.type != FilterType::None) {
         cents += float(z.filter.env_depth * MAX_ENVELOPE_DEPTH) * (z.filter.env.set ? v.fenv.level : 0);
         cents += float(z.filter.vel_depth * 9600.0) * (v.vel / 127.0f);
-        cents += float(z.filter.key_tracking * 100.0) * float(v.note - z.root);
+        cents += float(z.filter.key_tracking * 100.0) * float(v.znote - z.root);
         cents += float(z.filter.lfo_depth * MAX_ENVELOPE_DEPTH) * fl;
         cents += float(z.filter.modwheel_depth * MAX_ENVELOPE_DEPTH) * modwheel_;
     }
@@ -377,7 +415,7 @@ void Sampler::block_mod(Voice &v, int n, double &step, float &cutoff_mul) {
 float Sampler::src_val(const Voice &v, int s) const {
     switch (s) {
     case MS_VEL: return v.vel / 127.0f;
-    case MS_KEY: return std::max(-1.0f, std::min(1.0f, (v.note - 60) / 64.0f));
+    case MS_KEY: return std::max(-1.0f, std::min(1.0f, (v.znote - 60) / 64.0f));
     case MS_RAND: return v.rnd;
     case MS_ENV: return v.amp.level;
     default: return s > MS_OFF && s < MS_COUNT ? gsrc_[s] : 0.0f;
@@ -484,6 +522,41 @@ void Sampler::render_voice(Voice &v, float *outl, float *outr, int n) {
     const float gl = v.gain * v.mod_gain * bal_l * v.pan_l * amp_lfo_gain * (1.0f / 32768.0f),
                 gr = v.gain * v.mod_gain * bal_r * v.pan_r * amp_lfo_gain * (1.0f / 32768.0f);
     const bool zf_on = v.zf[0].on, fenv_on = z.filter.env.set, penv_on = z.pitch_env.set;
+    if (z.wt_count > 1 && z.wt_size > 1) {
+        // A wavetable: loop one cycle of wt_size frames (v.pos is the phase) and crossfade between the two cycles either
+        // side of the position (the WT POSITION knob plus the matrix), set per sub-block
+        const int N = z.wt_size, C = z.wt_count;
+        float wp = std::max(0.0f, std::min(1.0f, settings.wt_pos.load() + v.mod_wt)) * float(C - 1);
+        int fa = std::min(C - 2, int(wp));
+        float fr = wp - float(fa);
+        const int16_t *A = d + size_t(fa) * size_t(N) * size_t(ch), *B = A + size_t(N) * size_t(ch);
+        double pos = v.pos;
+        if (pos >= double(N)) pos -= double(N) * std::floor(pos / double(N));   // a sample start offset: into the cycle
+        for (int i = 0; i < n; i++) {
+            if (fenv_on) v.fenv.tick();
+            if (penv_on) v.penv.tick();
+            int i0 = int(pos);
+            if (i0 >= N) i0 = N - 1;
+            int i1 = i0 + 1 == N ? 0 : i0 + 1;
+            float t = float(pos - double(i0));
+            float a0 = A[i0 * ch], a1 = A[i1 * ch], b0 = B[i0 * ch], b1 = B[i1 * ch];
+            float a = a0 + (a1 - a0) * t, b = b0 + (b1 - b0) * t, sl = a + (b - a) * fr, sr = sl;
+            if (ch > 1) {
+                a0 = A[i0 * ch + 1]; a1 = A[i1 * ch + 1]; b0 = B[i0 * ch + 1]; b1 = B[i1 * ch + 1];
+                a = a0 + (a1 - a0) * t; b = b0 + (b1 - b0) * t; sr = a + (b - a) * fr;
+            }
+            pos += step;
+            if (pos >= double(N)) pos -= double(N) * std::floor(pos / double(N));
+            float g = v.amp.tick();
+            if (v.amp.done()) { v.on = false; break; }
+            if (zf_on) { sl = v.zf[0].tick(sl); sr = ch > 1 ? v.zf[1].tick(sr) : sl; }
+            if (master_on) { sl = v.mf[0].tick(sl); sr = ch > 1 ? v.mf[1].tick(sr) : sl; }
+            outl[i] += sl * g * gl;
+            outr[i] += sr * g * gr;
+        }
+        v.pos = pos;
+        return;
+    }
     for (int i = 0; i < n; i++) {
         // Fast path: a forward run that can reach no loop point, end or start this block. It works in 32-bit
         // indices: on ARMv7 every double <-> int64 conversion of the generic path below is a library call.
@@ -627,6 +700,25 @@ struct FlushDenormals {
 void Sampler::render(int16_t *out, int frames) {
     FlushDenormals ftz;
     if (panic_req_.exchange(false)) do_panic();
+    if (prev_stop_.exchange(false)) retire_preview();
+    if (Pcm *n = prev_req_.exchange(nullptr)) { retire_preview(); prev_ = n; prev_pos_ = 0; previewing.store(1); }
+    bool pv = prev_ != nullptr && frames <= int(pvl_.size());
+    if (pv) {   // the preview, resampled to the engine's rate, played once
+        const Pcm &p = *prev_;
+        double step = double(p.rate) / SR;
+        int64_t n = p.frames();
+        int ch = p.channels;
+        for (int i = 0; i < frames; i++) {
+            int64_t k = int64_t(prev_pos_);
+            if (k + 1 >= n) { for (int j = i; j < frames; j++) pvl_[size_t(j)] = pvr_[size_t(j)] = 0; prev_pos_ = double(n); break; }
+            float t = float(prev_pos_ - double(k));
+            const int16_t *a = &p.data[size_t(k) * size_t(ch)], *b = a + ch;
+            float l = (a[0] + (b[0] - a[0]) * t) * (0.8f / 32768.0f);
+            float r = ch > 1 ? (a[1] + (b[1] - a[1]) * t) * (0.8f / 32768.0f) : l;
+            pvl_[size_t(i)] = l; pvr_[size_t(i)] = r;
+            prev_pos_ += step;
+        }
+    }
     if (pending_.load()) swap_program();
     update_mod(frames);
     float *l = mixl_.data(), *r = mixr_.data();
@@ -655,6 +747,7 @@ void Sampler::render(int16_t *out, int frames) {
             a = a * (1 - mix * 0.5f) + wl * mix;
             b = b * (1 - mix * 0.5f) + wr * mix;
         }
+        if (pv) { a += pvl_[size_t(i)]; b += pvr_[size_t(i)]; }   // the preview: after the reverb, at the plugin's volume
         a *= vol * pl; b *= vol * pr;
         if (drive > 0.001f) {
             float k = 1 + drive * 8;
@@ -669,6 +762,7 @@ void Sampler::render(int16_t *out, int frames) {
         out[2 * i + 1] = int16_t(std::lrint(b * 32767.0f));
     }
     peak.store(std::max(pk, peak.load() * 0.9f));
+    if (pv && prev_pos_ >= double(prev_->frames() - 1)) retire_preview();
 }
 
 }  // namespace omni

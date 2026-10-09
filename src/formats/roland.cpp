@@ -6,6 +6,8 @@
 // An image mounts as folders: S-700 volumes (banks) with their patches and performances, plus every patch; S-500
 // disks with their patches. Each entry is a small virtual file the reader below turns into an instrument, reading
 // only the samples that instrument uses. Translated from ConvertWithMoss's format/roland/s7xx and s5xx (LGPL-3.0).
+//  - MV-8000 / MV-8800 patches (.MV0): an "MVFF" file holding the patch parameters (bit-packed) and its samples.
+//    Translated from ConvertWithMoss's format/roland/mv8000.
 #include <cmath>
 #include <cstring>
 #include <map>
@@ -767,6 +769,254 @@ Instrument load_roland(VolumePtr vol, const std::string &path, int) {
     return inst;
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// MV-8000 / MV-8800 (.MV0)
+//
+// "MVFF" <size> <version> "PAT ", then chunks (id, big-endian size): "FMT ", "PRM " (15862 bytes: the name, a note table
+// of 96 keys from A0 pointing at partials, and 96 partials of 163 bytes), "SMPL" (a 4-byte count, then per sample a
+// "PRM " header and its "WAVE": 16-bit big-endian mono at 44.1 kHz; stereo is a left/right pair of samples). The
+// parameters are bit fields, most significant bit first. Each partial has 4 sample slots (the layers), a TVF and a TVA.
+
+struct MvBits {
+    const uint8_t *d;
+    size_t n;
+    int64_t get(size_t bit, int count) const {   // count (up to 32) bits from bit, MSB first
+        uint64_t v = 0;
+        for (int i = 0; i < count; i++) {
+            size_t b = bit + size_t(i);
+            v = v << 1 | uint64_t(b / 8 < n ? d[b / 8] >> (7 - b % 8) & 1 : 0);
+        }
+        return int64_t(v);
+    }
+    std::string text(size_t bit, int len) const {   // 7-bit characters
+        std::string t;
+        for (int i = 0; i < len; i++) { int c = int(get(bit + size_t(i) * 7, 7)); t += c >= 32 && c < 127 ? char(c) : ' '; }
+        return t;
+    }
+};
+struct MvSample {
+    int id = 0;
+    std::string name;            // 12 characters; a stereo pair ends in 0x7F 'L' / 0x7F 'R'
+    uint32_t start = 0, loop = 0, end = 0;
+    int root = 60;
+    bool stereo = false;            // interleaved left/right in one sample (header byte 34 = 1; MV-8800-made files)
+    uint64_t wave = 0, bytes = 0;   // the WAVE data in the file
+    int64_t frames() const { return int64_t(bytes / (stereo ? 4 : 2)); }
+    bool left() const { return name.size() == 12 && uint8_t(name[10]) == 0x7F && name[11] == 'L'; }
+    bool right_of(const MvSample &l) const {
+        return name.size() == 12 && uint8_t(name[10]) == 0x7F && name[11] == 'R' && name.compare(0, 10, l.name, 0, 10) == 0;
+    }
+    std::string clean() const { size_t p = name.find(char(0x7F)); return trim(p == std::string::npos ? name : name.substr(0, p)); }
+};
+constexpr int MV_PRM_SIZE = 15862, MV_PARTIAL = 163, MV_NOTE_BASE = 21, MV_NOTES = 96;
+
+struct MvPatch {
+    std::vector<uint8_t> prm;
+    std::vector<MvSample> samples;
+};
+uint32_t be32(const uint8_t *p) { return uint32_t(p[0]) << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
+
+MvPatch mv_read(const Blob &b) {
+    std::vector<uint8_t> h = b.head(16);
+    if (h.size() < 16 || std::memcmp(h.data(), "MVFF", 4) || std::memcmp(h.data() + 12, "PAT ", 4)) throw ParseError("not an MV-8000 patch");
+    MvPatch p;
+    uint64_t off = 16, size = b.size();
+    while (off + 8 <= size) {
+        std::vector<uint8_t> c = b.bytes(off, 8);
+        uint64_t n = be32(&c[4]), body = off + 8;
+        if (body + n > size) throw ParseError("MV-8000 patch cut short");
+        if (!std::memcmp(c.data(), "PRM ", 4)) p.prm = b.bytes(body, size_t(n));
+        else if (!std::memcmp(c.data(), "SMPL", 4)) {   // the samples: headers read, wave data left in the file
+            uint64_t o = body + 4, e = body + n;
+            MvSample cur;
+            bool have = false;
+            while (o + 8 <= e) {
+                std::vector<uint8_t> sc = b.bytes(o, 8);
+                uint64_t sn = be32(&sc[4]), sb = o + 8;
+                if (sb + sn > e) throw ParseError("MV-8000 sample data cut short");
+                if (!std::memcmp(sc.data(), "PRM ", 4) && sn >= 35) {   // 38 bytes in every file seen
+                    std::vector<uint8_t> r = b.bytes(sb, 35);
+                    cur = MvSample();
+                    cur.id = int(be32(&r[4]));
+                    cur.name.assign(reinterpret_cast<const char *>(&r[8]), 12);
+                    cur.start = be32(&r[20]); cur.loop = be32(&r[24]); cur.end = be32(&r[28]);
+                    cur.root = r[33];
+                    // ConvertWithMoss reads bytes 34-37 as a tempo; byte 34 is 1 on stereo samples, whose wave data is
+                    // interleaved and whose end point is then the last stereo frame (checked: MA_Dirt&GrimeKit)
+                    cur.stereo = r[34] == 1;
+                    have = true;
+                } else if (!std::memcmp(sc.data(), "WAVE", 4) && have) {
+                    cur.wave = sb; cur.bytes = sn;
+                    p.samples.push_back(cur);
+                    have = false;
+                }
+                o = sb + sn;
+            }
+        }
+        off = body + n;   // chunks are not padded
+    }
+    if (p.prm.size() != size_t(MV_PRM_SIZE)) throw ParseError("MV-8000 patch has no or a broken parameter chunk");
+    return p;
+}
+
+// a sample, or a left/right pair of mono samples (r) as one stereo sample; big-endian 16 bit at 44.1 kHz
+SampleRefPtr mv_sample_ref(BlobPtr file, const std::string &path, const MvSample &l, const MvSample *r) {
+    auto ref = std::make_shared<SampleRef>();
+    ref->name = l.clean();
+    ref->key = "mv0:" + path + ":" + std::to_string(l.wave) + (r ? ":" + std::to_string(r->wave) : "");
+    ref->rate = 44100;
+    bool pair = r != nullptr, inter = !pair && l.stereo;
+    int ch = pair || inter ? 2 : 1;
+    ref->channels = ch;
+    int64_t frames = l.frames();
+    if (pair) frames = std::min<int64_t>(frames, r->frames());
+    ref->frames = frames;
+    uint64_t lo = l.wave, ro = pair ? r->wave : 0;
+    ref->decode = [file, lo, ro, frames, pair, ch]() {
+        auto pcm = std::make_shared<Pcm>();
+        pcm->rate = 44100;
+        pcm->channels = ch;
+        size_t n = size_t(frames) * size_t(ch);
+        pcm->data.resize(n);
+        auto be = [](const std::vector<uint8_t> &b, size_t i) { return int16_t(b[i * 2] << 8 | b[i * 2 + 1]); };
+        if (!pair) {   // mono, or interleaved stereo: as stored
+            std::vector<uint8_t> a = file->bytes(lo, n * 2);
+            for (size_t i = 0; i < n; i++) pcm->data[i] = be(a, i);
+        } else {
+            std::vector<uint8_t> a = file->bytes(lo, size_t(frames) * 2), c = file->bytes(ro, size_t(frames) * 2);
+            for (size_t i = 0; i < size_t(frames); i++) { pcm->data[i * 2] = be(a, i); pcm->data[i * 2 + 1] = be(c, i); }
+        }
+        return PcmPtr(pcm);
+    };
+    return ref;
+}
+
+// TVA / TVF envelope: level 1 in time 1, level 2 in time 2, level 3 (sustain) in time 3, release in time 4
+Envelope mv_env(const MvBits &pb, size_t levels, size_t times, bool hold) {
+    int l1 = int(pb.get(levels, 7)), l2 = int(pb.get(levels + 7, 7)), l3 = int(pb.get(levels + 14, 7));
+    double t0 = s7_time(int(pb.get(times, 8))), t1 = s7_time(int(pb.get(times + 8, 8))), t2 = s7_time(int(pb.get(times + 16, 8))),
+           t3 = s7_time(int(pb.get(times + 24, 8)));
+    Envelope e;
+    e.set = true;
+    e.attack = t0;
+    double peak = std::max(1, l1) / 127.0;   // the engine's envelope peaks at 1: levels relative to level 1
+    if (hold && l1 == l2) { e.hold = t1; e.decay = t2; }
+    else e.decay = t1 + t2;
+    e.sustain = clampd(l3 / 127.0 / peak, 0, 1);
+    e.release = t3;
+    return e;
+}
+
+Instrument load_mv0(VolumePtr vol, const std::string &path, int) {
+    BlobPtr file = vol->open(path);
+    MvPatch p = mv_read(*file);
+    MvBits pb{p.prm.data(), p.prm.size()};
+    Instrument inst;
+    inst.name = trim(pb.text(64, 12));
+    if (inst.name.empty()) inst.name = path_stem(path);
+    inst.format = "Roland MV-8000";
+    inst.groups.clear();
+    for (int g = 0; g < 4; g++) inst.groups.push_back(Group{"Layer " + std::to_string(g + 1)});
+    std::map<int, const MvSample *> by_id;
+    for (auto &s : p.samples) by_id[s.id] = &s;
+    std::map<std::string, SampleRefPtr> refs;   // one SampleRef per sample (pair), shared by its zones
+    int missing = 0;
+    int table[MV_NOTES];
+    for (int i = 0; i < MV_NOTES; i++) { int v = p.prm[size_t(52 + i)]; table[i] = v >= 0x80 ? v - 0x80 : -1; }
+    // a zone per contiguous run of keys on one partial, per used sample slot of that partial
+    for (int run = 0, i = 1; i <= MV_NOTES; i++) {
+        if (i < MV_NOTES && table[i] == table[run]) continue;
+        int pi = table[run], key_lo = MV_NOTE_BASE + run, key_hi = MV_NOTE_BASE + i - 1;
+        run = i;
+        if (pi < 0 || pi >= 96) continue;
+        MvBits pt{p.prm.data() + 148 + size_t(pi) * MV_PARTIAL, MV_PARTIAL};
+        Envelope amp = mv_env(pt, 1159, 1180, true);
+        int excl = clampi(int(pt.get(105, 5)) - 1, 0, 16), curve = int(pt.get(1136, 2));
+        double amp_kt = clampd((pt.get(1226, 7) - 64) / 63.0, -1, 1);
+        int ftype = int(pt.get(993, 4));
+        Filter filt;
+        filt.type = ftype == 1 ? FilterType::LowPass : ftype == 2 ? FilterType::BandPass : ftype == 3 ? FilterType::HighPass : FilterType::None;
+        if (filt.type != FilterType::None) {
+            filt.poles = 4;
+            filt.cutoff = denorm_cutoff(pt.get(997, 7) / 127.0);
+            filt.resonance = pt.get(1004, 7) / 127.0;
+            int depth = int(pt.get(1034, 7));
+            if (depth != 64) { filt.env = mv_env(pt, 1041, 1069, false); filt.env_depth = (depth - 64) / 63.0; }
+        }
+        for (int slot = 0; slot < 4;) {
+            size_t sb = 146 + size_t(slot) * 210;
+            int sid = int(pt.get(sb + 9, 14));
+            if (!sid) { slot++; continue; }
+            auto it = by_id.find(sid);
+            if (it == by_id.end()) { missing++; slot++; continue; }
+            const MvSample &s = *it->second;
+            int vlo = int(pt.get(sb + 59, 7)), vhi = int(pt.get(sb + 73, 7));
+            const MvSample *right = nullptr;   // a left/right pair in two slots with the same velocities: one stereo zone
+            if (slot + 1 < 4 && s.left() && !s.stereo) {
+                size_t nb = sb + 210;
+                auto jt = by_id.find(int(pt.get(nb + 9, 14)));
+                if (jt != by_id.end() && jt->second->right_of(s) && pt.get(nb + 59, 7) == vlo && pt.get(nb + 73, 7) == vhi) right = jt->second;
+            }
+            std::string rk = std::to_string(s.id) + (right ? ":" + std::to_string(right->id) : "");
+            SampleRefPtr &ref = refs[rk];
+            if (!ref) ref = mv_sample_ref(file, path, s, right);
+            Zone z;
+            z.name = s.clean();
+            z.sample = ref;
+            z.group = slot;
+            z.key_lo = key_lo; z.key_hi = key_hi;
+            z.vel_lo = vlo; z.vel_hi = vhi;
+            z.vel_xfade_lo = int(pt.get(sb + 66, 7)); z.vel_xfade_hi = int(pt.get(sb + 80, 7));
+            // the slot's own points (the device keeps them equal to the sample's); zero in files ConvertWithMoss wrote
+            // before 20.2.0: then the sample's
+            bool own = pt.get(sb + 167, 32) > 0;
+            int64_t start = own ? pt.get(sb + 87, 32) : s.start, loop = own ? pt.get(sb + 127, 32) : s.loop,
+                    end = own ? pt.get(sb + 167, 32) : s.end;
+            z.start = start;
+            z.stop = end > start ? end : -1;
+            z.gain_db = to_db(double(pt.get(sb + 31, 7)) / 127.0);
+            if (!right) z.pan = clampd((pt.get(sb + 38, 7) - 64) / 32.0, -1, 1);   // a pair is hard-panned: baked in
+            z.tune = double(pt.get(sb + 45, 7) - 64) + double(pt.get(sb + 52, 7) - 64) / 100.0;
+            int kf = int(pt.get(sb + 25, 6));   // 32 = fixed pitch, 40 = normal, steps of 12.5 %
+            if (kf == 32) { z.key_tracking = 0; z.root = key_lo; }
+            else { z.root = s.root; if (kf != 40) z.key_tracking = clampd((kf - 32) * 0.125, 0, 1); }
+            int mode = int(pt.get(sb + 207, 3));   // odd: one shot; even: a loop (2 alternating, 4 backwards)
+            z.one_shot = mode % 2 == 1;
+            if (mode % 2 == 0 && end > loop) {
+                Loop l;
+                l.type = mode == 2 ? LoopType::Alternating : mode == 4 ? LoopType::Backward : LoopType::Forward;
+                l.start = loop; l.end = end;
+                z.loops.push_back(l);
+            }
+            z.amp_env = amp;
+            z.amp_vel_depth = curve == 0 ? 0 : 1;
+            z.exclusive_group = excl;
+            z.amp_key_tracking = amp_kt;
+            z.filter = filt;
+            inst.zones.push_back(z);
+            slot += right ? 2 : 1;
+        }
+    }
+    // A drum kit sits on the MV's pads from note 21 (pad 1 = A0; a second pad bank from 37). MPC's pads start at 36 (C1,
+    // bank B at 52): a kit (category Percussion, Beat & Groove or Drums, or zones all fixed-pitch) that starts on note 21
+    // is moved up 15, so the MV's pad banks land on MPC's.
+    int cat = int(pb.get(148, 7));
+    bool kit = !inst.zones.empty(), fixed = true;
+    int lo = 127, hi = 0;
+    for (auto &z : inst.zones) { fixed = fixed && z.key_tracking == 0; lo = std::min(lo, z.key_lo); hi = std::max(hi, z.key_hi); }
+    kit = kit && (fixed || cat == 34 || cat == 36 || cat == 37) && lo == MV_NOTE_BASE && hi + 36 - MV_NOTE_BASE <= 127;
+    if (kit)
+        for (auto &z : inst.zones) { z.key_lo += 36 - MV_NOTE_BASE; z.key_hi += 36 - MV_NOTE_BASE; z.root += 36 - MV_NOTE_BASE; }
+    if (missing) inst.warnings.push_back(std::to_string(missing) + " samples missing from the patch file");
+    finish_instrument(inst);
+    if (inst.zones.empty()) throw ParseError("this MV-8000 patch has no samples");
+    return inst;
+}
+
+bool probe_mv0(const std::string &, const uint8_t *h, size_t n, uint64_t) {
+    return n >= 16 && !std::memcmp(h, "MVFF", 4) && !std::memcmp(h + 12, "PAT ", 4);
+}
+
 bool probe_entry(const std::string &, const uint8_t *h, size_t n, uint64_t size) {
     return size < 64 && n >= 4 && (!std::memcmp(h, "R7P ", 4) || !std::memcmp(h, "R7F ", 4) || !std::memcmp(h, "R5P ", 4));
 }
@@ -775,6 +1025,7 @@ bool probe_entry(const std::string &, const uint8_t *h, size_t n, uint64_t size)
 
 void register_roland() {
     register_reader({"Roland sampler", "r7p r7f r5p", probe_entry, list_single, load_roland});
+    register_reader({"Roland MV-8000 patch", "mv0", probe_mv0, list_single, load_mv0});
 }
 
 void register_roland_images() {

@@ -39,6 +39,7 @@ void register_akai();
 void register_emu();
 void register_ni();
 void register_roland();
+void register_reason();
 void register_images();
 
 }  // namespace omni

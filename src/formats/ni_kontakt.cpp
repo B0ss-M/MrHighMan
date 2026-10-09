@@ -5,6 +5,8 @@
 // Samples: WAV, AIFF, NCW. Encrypted (commercial, Kontakt Player) libraries cannot be read and are reported so.
 // Translated from ConvertWithMoss's format/ni/kontakt and format/ni/nicontainer packages (LGPL-3.0).
 #include <cmath>
+#include <cstdlib>
+#include <cstdio>
 #include <cstring>
 #include <map>
 #include <set>
@@ -429,7 +431,8 @@ void read_preset_chunks(const std::vector<uint8_t> &data, KDoc &doc) {
 
 void read_container(const std::vector<uint8_t> &d, KDoc &doc) {
     NiContainer f = read_ni_container(d);
-    if (f.app >= 0 && f.app != NI_APP_KONTAKT) throw ParseError("this NI file was not made by Kontakt");
+    // Battery 4 kits (.nbkt) are Kontakt instruments inside (one group per cell, Battery's scripts): read the same way
+    if (f.app >= 0 && f.app != NI_APP_KONTAKT && f.app != NI_APP_BATTERY) throw ParseError("this NI file was not made by Kontakt");
     if (f.preset.empty()) {
         if (f.encrypted) throw ParseError("encrypted Kontakt library (Kontakt Player / NKS): cannot be read");
         throw ParseError("no Kontakt preset in this file");
@@ -923,9 +926,13 @@ Instrument load_kontakt(VolumePtr vol, const std::string &path, int index) {
             int pos = 0;
             for (auto &z : inst.zones) if (z.group == int(gi)) z.seq_position = ++pos;
         }
+    bool battery = ends_with_ci(path, ".nbkt");
+    if (battery) inst.format = "NI Battery 4 kit";
     if (missing) inst.warnings.push_back(std::to_string(missing) + " sample files not found");
     finish_instrument(inst);
-    if (inst.zones.empty() && missing) throw ParseError("the samples of this Kontakt instrument were not found next to it");
+    if (inst.zones.empty() && missing)
+        throw ParseError(battery ? "this Battery kit's samples were not found: copy its library's Samples folder next to the Kits folder"
+                                 : "the samples of this Kontakt instrument were not found next to it");
     return inst;
 }
 
@@ -942,6 +949,7 @@ bool probe_kontakt(const std::string &name, const uint8_t *h, size_t n, uint64_t
 
 void register_ni_kontakt() {
     register_reader({"NI Kontakt", "nki nkm", probe_kontakt, list_kontakt, load_kontakt});
+    register_reader({"NI Battery 4 kit", "nbkt", probe_kontakt, list_kontakt, load_kontakt});   // Kontakt inside
 }
 
 }  // namespace omni

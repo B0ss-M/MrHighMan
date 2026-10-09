@@ -36,6 +36,7 @@ void register_all() {
         register_emu();
         register_ni();
         register_roland();
+        register_reason();
         register_omni_native();
         register_wav_folder();
         register_images();

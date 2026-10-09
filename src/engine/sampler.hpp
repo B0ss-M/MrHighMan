@@ -22,7 +22,8 @@ struct Program {
 
 // The modulation matrix: sources and destinations (the skin's MOD page; option indices in params.json).
 enum ModSrc { MS_OFF, MS_LFO1, MS_LFO2, MS_WHEEL, MS_AT, MS_BEND, MS_VEL, MS_KEY, MS_RAND, MS_ENV, MS_COUNT };
-enum ModDst { MD_OFF, MD_PITCH, MD_CUTOFF, MD_RES, MD_VOL, MD_PAN, MD_START, MD_DRIVE, MD_REVERB, MD_LFO1_RATE, MD_LFO2_RATE, MD_COUNT };
+enum ModDst { MD_OFF, MD_PITCH, MD_CUTOFF, MD_RES, MD_VOL, MD_PAN, MD_START, MD_DRIVE, MD_REVERB, MD_LFO1_RATE, MD_LFO2_RATE,
+              MD_WTPOS, MD_COUNT };   // (append only: option indices in params.json)
 constexpr int MOD_SLOTS = 8;
 // full-scale (amount 100%, source 1) ranges of the destinations
 constexpr float MOD_PITCH_SEMIS = 12, MOD_CUTOFF_OCT = 4, MOD_RES = 0.5f, MOD_RATE_OCT = 3;   // volume: gain 1 + x (silent at -100%, +6 dB at +100%)
@@ -38,6 +39,7 @@ struct Settings {
     // instrument slots A-D: key range, gain (linear), transpose (semitones), mute; layer_mode 0 = layer (every
     // slot in its range), 1 = keyswitch (ks_base..ks_base+3 pick the one slot that plays; they make no sound)
     std::atomic<int> slot_lo[4]{}, slot_hi[4]{}, slot_mute[4]{};
+    std::atomic<int> slot_shift[4]{};   // 1.7.3: semitones the slot's mapping moves on the keyboard (pitch unchanged)
     std::atomic<float> slot_gain[4]{}, slot_tune[4]{};
     std::atomic<int> layer_mode{0}, ks_base{24};
     std::atomic<float> volume_db{0}, pan{0}, transpose{0}, tune_cents{0};
@@ -48,6 +50,10 @@ struct Settings {
     std::atomic<float> glide_s{0};
     std::atomic<float> reverb_mix{0}, reverb_size{0.6f}, reverb_damp{0.4f};
     std::atomic<float> drive{0};
+    std::atomic<float> wt_pos{0};                      // wavetables: the position through their cycles, 0..1
+    // 1.7.1: the PLAY page's envelope faders show the preset's own envelope; what they are moved by is applied to every
+    // zone on top of its own envelope (seconds; sustain 0..1)
+    std::atomic<float> d_attack{0}, d_decay{0}, d_sustain{0}, d_release{0};
     std::atomic<int> zone_filter_on{1}, zone_env_on{1};
 };
 
@@ -66,6 +72,11 @@ public:
     bool switching() const { return pending_.load() != nullptr; }
     // Any thread: PANIC. The audio thread then silences every voice (a 5 ms fade) and forgets held keys and the pedal.
     void panic() { panic_req_.store(true); }
+    // Any thread: play p once on top of the voices (a browser preview: an NI kit's .previews/<file>.ogg); takes ownership.
+    // Null stops the one playing. Its memory comes back through take_retired_preview() (freed off the audio thread).
+    void preview(Pcm *p);
+    Pcm *take_retired_preview() { return prev_retired_.exchange(nullptr); }
+    std::atomic<int> previewing{0};
 
     // Audio thread
     void midi(const uint8_t *msg, int len);
@@ -91,6 +102,7 @@ private:
         const Zone *zone = nullptr;
         const Pcm *pcm = nullptr;
         int zi = 0, note = 0, vel = 0, chan = 0;
+        int znote = 0;   // the note in the instrument's own mapping (note - the slot's key shift): pitch, crossfades
         uint32_t age = 0;
         double pos = 0, step_base = 0;
         int dir = 1;
@@ -107,10 +119,17 @@ private:
         float last_l = 0, last_r = 0;
         float rnd = 0;                                    // per-note random source, -1..1
         float mod_cut_mul = 1, mod_res = 0, mod_gain = 1, mod_pan = 0;   // matrix results for this sub-block
+        float mod_wt = 0;                                                // matrix: wavetable position offset (-1..1)
     };
 
     std::atomic<Program *> pending_{nullptr}, retired_{nullptr};
     std::atomic<bool> panic_req_{false};
+    std::atomic<Pcm *> prev_req_{nullptr}, prev_retired_{nullptr};
+    std::atomic<bool> prev_stop_{false};
+    Pcm *prev_ = nullptr;          // the preview playing (audio thread)
+    double prev_pos_ = 0;
+    std::vector<float> pvl_, pvr_;
+    void retire_preview();
     void do_panic();
     Program *prog_ = nullptr;
     Voice voices_[MAX_VOICES];
@@ -143,7 +162,8 @@ private:
 
     void note_on(int chan, int note, int vel);
     void note_off(int chan, int note);
-    void start_voice(int zi, int chan, int note, int vel, bool release_trigger, float glide_semis);
+    void start_voice(int zi, int chan, int note, int vel, bool release_trigger, float glide_semis, int znote = -1);
+    int zone_slot(const Zone &z) const { return z.slot < 0 || z.slot > 3 ? 0 : z.slot; }
     Voice *alloc_voice();
     void all_off(bool hard);
     void render_voice(Voice &v, float *l, float *r, int n);

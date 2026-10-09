@@ -216,6 +216,7 @@ Instrument load_omni(VolumePtr vol, const std::string &path, int) {
         z.bend_up = zj["bend_up"].as_int(200); z.bend_down = zj["bend_down"].as_int(-200);
         z.filter = filter_from(zj["filter"]);
         z.midi_channel = zj["midi_channel"].as_int(-1);
+        z.wt_size = zj["wt_size"].as_int(0); z.wt_count = zj["wt_count"].as_int(0);
         inst.zones.push_back(z);
     }
     if (missing) inst.warnings.push_back(std::to_string(missing) + " sample files missing next to the instrument");
@@ -349,6 +350,7 @@ std::string write_omni(const Instrument &inst, const std::vector<PcmPtr> &zone_p
             .num("pitch_env_depth", z.pitch_env_depth).add("pitch_env", env_json(z.pitch_env)).num("pitch_lfo_depth", z.pitch_lfo_depth)
             .add("pitch_lfo", lfo_json(z.pitch_lfo)).num("bend_up", z.bend_up).num("bend_down", z.bend_down)
             .add("filter", filter_json(z.filter)).num("midi_channel", z.midi_channel);
+        if (z.wt_count > 1) o.num("wt_size", z.wt_size).num("wt_count", z.wt_count);
         zones += (zones.size() > 1 ? ",\n" : "\n") + o.done();
     }
     zones += "\n]";
