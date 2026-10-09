@@ -46,7 +46,13 @@ const NumParam NUM_PARAMS[] = {
     {"vel_sens", 100}, {"bend", 0}, {"polyphony", 48}, {"voice_mode", 0}, {"glide", 0}, {"interp", 2},
     {"rev_mix", 0}, {"rev_size", 60}, {"rev_damp", 40}, {"drive", 0},
     {"mem_limit", 512}, {"prog_change", 1}, {"pad_vel", 100}, {"pad_base", 36}, {"auto_extract", 1},
-    {"target_slot", 0}, {"layer_mode", 0}, {"ks_base", 24}, {"auto_loop", 0},
+    {"target_slot", 0}, {"layer_mode", 0}, {"ks_base", 24}, {"auto_loop", 0}, {"info_page", 0}, {"wt_pos", 0},
+    // 1.7.1: the envelope as it plays (the preset's own, then as moved): times as fader units 0..1000 (ms = 60000 x
+    // (v/1000)^3), sustain %
+    {"env_attack", 0}, {"env_decay", 0}, {"env_sustain", 100}, {"env_release", 69},
+    {"br_preview", 1},   // 1.7.2: play a kit's preview (NI .previews/<file>.ogg) when it is tapped
+    // 1.7.3: each slot's key shift (its whole mapping moves up or down the keyboard; the sound keeps its pitch)
+    {"slot1_shift", 0}, {"slot2_shift", 0}, {"slot3_shift", 0}, {"slot4_shift", 0},
     {"slot1_lo", 0}, {"slot1_hi", 127}, {"slot1_vol", 0}, {"slot1_tune", 0}, {"slot1_mute", 0},
     {"slot2_lo", 0}, {"slot2_hi", 127}, {"slot2_vol", 0}, {"slot2_tune", 0}, {"slot2_mute", 0},
     {"slot3_lo", 0}, {"slot3_hi", 127}, {"slot3_vol", 0}, {"slot3_tune", 0}, {"slot3_mute", 0},
@@ -88,16 +94,22 @@ struct Omni {
     // the skin's displays, computed by the diag/display thread (30 Hz), read anywhere (audio thread included)
     std::atomic<uint8_t> disp_wave[48]{}, disp_ptile[32]{}, disp_ltile[32]{};         // non-empty: listing the presets of this file
     std::vector<Row> rows;
-    int page = 0;
+    int top = 0;                     // the first row shown (the list scrolls by rows: page buttons, the scroll fader)
+    // the scroll fader's position (read lock-free): 1 = the top of the list (a vertical fader's top), 0 = the end
+    std::atomic<float> scroll_pos{1};
     std::string info_text;           // the last tapped item
     std::string browse_msg;
     std::atomic<int> row_on[ROWS];
-    std::atomic<int> trig_on[16];   // one per TRIGGERS entry
+    std::atomic<int> trig_on[18];   // one per TRIGGERS entry
     // the skin's 16 pads: a tap queues a note (set_param), the audio thread plays it with a fixed gate (render)
     std::atomic<int> pad_req[16];
     int pad_gate[16] = {}, pad_note[16] = {};   // audio thread only
     std::atomic<int> pad_base_rev{0};
-    std::atomic<int> pad_panic{0};       // PANIC: the audio thread drops the pads' pending notes and gates     // trigger buttons held (the wrapper releases them): their highlight
+    std::atomic<int> pad_panic{0};       // PANIC: the audio thread drops the pads' pending notes and gates
+    // the envelope faders: how far they are moved from the target slot's preset envelope (s; sustain 0..1), and whether
+    // their values came from a project / patch / saved instrument (then the next load keeps them) or follow the preset
+    std::atomic<float> d_env[4] = {};
+    std::atomic<bool> env_pending{false};     // trigger buttons held (the wrapper releases them): their highlight
     // browser actions run on their own thread: listing folders, mounting images and reading a file's presets can
     // take a while, and set_param must return at once whichever thread the host calls it from
     std::thread br_thread;
@@ -135,6 +147,11 @@ std::string library_choice(Omni *o) {
     return o->lib_choice;
 }
 
+// envelope fader units 0..1000 <-> milliseconds (cubic: fine at short times, 60 s at the top)
+constexpr float ENV_MAX_MS = 60000.0f;
+float env_ms(float v) { float x = std::max(0.0f, std::min(1000.0f, v)) / 1000.0f; return ENV_MAX_MS * x * x * x; }
+float env_units(float ms) { return 1000.0f * std::cbrt(std::max(0.0f, std::min(ENV_MAX_MS, ms)) / ENV_MAX_MS); }
+
 // LFO rate knob 0..100 -> 0.02..20 Hz (logarithmic)
 float lfo_hz(float v) { return 0.02f * std::pow(1000.0f, std::max(0.0f, std::min(100.0f, v)) / 100.0f); }
 
@@ -162,6 +179,9 @@ void apply_settings(Omni *o) {
     s.reverb_size.store(num(o, "rev_size") / 100.0f);
     s.reverb_damp.store(num(o, "rev_damp") / 100.0f);
     s.drive.store(num(o, "drive") / 100.0f);
+    s.wt_pos.store(num(o, "wt_pos") / 100.0f);
+    s.d_attack.store(o->d_env[0].load()); s.d_decay.store(o->d_env[1].load());
+    s.d_sustain.store(o->d_env[2].load()); s.d_release.store(o->d_env[3].load());
     for (int i = 0; i < 2; i++) {
         char k[24];
         std::snprintf(k, sizeof k, "lfo%d_wave", i + 1); s.lfo_wave[i].store(int(num(o, k) + 0.5f));
@@ -183,6 +203,7 @@ void apply_settings(Omni *o) {
         std::snprintf(k, sizeof k, "slot%d_vol", i + 1); s.slot_gain[i].store(std::pow(10.0f, num(o, k) / 20.0f));
         std::snprintf(k, sizeof k, "slot%d_tune", i + 1); s.slot_tune[i].store(num(o, k));
         std::snprintf(k, sizeof k, "slot%d_mute", i + 1); s.slot_mute[i].store(num(o, k) > 0.5f ? 1 : 0);
+        std::snprintf(k, sizeof k, "slot%d_shift", i + 1); s.slot_shift[i].store(int(std::lround(num(o, k))));
     }
     s.layer_mode.store(int(num(o, "layer_mode") + 0.5f));
     s.ks_base.store(int(num(o, "ks_base") + 0.5f));
@@ -190,6 +211,53 @@ void apply_settings(Omni *o) {
     o->loader.set_auto_loop(num(o, "auto_loop") > 0.5f);
     o->loader.set_budget_mb(int(num(o, "mem_limit")));
     o->loader.set_extract(int(num(o, "auto_extract") + 0.5f), path_join(library_dir(o), "Extracted"));
+}
+
+// The target slot's preset envelope with the older offset settings (attack +, decay %, sustain %, release +) applied:
+// what the envelope faders show when they are not moved (s; sustain 0..1)
+void env_reference(Omni *o, float ref[4]) {
+    LoadedInfo li = o->loader.info();
+    ref[0] = float(li.env_attack) + num(o, "attack") / 1000.0f;
+    ref[1] = float(li.env_decay) * num(o, "decay") / 100.0f;
+    ref[2] = std::max(0.0f, std::min(1.0f, float(li.env_sustain) * num(o, "sustain") / 100.0f));
+    ref[3] = float(li.env_release) + num(o, "release") / 1000.0f;
+}
+const char *const ENV_KEYS[4] = {"env_attack", "env_decay", "env_sustain", "env_release"};
+// the faders show the reference plus how far they are moved
+void env_show(Omni *o) {
+    float ref[4];
+    env_reference(o, ref);
+    for (int k = 0; k < 4; k++) {
+        float v = ref[k] + o->d_env[k].load();
+        o->values[num_index(ENV_KEYS[k])].store(k == 2 ? std::max(0.0f, std::min(100.0f, v * 100.0f)) : env_units(v * 1000.0f));
+    }
+}
+// the faders were moved (or restored): how far that is from the reference
+void env_take(Omni *o) {
+    float ref[4];
+    env_reference(o, ref);
+    for (int k = 0; k < 4; k++) {
+        float v = num(o, ENV_KEYS[k]);
+        // a fader at its top with a preset time beyond its range (a 90 s decay): the preset's time, not the fader's
+        if (k != 2 && v >= 999.5f && ref[k] * 1000.0f >= ENV_MAX_MS) { o->d_env[k].store(0); continue; }
+        o->d_env[k].store((k == 2 ? v / 100.0f : env_ms(v) / 1000.0f) - ref[k]);
+    }
+    apply_settings(o);
+}
+// a load is playing (loader thread): a fresh preset shows its own envelope (and leaves the older offsets neutral unless it
+// brought settings); a project, patch or saved instrument keeps the envelope it stored
+void env_loaded(Omni *o, int slot, bool fresh, bool had_settings) {
+    if (slot != o->loader.target()) return;
+    if (!fresh || had_settings) {
+        if (o->env_pending.exchange(false)) { env_take(o); return; }
+    } else {
+        o->env_pending.store(false);
+        o->values[num_index("attack")].store(0); o->values[num_index("decay")].store(100);
+        o->values[num_index("sustain")].store(100); o->values[num_index("release")].store(0);
+    }
+    for (auto &d : o->d_env) d.store(0);
+    env_show(o);
+    apply_settings(o);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -225,10 +293,22 @@ std::string short_path(Omni *o, const std::string &p) {
     return p;
 }
 
+int max_top(const Omni *o) { return std::max(0, int(o->rows.size()) - ROWS); }
+void rebuild_on(Omni *o);
+// scroll to row t (clamped); the fader follows
+void set_top(Omni *o, int t) {
+    int m = max_top(o);
+    o->top = std::max(0, std::min(m, t));
+    rebuild_on(o);
+}
+
 void rebuild_on(Omni *o) {
+    int m = max_top(o);
+    if (o->top > m) o->top = m;
+    o->scroll_pos.store(m ? 1.0f - float(o->top) / float(m) : 1.0f);
     LoadedInfo li = o->loader.info();
     for (int r = 0; r < ROWS; r++) {
-        size_t i = size_t(o->page * ROWS + r);
+        size_t i = size_t(o->top + r);
         int on = 0;
         if (i < o->rows.size()) {
             const Row &row = o->rows[i];
@@ -243,11 +323,65 @@ void rebuild_on(Omni *o) {
     o->ui_rev.fetch_add(1);
 }
 
+// A row's text: names longer than a row holds (about 64 characters at the list's text size) lose their middle, so
+// both ends show ("Ensoniq ASR10 - Essential ... & EDA_ 1"): series of folders often differ only at the end.
+// what the SELECTED box says: a tapped name (in full), a load error, or a browser message (get_param: ui_mutex held)
+std::string browse_info(Omni *o) {
+    if (o->br_busy.load()) return "Opening...";
+    std::string st = o->loader.status();   // a failed load is shown here, where the tap was made
+    if (st.compare(0, 6, "Error:") == 0 || st.compare(0, 7, "Extract") == 0 || st.compare(0, 4, "Save") == 0 ||
+        st.compare(0, 7, "Nothing") == 0)   // (a kit whose samples are missing still plays its preview)
+        return st + (st.compare(0, 6, "Error:") == 0 && o->sampler.previewing.load() ? " - preview playing" : "");
+    return o->browse_msg.empty() ? o->info_text : o->browse_msg;
+}
+
+// 1.7.3: text wrapped into at most `lines` lines of `width` characters (UTF-8), breaking after spaces, "_", "-" or "/"
+// where it can; what still doesn't fit loses the middle of the last line, so the end shows
+constexpr size_t SEL_CHARS = 54;
+std::vector<std::string> wrap_lines(const std::string &s, size_t width, size_t lines) {
+    std::vector<size_t> st;   // UTF-8 character starts
+    for (size_t i = 0; i < s.size(); i++) if ((static_cast<unsigned char>(s[i]) & 0xC0) != 0x80) st.push_back(i);
+    st.push_back(s.size());
+    size_t n = st.size() - 1, c = 0;
+    std::vector<std::string> out;
+    while (c < n && out.size() + 1 < lines) {
+        if (n - c <= width) break;
+        size_t e = c + width;   // the break: after the last separator in the line, else a hard break
+        for (size_t j = c + width; j > c + width / 2; j--) {
+            char ch = s[st[j - 1]];
+            if (ch == ' ' || ch == '_' || ch == '-' || ch == '/') { e = j; break; }
+        }
+        std::string line = s.substr(st[c], st[e] - st[c]);
+        while (line.size() > 1 && line.back() == ' ') line.pop_back();
+        out.push_back(line);
+        c = e;
+        while (c < n && s[st[c]] == ' ') c++;
+    }
+    if (c < n) {
+        if (n - c <= width) out.push_back(s.substr(st[c]));
+        else {
+            size_t head = width / 2 - 2, tail = width - head - 3;
+            out.push_back(s.substr(st[c], st[c + head] - st[c]) + "..." + s.substr(st[n - tail]));
+        }
+    }
+    if (out.empty()) out.push_back(" ");
+    return out;
+}
+
+std::string fit_row(const std::string &s) {
+    constexpr size_t MAX = 64, HEAD = 36;
+    std::vector<size_t> starts;   // UTF-8 character starts
+    for (size_t i = 0; i < s.size(); i++) if ((static_cast<unsigned char>(s[i]) & 0xC0) != 0x80) starts.push_back(i);
+    if (starts.size() <= MAX) return s;
+    size_t tail = MAX - HEAD - 3;
+    return s.substr(0, starts[HEAD]) + "..." + s.substr(starts[starts.size() - tail]);
+}
+
 void list_drives(Omni *o) {
     o->rows.clear();
     o->dir.clear();
     o->preset_file.clear();
-    o->page = 0;
+    o->top = 0;
     o->rows.push_back({"Plugin Library", library_dir(o), RowKind::Drive});
     if (is_dir_host("/sdcard")) o->rows.push_back({"Internal", "/sdcard", RowKind::Drive});
     std::vector<DirEntry> media;
@@ -269,7 +403,7 @@ void list_folder(Omni *o, const std::string &dir) {
     }
     o->dir = dir;
     o->preset_file.clear();
-    o->page = 0;
+    o->top = 0;
     o->rows.clear();
     o->rows.push_back({"..", path_dir(dir), RowKind::Up});
     for (auto &e : entries) {
@@ -285,7 +419,7 @@ void list_folder(Omni *o, const std::string &dir) {
 
 void list_presets(Omni *o, const std::string &file, const std::vector<PresetInfo> &presets) {
     o->preset_file = file;
-    o->page = 0;
+    o->top = 0;
     o->rows.clear();
     o->rows.push_back({".. " + path_name(file), o->dir, RowKind::Up});
     for (size_t i = 0; i < presets.size(); i++) o->rows.push_back({presets[i].name, file, RowKind::Preset, int(i)});
@@ -293,6 +427,30 @@ void list_presets(Omni *o, const std::string &file, const std::vector<PresetInfo
 }
 
 void load_patch(Omni *o, const std::string &path);
+
+// A file's preview, as Native Instruments lays them out: <folder>/.previews/<file>.ogg (Maschine, Komplete libraries) or
+// previews/<file>.ogg (Battery kits). Host folders only. "" = none.
+std::string find_preview(const std::string &file) {
+    std::string dir = path_dir(file), name = path_name(file), stem = path_stem(file);
+    struct stat st;
+    for (const char *sub : {".previews", "previews", ".Previews", "Previews"})
+        for (const std::string &n : {name + ".ogg", stem + ".ogg"}) {
+            std::string p = path_join(path_join(dir, sub), n);
+            if (stat(p.c_str(), &st) == 0 && S_ISREG(st.st_mode)) return p;
+        }
+    return "";
+}
+// play the tapped file's preview if it has one (stops the one playing otherwise); true if one plays
+bool play_preview(Omni *o, const std::string &file) {
+    std::string pv = num(o, "br_preview") > 0.5f ? find_preview(file) : std::string();
+    if (pv.empty()) { o->sampler.preview(nullptr); return false; }
+    try {
+        PcmPtr p = decode_audio(*open_host_file(pv));
+        if (!p || p->frames() < 2) { o->sampler.preview(nullptr); return false; }
+        o->sampler.preview(new Pcm(*p));
+        return true;
+    } catch (const std::exception &) { o->sampler.preview(nullptr); return false; }
+}
 
 void tap_row(Omni *o, int index) {
     if (index < 0 || index >= int(o->rows.size())) return;
@@ -317,9 +475,13 @@ void tap_row(Omni *o, int index) {
     case RowKind::Folder:
     case RowKind::Image:
         list_folder(o, row.path);
-        if (row.kind == RowKind::Image && o->dir != row.path) o->info_text = "Not a disk image this sampler reads";
+        // the full name (the row may show it shortened); a disk image this sampler can't open says so
+        o->info_text = row.kind == RowKind::Image && o->dir != row.path ? "Not a disk image this sampler reads" : path_name(row.path);
         break;
     case RowKind::File: {
+        // a kit's preview plays at once: before it loads (and even when its samples are missing)
+        bool previewing = play_preview(o, row.path);
+        struct PreviewNote { Omni *o; bool on; ~PreviewNote() { if (on) o->info_text += " - preview playing"; } } note{o, previewing};
         if (path_ext(row.path) == "omnipatch") {
             o->sel_path = row.path;
             o->sel_preset = 0;
@@ -333,7 +495,8 @@ void tap_row(Omni *o, int index) {
             const FormatReader *r = find_reader(*loc.volume, loc.inner);
             if (!r) { o->info_text = "Not readable: " + path_name(row.path); break; }
             presets = r->list(loc.volume, loc.inner);
-            o->info_text = std::string(r->name) + ": " + std::to_string(presets.size()) + (presets.size() == 1 ? " instrument" : " instruments");
+            o->info_text = path_name(row.path) + " - " + r->name + ": " + std::to_string(presets.size()) +
+                           (presets.size() == 1 ? " instrument" : " instruments");
         } catch (const std::exception &e) {
             o->info_text = e.what();
             break;
@@ -387,7 +550,7 @@ void step_program(Omni *o, int delta) {
 
 bool sound_param(const char *key) {
     static const char *const NOT[] = {"mem_limit", "prog_change", "auto_extract", "pad_vel", "pad_base", "target_slot", "layer_mode",
-                                      "ks_base", "auto_loop"};
+                                      "ks_base", "auto_loop", "info_page", "br_preview"};
     for (const char *n : NOT) if (!std::strcmp(key, n)) return false;
     return std::strncmp(key, "slot", 4) != 0;
 }
@@ -415,6 +578,7 @@ std::string settings_json(Omni *o, bool (*want)(const char *) = sound_param) {
 void apply_saved_settings(Omni *o, const Settings_kv &kv) {
     for (auto &p : kv) {
         if (!sound_param(p.first.c_str())) continue;
+        if (!p.first.compare(0, 4, "env_")) o->env_pending.store(true);
         int i = num_index(p.first.c_str());
         if (i >= 0) o->values[i].store(p.second);
     }
@@ -429,6 +593,7 @@ void load_patch(Omni *o, const std::string &path) {
     if (p.layers.empty()) { o->info_text = "This patch has no instruments"; return; }
     for (auto &kv : p.settings) {
         if (!patch_param(kv.first.c_str())) continue;
+        if (!kv.first.compare(0, 4, "env_")) o->env_pending.store(true);
         int i = num_index(kv.first.c_str());
         if (i >= 0) o->values[i].store(kv.second);
     }
@@ -511,7 +676,11 @@ void set_state(Omni *o, const char *text) {
         else if (k.size() > 6 && k.compare(0, 4, "slot") == 0 && isdigit((unsigned char)k[4]) && k.compare(5, 5, "_path") == 0) spath[(k[4] - '1') & 3] = v;
         else if (k.size() > 6 && k.compare(0, 4, "slot") == 0 && isdigit((unsigned char)k[4]) && k.compare(5, 7, "_preset") == 0) spreset[(k[4] - '1') & 3] = std::atoi(v.c_str());
         else if (k == "browse") browse = v;
-        else { int i = num_index(k.c_str()); if (i >= 0) o->values[i].store(float(std::atof(v.c_str()))); }
+        else {
+            int i = num_index(k.c_str());
+            if (i >= 0) o->values[i].store(float(std::atof(v.c_str())));
+            if (i >= 0 && !k.compare(0, 4, "env_")) o->env_pending.store(true);   // the project's envelope: kept on load
+        }
     }
     apply_settings(o);
     if (!path.empty() && spath[0].empty()) { spath[0] = path; spreset[0] = preset; }
@@ -565,6 +734,7 @@ void diag_loop(Omni *o) {
     while (!o->diag_quit.load()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(33));
         update_displays(o);
+        delete o->sampler.take_retired_preview();   // a finished preview, freed here (not on the audio thread)
         if (++tick % 30) continue;
         struct stat st;
         if (stat("/sdcard/omni-debug", &st) != 0) continue;
@@ -609,6 +779,7 @@ void *create(const char *data_dir) {
     }
     o->loader.get_settings = [o] { return settings_json(o); };
     o->loader.apply_settings = [o](const Settings_kv &kv) { apply_saved_settings(o, kv); };
+    o->loader.loaded = [o](int slot, bool fresh, bool had) { env_loaded(o, slot, fresh, had); };
     o->br_thread = std::thread(browse_worker, o);
     o->diag_thread = std::thread(diag_loop, o);
     return o;
@@ -616,6 +787,9 @@ void *create(const char *data_dir) {
 
 void destroy(void *inst) {
     Omni *o = static_cast<Omni *>(inst);
+    // the loader thread first: its callbacks (saved settings, the envelope faders) use the rest of Omni, which would
+    // otherwise be freed under a load still finishing (removing the plugin mid-load)
+    o->loader.shutdown();
     {
         std::lock_guard<std::mutex> lock(o->br_qm);
         o->br_quit = true;
@@ -637,10 +811,10 @@ void midi(void *inst, const uint8_t *msg, int len) {
 bool is_trigger_on(const char *val) { return std::atof(val) > 0.5f; }
 
 // the trigger buttons, latched while held so the button lights
-constexpr int TRIGGER_COUNT = 16;
+constexpr int TRIGGER_COUNT = 18;
 const char *const TRIGGERS[TRIGGER_COUNT] = {"prog_prev", "prog_next", "br_prev", "br_next", "br_up", "br_drives", "br_library",
                                              "br_refresh", "pad_down", "pad_up", "br_extract", "slot_clear", "auto_split",
-                                             "br_setlib", "patch_save", "panic"};
+                                             "br_setlib", "patch_save", "panic", "br_rowup", "br_rowdown"};
 int trigger_index(const char *key) {
     for (int i = 0; i < TRIGGER_COUNT; i++) if (!std::strcmp(key, TRIGGERS[i])) return i;
     return -1;
@@ -650,7 +824,23 @@ void set_param(void *inst, const char *key, const char *val) {
     Omni *o = static_cast<Omni *>(inst);
     if (!std::strcmp(key, "state")) { set_state(o, val); return; }
     int ni = num_index(key);
-    if (ni >= 0) { o->values[ni].store(float(std::atof(val))); apply_settings(o); return; }
+    if (ni >= 0) {
+        if (!std::strncmp(key, "slot", 4) && !std::strcmp(key + 5, "_shift")) {
+            // moving a slot moves its key range with it (an open end, Low at C-2 or High at G8, stays open)
+            int d = int(std::lround(std::atof(val) - o->values[ni].load()));
+            char k[24];
+            for (const char *e : {"_lo", "_hi"}) {
+                std::snprintf(k, sizeof k, "slot%c%s", key[4], e);
+                int ki = num_index(k), v = int(std::lround(o->values[ki].load()));
+                if (d && v != (e[1] == 'l' ? 0 : 127)) o->values[ki].store(float(std::max(0, std::min(127, v + d))));
+            }
+        }
+        o->values[ni].store(float(std::atof(val)));
+        if (!std::strncmp(key, "env_", 4)) env_take(o);            // an envelope fader: how far from the preset's
+        else if (!std::strcmp(key, "target_slot")) { apply_settings(o); env_show(o); }   // the faders show that slot's
+        else apply_settings(o);
+        return;
+    }
     int ti = trigger_index(key);
     if (ti >= 0) o->trig_on[ti].store(is_trigger_on(val) ? 1 : 0);
     if (!std::strncmp(key, "pad_", 4) && std::isdigit(static_cast<unsigned char>(key[4]))) {
@@ -663,6 +853,28 @@ void set_param(void *inst, const char *key, const char *val) {
         float b = o->values[pb].load() + (key[4] == 'u' ? 16.0f : -16.0f);
         o->values[pb].store(std::max(0.0f, std::min(112.0f, b)));
         o->pad_base_rev.fetch_add(1);
+        return;
+    }
+    if (!std::strcmp(key, "br_scroll")) {
+        // the scroll fader, top = the start of the list: its position maps straight onto the list (a drag, the data wheel,
+        // a Q-Link). The fader keeps exactly the value MPC sent: snapping it to whole rows and reporting that back fought
+        // the finger and made the drag jerky (1.7.0 on the device)
+        float v = std::max(0.0f, std::min(1.0f, float(std::atof(val))));
+        std::lock_guard<std::mutex> lock(o->ui_mutex);
+        int m = max_top(o), t = int(std::lround((1.0f - v) * float(m)));
+        if (t != o->top) set_top(o, t);
+        o->scroll_pos.store(v);
+        o->ui_rev.fetch_add(1);
+        return;
+    }
+    if (!std::strcmp(key, "br_row")) {
+        // 1.7.3: Q-Link 1 as an encoder: each nudge is one option either side of the middle ("-"), one row that way; the
+        // engine reports the middle again so the next nudge starts there
+        int v = int(std::lround(std::atof(val)));
+        if (v == 1) return;
+        std::lock_guard<std::mutex> lock(o->ui_mutex);
+        set_top(o, o->top + (v < 1 ? -1 : 1));
+        o->ui_rev.fetch_add(1);
         return;
     }
     if (!std::strcmp(key, "br_extract")) { if (is_trigger_on(val)) o->loader.save(); return; }
@@ -707,12 +919,13 @@ void browse_action(Omni *o, const std::string &key) {
     }
     {
         if (std::isdigit(static_cast<unsigned char>(*k))) {
-            tap_row(o, o->page * ROWS + std::atoi(k) - 1);
+            tap_row(o, o->top + std::atoi(k) - 1);
             return;
         }
-        int pages = std::max(1, (int(o->rows.size()) + ROWS - 1) / ROWS);
-        if (!std::strcmp(k, "prev") && o->page > 0) { o->page--; rebuild_on(o); }
-        else if (!std::strcmp(k, "next") && o->page + 1 < pages) { o->page++; rebuild_on(o); }
+        if (!std::strcmp(k, "prev")) set_top(o, o->top - ROWS);
+        else if (!std::strcmp(k, "next")) set_top(o, o->top + ROWS);
+        else if (!std::strcmp(k, "rowup")) set_top(o, o->top - 1);
+        else if (!std::strcmp(k, "rowdown")) set_top(o, o->top + 1);
         else if (!std::strcmp(k, "up")) { if (!o->rows.empty() && o->rows[0].kind == RowKind::Up) tap_row(o, 0); else list_drives(o); }
         else if (!std::strcmp(k, "drives")) list_drives(o);
         else if (!std::strcmp(k, "library")) list_folder(o, library_dir(o));
@@ -803,7 +1016,10 @@ int get_param(void *inst, const char *key, char *buf, int len) {
         !std::strcmp(key, "prog_format_on"))
         return std::snprintf(buf, size_t(len), "%d", int((o->loader.revision.load() + o->ui_rev.load()) & 1));
     if (!std::strcmp(key, "lib_path_on")) return std::snprintf(buf, size_t(len), "%d", int(o->ui_rev.load() & 1));
-    if (!std::strcmp(key, "br_info_on"))   // also shows the loader's errors: follows its revision too
+    if (!std::strcmp(key, "br_row")) return std::snprintf(buf, size_t(len), "1");
+    if (!std::strcmp(key, "br_scroll")) return std::snprintf(buf, size_t(len), "%.4f", o->scroll_pos.load());
+    if (!std::strcmp(key, "br_info_on") || !std::strcmp(key, "br_sel1_on") || !std::strcmp(key, "br_sel2_on") ||
+        !std::strcmp(key, "br_sel3_on"))   // also shows the loader's errors: follows its revision too
         return std::snprintf(buf, size_t(len), "%d", int((o->ui_rev.load() + o->loader.revision.load()) & 1));
     if (!std::strcmp(key, "br_loc_on") || !std::strcmp(key, "br_page_on"))
         return std::snprintf(buf, size_t(len), "%d", int(o->ui_rev.load() & 1));
@@ -823,6 +1039,7 @@ int get_param(void *inst, const char *key, char *buf, int len) {
             return put(buf, len, note_name(int(o->values[ni].load() + 0.5f)));
         if (ni >= 0 && k.find("_vol") != std::string::npos) return std::snprintf(buf, size_t(len), "%+.0f dB", o->values[ni].load());
         if (ni >= 0 && k.find("_tune") != std::string::npos) return std::snprintf(buf, size_t(len), "%+.0f st", o->values[ni].load());
+        if (ni >= 0 && k.find("_shift") != std::string::npos) return std::snprintf(buf, size_t(len), "%+.0f keys", o->values[ni].load());
     }
     if (!std::strcmp(key, "cutoff_display")) {
         float hz = 20.0f * std::pow(1000.0f, num(o, "cutoff") / 100.0f);
@@ -834,6 +1051,14 @@ int get_param(void *inst, const char *key, char *buf, int len) {
         if (sync > 0 && sync < 15) return put(buf, len, DIV[sync]);
         float hz = lfo_hz(num(o, key[3] == '1' ? "lfo1_rate" : "lfo2_rate"));
         return std::snprintf(buf, size_t(len), hz < 1 ? "%.2f Hz" : "%.1f Hz", hz);
+    }
+    for (int k = 0; k < 4; k++) {   // the envelope faders' values: "350 ms", "1.25 s", "80 %"
+        size_t n = std::strlen(ENV_KEYS[k]);
+        if (!std::strncmp(key, ENV_KEYS[k], n) && !std::strcmp(key + n, "_display")) {
+            if (k == 2) return std::snprintf(buf, size_t(len), "%.0f %%", num(o, ENV_KEYS[k]));
+            float ms = env_ms(num(o, ENV_KEYS[k]));
+            return ms < 1000 ? std::snprintf(buf, size_t(len), "%.0f ms", ms) : std::snprintf(buf, size_t(len), "%.2f s", ms / 1000);
+        }
     }
     if (!std::strcmp(key, "bend_display")) {
         int b = int(std::lround(num(o, "bend")));
@@ -906,24 +1131,24 @@ int get_param(void *inst, const char *key, char *buf, int len) {
     if (!std::strncmp(key, "br_", 3)) {
         const char *k = key + 3;
         if (std::isdigit(static_cast<unsigned char>(*k))) {
-            size_t i = size_t(o->page * ROWS + std::atoi(k) - 1);
-            return put(buf, len, i < o->rows.size() ? o->rows[i].label : " ");
+            size_t i = size_t(o->top + std::atoi(k) - 1);
+            return put(buf, len, i < o->rows.size() ? fit_row(o->rows[i].label) : " ");
         }
         if (!std::strcmp(k, "loc")) {
             if (!o->preset_file.empty()) return put(buf, len, short_path(o, o->preset_file));
             return put(buf, len, o->dir.empty() ? "Drives" : short_path(o, o->dir));
         }
-        if (!std::strcmp(k, "page")) {
-            int pages = std::max(1, (int(o->rows.size()) + ROWS - 1) / ROWS);
-            return put(buf, len, std::to_string(o->page + 1) + " / " + std::to_string(pages));
+        if (!std::strcmp(k, "page")) {   // "11-20 of 37"
+            int n = int(o->rows.size());
+            if (n <= ROWS) return put(buf, len, std::to_string(n) + (n == 1 ? " item" : " items"));
+            return put(buf, len, std::to_string(o->top + 1) + "-" + std::to_string(std::min(n, o->top + ROWS)) + " of " + std::to_string(n));
         }
-        if (!std::strcmp(k, "info")) {
-            if (o->br_busy.load()) return put(buf, len, "Opening...");
-            std::string st = o->loader.status();   // a failed load is shown here, where the tap was made
-            if (st.compare(0, 6, "Error:") == 0 || st.compare(0, 7, "Extract") == 0 || st.compare(0, 4, "Save") == 0 ||
-                st.compare(0, 7, "Nothing") == 0)
-                return put(buf, len, st);
-            return put(buf, len, o->browse_msg.empty() ? o->info_text : o->browse_msg);
+        if (!std::strcmp(k, "info")) return put(buf, len, browse_info(o));
+        if (!std::strncmp(k, "sel", 3) && k[3] >= '1' && k[3] <= '3' && !k[4]) {   // the SELECTED box, line 1-3
+            std::vector<std::string> l = wrap_lines(browse_info(o), SEL_CHARS, 3);
+            size_t first = l.size() == 1 ? 1 : 0;   // one line sits in the middle
+            size_t i = size_t(k[3] - '1');
+            return put(buf, len, i >= first && i - first < l.size() ? l[i - first] : std::string(" "));
         }
         return std::snprintf(buf, size_t(len), "0");
     }

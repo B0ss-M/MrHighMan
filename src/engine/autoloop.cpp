@@ -88,7 +88,7 @@ int auto_loop(Instrument &inst, const std::vector<PcmPtr> &pcm) {
     for (size_t i = 0; i < inst.zones.size() && i < pcm.size(); i++) {
         Zone &z = inst.zones[i];
         const Pcm *p = pcm[i].get();
-        if (!p || !z.loops.empty() || z.one_shot || z.reverse || z.trigger == Trigger::Release) continue;
+        if (!p || !z.loops.empty() || z.one_shot || z.reverse || z.trigger == Trigger::Release || z.wt_count > 1) continue;   // wavetables loop by themselves
         if (z.amp_env.set && z.amp_env.sustain < 0.05) continue;   // decays to silence while held: a drum, a pluck
         int64_t ls, le;
         if (!find_loop(*p, z.start, z.stop, ls, le)) continue;

@@ -892,7 +892,8 @@
     "Drive",
     "Reverb Mix",
     "LFO 1 Rate",
-    "LFO 2 Rate"
+    "LFO 2 Rate",
+    "WT Position"
    ],
    "default": 1,
    "live": true
@@ -939,7 +940,8 @@
     "Drive",
     "Reverb Mix",
     "LFO 1 Rate",
-    "LFO 2 Rate"
+    "LFO 2 Rate",
+    "WT Position"
    ],
    "default": 2,
    "live": true
@@ -986,7 +988,8 @@
     "Drive",
     "Reverb Mix",
     "LFO 1 Rate",
-    "LFO 2 Rate"
+    "LFO 2 Rate",
+    "WT Position"
    ],
    "default": 2,
    "live": true
@@ -1033,7 +1036,8 @@
     "Drive",
     "Reverb Mix",
     "LFO 1 Rate",
-    "LFO 2 Rate"
+    "LFO 2 Rate",
+    "WT Position"
    ],
    "default": 2,
    "live": true
@@ -1080,7 +1084,8 @@
     "Drive",
     "Reverb Mix",
     "LFO 1 Rate",
-    "LFO 2 Rate"
+    "LFO 2 Rate",
+    "WT Position"
    ],
    "default": 5,
    "live": true
@@ -1127,7 +1132,8 @@
     "Drive",
     "Reverb Mix",
     "LFO 1 Rate",
-    "LFO 2 Rate"
+    "LFO 2 Rate",
+    "WT Position"
    ],
    "default": 2,
    "live": true
@@ -1174,7 +1180,8 @@
     "Drive",
     "Reverb Mix",
     "LFO 1 Rate",
-    "LFO 2 Rate"
+    "LFO 2 Rate",
+    "WT Position"
    ],
    "default": 4,
    "live": true
@@ -1221,7 +1228,8 @@
     "Drive",
     "Reverb Mix",
     "LFO 1 Rate",
-    "LFO 2 Rate"
+    "LFO 2 Rate",
+    "WT Position"
    ],
    "default": 4,
    "live": true
@@ -2564,6 +2572,177 @@
    "default": 0,
    "momentary": true,
    "hold_ms": 250
+  },
+  {
+   "key": "br_scroll",
+   "name": "Browser Scroll",
+   "min": 0,
+   "max": 1,
+   "default": 1,
+   "live": true
+  },
+  {
+   "key": "info_page",
+   "name": "Formats Page",
+   "options": [
+    "1",
+    "2"
+   ],
+   "default": 0
+  },
+  {
+   "key": "wt_pos",
+   "name": "WT Position",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "env_attack",
+   "name": "Attack",
+   "min": 0,
+   "max": 1000,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "env_decay",
+   "name": "Decay",
+   "min": 0,
+   "max": 1000,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "env_sustain",
+   "name": "Sustain",
+   "min": 0,
+   "max": 100,
+   "default": 100,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "env_release",
+   "name": "Release",
+   "min": 0,
+   "max": 1000,
+   "default": 69,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "br_preview",
+   "name": "Browser Preview",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 1
+  },
+  {
+   "key": "br_rowup",
+   "name": "Browser Row Up",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "br_rowdown",
+   "name": "Browser Row Down",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "br_row",
+   "name": "Browser Scroll",
+   "options": [
+    "Up",
+    "-",
+    "Down"
+   ],
+   "default": 1,
+   "live": true
+  },
+  {
+   "key": "slot1_shift",
+   "name": "Slot A Key Shift",
+   "min": -48,
+   "max": 48,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "slot2_shift",
+   "name": "Slot B Key Shift",
+   "min": -48,
+   "max": 48,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "slot3_shift",
+   "name": "Slot C Key Shift",
+   "min": -48,
+   "max": 48,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "slot4_shift",
+   "name": "Slot D Key Shift",
+   "min": -48,
+   "max": 48,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "br_sel1",
+   "name": "Browser Selected 1",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "br_sel2",
+   "name": "Browser Selected 2",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "br_sel3",
+   "name": "Browser Selected 3",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
   }
  ]
 }

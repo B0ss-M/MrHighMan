@@ -39,6 +39,8 @@ struct LoadedInfo {
     std::string source;                // "" = loaded from the file itself
     int source_preset = 0, source_presets = 0;
     std::string extracted_to;          // set when this load was just extracted (the .omni written)
+    // the instrument's reference envelope (the zone at middle C, else the first): what the envelope faders show
+    double env_attack = 0, env_decay = 0, env_sustain = 1, env_release = 0.02;
 };
 
 // The merged program the sampler plays (all slots)
@@ -53,6 +55,8 @@ class Loader {
 public:
     Loader(Sampler &sampler, Vfs &vfs);
     ~Loader();
+    // Stop the loader thread now (it calls back into its owner: stop it before the owner's other members go). Idempotent.
+    void shutdown();
     // Load path's preset into slot (-1: the target slot). "" clears the slot. use_settings: apply the sound settings an
     // .omni carries (off when restoring a project or a patch: their own values win).
     void request(const std::string &path, int preset, int slot = -1, bool use_settings = true);
@@ -77,6 +81,9 @@ public:
     // instrument file carrying them loads. Set once before use.
     std::function<std::string()> get_settings;
     std::function<void(const Settings_kv &)> apply_settings;
+    // After a load is playing (loader thread): slot, whether it was a fresh load by the user (not a project or patch
+    // restore) and whether the file brought sound settings of its own.
+    std::function<void(int slot, bool fresh, bool had_settings)> loaded;
 
     // Snapshots for the UI (copies under lock)
     LoadedInfo info();                 // the target slot

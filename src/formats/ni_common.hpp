@@ -10,7 +10,7 @@
 
 namespace omni {
 
-enum : int { NI_APP_KONTAKT = 2, NI_APP_MASCHINE = 5 };
+enum : int { NI_APP_KONTAKT = 2, NI_APP_MASCHINE = 5, NI_APP_BATTERY = 9 };
 
 struct NiContainer {
     std::vector<uint8_t> preset;   // the first preset chunk item's data

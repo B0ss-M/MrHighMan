@@ -55,14 +55,15 @@ BROWSER_ROWS = 10
 WAVE_BARS = 48
 SOUND_KEYS = {"volume", "pan", "transpose", "tune", "cutoff", "resonance", "filter_type", "filter_vel", "attack", "decay",
               "sustain", "release", "vel_sens", "bend", "polyphony", "voice_mode", "glide", "interp", "rev_mix", "rev_size",
-              "rev_damp", "drive"} | {"lfo%d_%s" % (i, k) for i in (1, 2) for k in ("wave", "rate", "sync", "retrig")} | \
+              "rev_damp", "drive", "wt_pos", "env_attack", "env_decay", "env_sustain", "env_release"} | {"lfo%d_%s" % (i, k) for i in (1, 2) for k in ("wave", "rate", "sync", "retrig")} | \
              {"mod%d_%s" % (i, k) for i in range(1, 9) for k in ("src", "dst", "amt")}
 LFO_WAVES = ["Sine", "Triangle", "Saw Up", "Saw Down", "Square", "S&H"]
 LFO_SYNC = ["Free", "4 Bars", "2 Bars", "1 Bar", "1/2", "1/4", "1/8", "1/16", "1/32", "1/4 T", "1/8 T", "1/16 T", "1/4 .", "1/8 .",
             "1/16 ."]
 # the engine's ModSrc / ModDst enums (src/engine/sampler.hpp), in order
 MOD_SRC = ["Off", "LFO 1", "LFO 2", "Mod Wheel", "Aftertouch", "Pitch Bend", "Velocity", "Key", "Random", "Amp Env"]
-MOD_DST = ["Off", "Pitch", "Cutoff", "Resonance", "Volume", "Pan", "Sample Start", "Drive", "Reverb Mix", "LFO 1 Rate", "LFO 2 Rate"]
+MOD_DST = ["Off", "Pitch", "Cutoff", "Resonance", "Volume", "Pan", "Sample Start", "Drive", "Reverb Mix", "LFO 1 Rate", "LFO 2 Rate",
+           "WT Position"]   # 1.7: appended
 # plugin.cpp NUM_PARAMS defaults: ready-made routings, all at amount 0
 MOD_DEFAULTS = [(1, 1), (2, 2), (3, 2), (6, 2), (8, 5), (7, 2), (4, 4), (1, 4)]
 
@@ -183,6 +184,30 @@ def params():
     trigger("patch_save", "Save Patch")
     # 1.5.1: PANIC (header, every page): silences every voice and clears held notes, pedal and pads
     trigger("panic", "Panic")
+    # 1.7: the browser list's scroll position (a fader beside it; the data wheel and a Q-Link move it a row at a time)
+    add("br_scroll", "Browser Scroll", min=0, max=1, default=1, live=True)
+    add("info_page", "Formats Page", options=["1", "2"], default=0)   # INFO: which page of the formats list
+    # 1.7: wavetables: the position through their cycles (a sound setting: saved with an instrument, Q-Link, matrix target)
+    num("wt_pos", "WT Position", 0, 100, 0, "%")
+    # 1.7.1: the envelope faders in real values (times on a curve: units 0..1000 = 0..60 s, sustain %); set from the preset
+    # on load, so they need "live" (SOUND_KEYS)
+    for k, n, d in (("env_attack", "Attack", 0), ("env_decay", "Decay", 0), ("env_sustain", "Sustain", 100), ("env_release", "Release", 69)):
+        add(k, n, min=0, max=100 if k == "env_sustain" else 1000, default=d, display="int", dynamic_display=True)
+    # 1.7.2: a tapped kit plays its preview (NI .previews/<file>.ogg, Battery previews/<file>.ogg)
+    add("br_preview", "Browser Preview", options=["Off", "On"], default=1)
+    # 1.7.3: a simple scroll, one row at a time: the row buttons beside the list, and Q-Link 1 as an encoder (an option
+    # param steps one option per nudge; the engine moves a row and returns it to the middle). Replaces the 1.7 fader
+    # (br_scroll, kept above so the later indices don't move), which jumped by list length
+    trigger("br_rowup", "Browser Row Up")
+    trigger("br_rowdown", "Browser Row Down")
+    add("br_row", "Browser Scroll", options=["Up", "-", "Down"], default=1, live=True)
+    # 1.7.3: each slot's key shift: its whole mapping moves up or down the keyboard, pitch unchanged (a kit from C1
+    # played from C0, leaving C1 up for a bass); the slot's key range moves with it
+    for i, L_ in ((1, "A"), (2, "B"), (3, "C"), (4, "D")):
+        add("slot%d_shift" % i, "Slot %s Key Shift" % L_, min=-48, max=48, default=0, display="int", dynamic_display=True)
+    # 1.7.3: BROWSE's SELECTED box in three lines, wrapped by the engine, so a long folder or file name shows in full
+    for i in range(1, 4):
+        text("br_sel%d" % i, "Browser Selected %d" % i)
     # settings an extracted instrument restores reach MPC's controls through the live polling
     for p in P:
         if p["key"] in SOUND_KEYS:
@@ -403,7 +428,8 @@ PLAY_KNOBS = [
     (1030, 500, 22, "vel_sens", "VELOCITY", BLUE), (1182, 500, 22, "filter_vel", "FILTER VEL", CYAN),
     (384, 500, 22, "volume", "VOLUME", CYAN), (896, 500, 22, "pan", "PAN", CYAN),
 ]
-FADERS = [(996, "attack", "ATTACK +"), (1068, "decay", "DECAY %"), (1140, "sustain", "SUSTAIN %"), (1212, "release", "RELEASE +")]
+# 1.7.1: the faders show the envelope as it plays (the preset's own until moved); the older offsets stay as hidden params
+FADERS = [(996, "env_attack", "ATTACK"), (1068, "env_decay", "DECAY"), (1140, "env_sustain", "SUSTAIN"), (1212, "env_release", "RELEASE")]
 FADER_CY, FADER_W, FADER_H = 346, 34, 124
 SEG_GROUPS = [("filter_type", ["LP", "HP", "BP"], 360), ("voice_mode", ["Poly", "Mono", "Legato"], 570),
               ("interp", ["None", "Linear", "Cubic"], 780)]
@@ -638,7 +664,8 @@ SETUP_KNOBS = [(150, 190, 34, "polyphony", "VOICES", CYAN), (330, 190, 34, "glid
                (1020, 210, 34, "transpose", "TRANSPOSE (ST)", BLUE), (1165, 210, 34, "tune", "FINE TUNE (CT)", VIOLET),
                (110, 500, 34, "vel_sens", "VELOCITY SENS %", BLUE), (250, 500, 34, "filter_vel", "FILTER VEL %", CYAN),
                (740, 500, 34, "rev_damp", "REVERB DAMP %", VIOLET), (880, 500, 34, "mem_limit", "MEMORY (MB)", ORANGE),
-               (1180, 500, 34, "pad_base", "PAD BANK NOTE", CYAN)]
+               (1180, 500, 34, "pad_base", "PAD BANK NOTE", CYAN),
+               (560, 306, 24, "wt_pos", "WT POSITION", ORANGE)]   # 1.7: wavetables
 SETUP_OPTIONS = [("voice_mode", ["Poly", "Mono", "Legato"], 184, 310, "VOICE MODE"),
                  ("interp", ["None", "Linear", "Cubic"], 340, 480, "INTERPOLATION"),
                  ("auto_loop", ["Off", "On"], 384, 574, "AUTO LOOP"),
@@ -701,7 +728,7 @@ def bg_layers():
         c.glow(lambda l, x=x, col=col: l.rrect(x + 14, SLOT_Y + 12, 40, 36, 8, fill=rgba(col)), 3, 1.1)
         c.text(x + 34, SLOT_Y + 31, "ABCD"[i], 22, BG, "Bold")
         c.rrect(x + 62, SLOT_Y + 14, SLOT_W - 76, 32, 7, fill=DARK, outline=(64, 74, 88), width=1)
-        for lx, lab in ((x + 80, "LOW KEY"), (x + 220, "HIGH KEY")):
+        for lx, lab in ((x + 56, "LOW KEY"), (x + 150, "HIGH KEY"), (x + 244, "KEY SHIFT")):
             knob_label(c, lx, SLOT_Y + 108, lab)
         for lx, lab in ((x + 80, "VOLUME"), (x + 220, "TRANSPOSE")):
             knob_label(c, lx, SLOT_Y + 208, lab)
@@ -730,7 +757,7 @@ INFO_PANELS = [
         ("S1000 / S3000", ".p .p1 .p3 .s .s1 .s3", True),
         ("S900 / S950", ".p9 .s9 .s9c", False),
         ("MESA", ".s3p", False),
-        ("S5000 / S6000 / Z4 / Z8", ".akp .akm", False),
+        ("S5000 / S6000 / Z4 / Z8", ".akp .akm", True),
         ("MPC keygroup / drum", ".xpm", True),
         ("MPC 2 / 3 JSON, projects", ".xpm .xpj .xty", False),
         ("MPC1000 / 2000 / 3000 / 60", ".pgm .snd .set", False)]),
@@ -770,27 +797,76 @@ INFO_PANELS = [
         ("S-50/S-550/S-330/W-30 floppy", ".img .out", False),
         ("S-500 CD-ROM (LAND)", ".iso .bin", True)]),
 ]
+# 1.7: INFO page 2 (PAGE 1 / PAGE 2 in the title bar): newer formats, and what cannot be read. ok None = not readable
+INFO_PANELS2 = [
+    ("REASON / SYNTH WAVES", (16, 66), [
+        ("Reason NN-XT patches", ".sxt", True),
+        ("  samples next to the patch", ".wav .aif", True),
+        ("Single cycle waveforms", ".wav (256-4096)", True),
+        ("Wavetables (Serum, Surge)", ".wav (clm, srge)", True),
+        ("  WT POSITION: SETUP + mod matrix", "", True)]),
+    ("ROLAND MV / NATIVE INSTRUMENTS", (440, 66), [
+        ("MV-8000 / MV-8800 patches", ".mv0", True),
+        ("Maschine 2/3 kits (groups)", ".mxgrp", True),
+        ("Maschine 2/3 projects", ".mxprj", True),
+        ("Maschine 1 kits", ".mgrp", False),
+        ("Battery 4 kits", ".nbkt", False),
+        ("  kits play their preview when tapped", ".ogg", True)]),
+    ("NOT READABLE", (864, 66), [
+        ("Reason ReFills", ".rfl", None),
+        ("Kontakt Player / NKS libraries", ".nki .nkx", None),
+        ("NI Massive presets (a synth, no samples)", ".nmsv", None)]),
+]
 INFO_W, INFO_H = 400, 272
+
+
+def info_panels(c, panels):
+    for title, (x, y), rows in panels:
+        panel(c, x, y, INFO_W, INFO_H, title, y + 26)
+        for i, (name, exts, ok) in enumerate(rows):
+            ry = y + 64 + i * 29
+            col = GREEN if ok else YELLOW if ok is False else RED
+            c.glow(lambda l, ry=ry, col=col: l.circle(x + 22, ry, 4.5, fill=rgba(col)), 2, 1.0)
+            c.text(x + 36, ry, name, 14, INK, "SemiBold", "lm")
+            c.text(x + INFO_W - 16, ry, exts, 13, INK_DIM, "Regular", "rm")
+
+
+def info_legend(c, x, y, red=False):
+    keys = [(GREEN, "checked against test files"), (YELLOW, "supported, not yet tested on real files")]
+    if red:
+        keys.append((RED, "detected, but cannot be read (encrypted / no samples)"))
+    for i, (col, t) in enumerate(keys):
+        c.glow(lambda l, i=i, col=col: l.circle(x + 22, y + i * 18, 4, fill=rgba(col)), 2, 1.0)
+        c.text(x + 34, y + i * 18, t, 12, INK_DIM, "SemiBold", "lm")
 
 
 def bg_info():
     c = Canvas(W, H, BG + (255,))
     topbar(c, "SUPPORTED FORMATS")
-    for title, (x, y), rows in INFO_PANELS:
-        panel(c, x, y, INFO_W, INFO_H, title, y + 26)
-        for i, (name, exts, ok) in enumerate(rows):
-            ry = y + 64 + i * 29
-            col = GREEN if ok else YELLOW
-            c.glow(lambda l, ry=ry, col=col: l.circle(x + 22, ry, 4.5, fill=rgba(col)), 2, 1.0)
-            c.text(x + 36, ry, name, 14, INK, "SemiBold", "lm")
-            c.text(x + INFO_W - 16, ry, exts, 13, INK_DIM, "Regular", "rm")
+    info_panels(c, INFO_PANELS)
     x, y = 864, 350
-    for i, (col, t) in enumerate(((GREEN, "checked against test files"), (YELLOW, "supported, not yet tested on real files"))):
-        c.glow(lambda l, i=i, col=col: l.circle(x + 22, y + 192 + i * 22, 4, fill=rgba(col)), 2, 1.0)
-        c.text(x + 34, y + 192 + i * 22, t, 12, INK_DIM, "SemiBold", "lm")
+    info_legend(c, x, y + 192)
     c.text(x + 22, y + 244, "Disk images open like folders; presets played from them", 12, INK_DIM, "Regular", "lm")
     c.text(x + 22, y + 260 - 2, "are saved to the Plugin Library (Extracted).", 12, INK_DIM, "Regular", "lm")
     c.save("bg_info")
+    # page 2
+    c = Canvas(W, H, BG + (255,))
+    topbar(c, "SUPPORTED FORMATS")
+    info_panels(c, INFO_PANELS2)
+    x, y = 16, 350
+    panel(c, x, y, 1248, INFO_H, "NOTES", y + 26)
+    notes = ["Reason NN-XT patches (.sxt) load with their samples when the samples are files next to the patch (or in a folder",
+             "named after it). A patch whose samples live inside a ReFill plays them only if they were exported as files.",
+             "ReFills (.rfl) are encrypted by Propellerhead so that only Reason opens them: export their samples and NN-XT",
+             "patches with Reason (or the ReFill's own sample folders) and load those.",
+             "Kontakt Player / NKS libraries are encrypted the same way: they are detected and reported, not played.",
+             "MV-8000 / MV-8800 drum kits start on the MV's pad 1 (A0): they are moved up to MPC's pad 1 (C1).",
+             "A single cycle or wavetable plays as an oscillator: band-limited per octave, shaped by the ADSR faders, filter and MOD.",
+             "Maschine kits put each sound on its pad from MPC's pad 1; drum synth and plugin sounds have no samples: silent."]
+    for i, t in enumerate(notes):
+        c.text(x + 22, y + 66 + i * 24, t, 14, INK, "Regular", "lm")
+    info_legend(c, x + 900, y + 66, red=True)   # beside the notes
+    c.save("bg_info2")
 
 
 def clear_image():
@@ -832,6 +908,8 @@ def images():
         arrow_image("pad_up", 38, 30, "right", lit, VIOLET)
         arrow_image("pg_prev", 70, 34, "up", lit, BLUE)
         arrow_image("pg_next", 70, 34, "down", lit, BLUE)
+        arrow_image("row_up", 44, 212, "up", lit, BLUE)
+        arrow_image("row_down", 44, 212, "down", lit, BLUE)
         for p in range(16):
             pad_image("pad%d" % (p + 1), lit, PAD_TINTS[p])
         for opt in ("Off", "Disk Images"):
@@ -848,6 +926,10 @@ def images():
         button_image("b_clear", 160, 36, "CLEAR SLOT", lit)
         button_image("b_patch", 160, 36, "SAVE PATCH", lit)
         button_image("b_panic", 92, 36, "PANIC", lit, RED)
+        for opt in ("1", "2"):
+            seg_image("info_page_" + opt, 58, 30, lit, "PG " + opt)
+        for opt in ("Off", "On"):
+            seg_image("br_preview_" + opt.lower(), 110, 34, lit, "PREVIEW " + opt.upper())
         for i in range(4):
             seg_image("slot_target_%d" % i, 50, 30, lit, "ABCD"[i], SLOT_COLOURS[i])
             seg_image("slot_load_%d" % i, 200, 30, lit, "LOADS HERE" if lit else "LOAD HERE", SLOT_COLOURS[i])
@@ -887,7 +969,7 @@ def layout():
          "theme_line=3e4754", "theme_lcd=21262e", "theme_display_ink=8fe8ff", "theme_box=13171d",
          "theme_seg_active=58def6", "theme_seg_inactive=2c333d", "theme_seg_active_tx=101318",
          "theme_knob_face=1a1d23", "theme_knob_ring=0c0f14", "theme_knob_dot=58def6",
-         "qlinks_track = attack,decay,sustain,release,cutoff,resonance,filter_vel,vel_sens,transpose,bend,tune,glide,drive,rev_mix,volume,pan", ""]
+         "qlinks_track = env_attack,env_decay,env_sustain,env_release,cutoff,resonance,filter_vel,vel_sens,transpose,bend,tune,glide,drive,rev_mix,volume,pan", ""]
 
     # PLAY
     L.append("[tab PLAY]")
@@ -925,7 +1007,7 @@ def layout():
         cx = PAD_X0 + PAD_STEP * p + PAD_W / 2
         L.append('button cx=%d cy=%d label="%02d" key=pad_%d img=art/pad%d_off.png img_on=art/pad%d_on.png w=%d h=%d'
                  % (cx, y(PADS_Y + 3), p + 1, p + 1, p + 1, p + 1, PAD_W + 12, PAD_H + 12))
-    L.append('qlinks "PLAY" = attack,decay,sustain,release,cutoff,resonance,filter_vel,vel_sens,transpose,bend,tune,glide,drive,rev_mix,volume,pan')
+    L.append('qlinks "PLAY" = env_attack,env_decay,env_sustain,env_release,cutoff,resonance,filter_vel,vel_sens,transpose,bend,tune,glide,drive,rev_mix,volume,pan')
     L.append("")
 
     # LAYERS
@@ -939,8 +1021,9 @@ def layout():
         L.append('readout cx=%d cy=%d w=%d h=30 label="" key=slot%d_name text_size=16' % (x + 62 + (SLOT_W - 76) // 2, y(SLOT_Y + 30), SLOT_W - 84, n))
         L.append('option cx=%d cy=%d w=200 h=30 key=target_slot option=%s label="" img=art/slot_load_%d_off.png img_on=art/slot_load_%d_on.png'
                  % (x + SLOT_W // 2, y(SLOT_Y + 70), "ABCD"[i], i, i))
-        L.append(knob_line(x + 80, SLOT_Y + 148, 26, "slot%d_lo" % n, col, 120))
-        L.append(knob_line(x + 220, SLOT_Y + 148, 26, "slot%d_hi" % n, col, 120))
+        L.append(knob_line(x + 56, SLOT_Y + 148, 26, "slot%d_lo" % n, col, 88))
+        L.append(knob_line(x + 150, SLOT_Y + 148, 26, "slot%d_hi" % n, col, 88))
+        L.append(knob_line(x + 244, SLOT_Y + 148, 26, "slot%d_shift" % n, col, 88))
         L.append(knob_line(x + 80, SLOT_Y + 248, 26, "slot%d_vol" % n, col, 120))
         L.append(knob_line(x + 220, SLOT_Y + 248, 26, "slot%d_tune" % n, col, 120))
         for k, opt in enumerate(("Play", "Mute")):
@@ -969,7 +1052,12 @@ def layout():
     header_lines(L)
     x, yy, w, h = BR_LIST
     L.append('readout cx=%d cy=%d w=%d h=34 label="" key=br_loc text_size=17' % (x + w // 2, y(yy + 29), w - 40))
-    L.append('list x=%d y=%d w=%d h=%d cols=1 rows=%d th=40 gap=4 key=br' % (x + 14, y(yy + 56), w - 28, BROWSER_ROWS * 44 - 4, BROWSER_ROWS))
+    # 1.7: smaller row text (MPC draws 24 px by default) and long names shortened in the middle by the engine
+    L.append('list x=%d y=%d w=%d h=%d cols=1 rows=%d th=40 gap=4 key=br text_size=19' % (x + 14, y(yy + 56), w - 84, BROWSER_ROWS * 44 - 4, BROWSER_ROWS))
+    # 1.7.3: one row up / down per tap (the page arrows below move ten)
+    L.append('button cx=%d cy=%d label="" key=br_rowup img=art/row_up_off.png img_on=art/row_up_on.png w=44 h=212' % (x + w - 37, y(yy + 56 + 106)))
+    L.append('button cx=%d cy=%d label="" key=br_rowdown img=art/row_down_off.png img_on=art/row_down_on.png w=44 h=212'
+             % (x + w - 37, y(yy + 56 + BROWSER_ROWS * 44 - 4 - 106)))
     by = yy + h - 29
     L.append('button cx=%d cy=%d label="" key=br_prev img=art/pg_prev_off.png img_on=art/pg_prev_on.png w=70 h=34' % (x + 60, y(by)))
     L.append('readout cx=%d cy=%d w=160 h=30 label="" key=br_page text_size=16' % (x + w // 2, y(by)))
@@ -980,8 +1068,13 @@ def layout():
         cy = yy + 64 + (i // 2) * 46
         L.append('button cx=%d cy=%d label="" key=br_%s img=art/b_%s_off.png img_on=art/b_%s_on.png w=220 h=40' % (cx, y(cy), key, key, key))
     L.append('button cx=%d cy=%d label="" key=br_setlib img=art/b_setlib_off.png img_on=art/b_setlib_on.png w=220 h=40' % (x + 128, y(yy + 156)))
+    for i, opt in enumerate(("Off", "On")):   # 1.7.2: kit previews
+        n = "br_preview_" + opt.lower()
+        L.append('option cx=%d cy=%d w=110 h=34 key=br_preview option=%s label="" img=art/%s_off.png img_on=art/%s_on.png'
+                 % (x + 298 + i * 116, y(yy + 156), opt, n, n))
     L.append('readout cx=%d cy=%d w=%d h=24 label="" key=lib_path text_size=12' % (x + w // 2, y(yy + 195), w - 44))
-    L.append('readout cx=%d cy=%d w=%d h=58 label="" key=br_info text_size=15' % (x + w // 2, y(yy + 269), w - 52))
+    for i in range(3):   # 1.7.3: the full name, wrapped over three lines (was br_info on one line)
+        L.append('readout cx=%d cy=%d w=%d h=18 label="" key=br_sel%d text_size=14' % (x + w // 2, y(yy + 251 + i * 18), w - 52, i + 1))
     for i in range(4):
         n = "slot_target_%d" % i
         L.append('option cx=%d cy=%d w=50 h=30 key=target_slot option=%s label="" img=art/%s_off.png img_on=art/%s_on.png'
@@ -996,7 +1089,7 @@ def layout():
         n = "set_" + opt_name("auto_extract", opt)
         L.append('option cx=%d cy=%d w=%d h=%d key=auto_extract option="%s" label="" img=art/%s_off.png img_on=art/%s_on.png'
                  % (x + 318 + i * 104, y(yy + 500), 98, 34, opt, n, n))
-    L.append('qlinks "BROWSE" = volume,pan,cutoff,resonance,rev_mix,drive,pad_vel,transpose')
+    L.append('qlinks "BROWSE" = br_row,volume,pan,cutoff,resonance,rev_mix,drive,pad_vel')
     L.append("")
 
     # SETUP
@@ -1010,7 +1103,7 @@ def layout():
             n = "set_" + opt_name(key, opt)
             L.append('option cx=%d cy=%d w=%d h=%d key=%s option=%s label="" img=art/%s_off.png img_on=art/%s_on.png'
                      % (x0 + OPT_W // 2 + i * (OPT_W + 6), y(cy), OPT_W, OPT_H, key, opt, n, n))
-    L.append('qlinks "SETUP" = polyphony,glide,bend,voice_mode,volume,pan,transpose,tune,vel_sens,filter_vel,interp,pad_base,rev_damp,mem_limit,prog_change,auto_extract')
+    L.append('qlinks "SETUP" = polyphony,glide,bend,wt_pos,volume,pan,transpose,tune,vel_sens,filter_vel,interp,pad_base,rev_damp,mem_limit,prog_change,auto_extract')
     L.append("")
 
     # MOD
@@ -1042,8 +1135,13 @@ def layout():
 
     # INFO
     L.append("[tab INFO]")
-    L.append("art file=art/bg_info.png x=0 y=%d w=1280 h=628 fit=stretch" % Y_OFF)
+    L.append("art file=art/bg_info.png x=0 y=%d w=1280 h=628 fit=stretch when=info_page:1" % Y_OFF)
+    L.append("art file=art/bg_info2.png x=0 y=%d w=1280 h=628 fit=stretch when=info_page:2" % Y_OFF)
     header_lines(L)
+    for i, opt in enumerate(("1", "2")):   # 1.7: the formats list's two pages
+        n = "info_page_" + opt
+        L.append('option cx=%d cy=%d w=58 h=30 key=info_page option=%s label="" img=art/%s_off.png img_on=art/%s_on.png'
+                 % (357 + i * 64, y(28), opt, n, n))
     L.append('qlinks "INFO" = volume,pan,cutoff,resonance,rev_mix,drive,pad_vel,transpose')
     return "\n".join(L) + "\n"
 

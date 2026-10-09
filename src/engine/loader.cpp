@@ -13,7 +13,9 @@ Loader::Loader(Sampler &sampler, Vfs &vfs) : sampler_(sampler), vfs_(vfs) {
     thread_ = std::thread([this] { run(); });
 }
 
-Loader::~Loader() {
+Loader::~Loader() { shutdown(); }
+
+void Loader::shutdown() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
         quit_ = true;
@@ -258,6 +260,15 @@ void Loader::load(const Request &r, uint32_t serial) {
         settings = omni_settings_of(li.path);
     }
     if (in_image) li.source_presets = int(presets.size());
+    {   // the reference envelope: the zone that plays middle C at a medium velocity, else the first zone
+        const Zone *ref = nullptr;
+        for (auto &z : inst.zones) if (z.key_lo <= 60 && z.key_hi >= 60 && z.vel_lo <= 100 && z.vel_hi >= 100) { ref = &z; break; }
+        if (!ref && !inst.zones.empty()) ref = &inst.zones[0];
+        if (ref && ref->amp_env.set) {
+            li.env_attack = ref->amp_env.attack; li.env_decay = ref->amp_env.decay;
+            li.env_sustain = ref->amp_env.sustain; li.env_release = std::max(0.004, ref->amp_env.release);
+        }
+    }
     slots_[slot].inst = std::move(inst);
     slots_[slot].pcm = std::move(pcm);
     slots_[slot].container = in_image && loc.inner.size() < r.path.size() ? r.path.substr(0, r.path.size() - loc.inner.size() - 1)
@@ -267,7 +278,9 @@ void Loader::load(const Request &r, uint32_t serial) {
         info_[slot] = li;
     }
     if (!publish(serial, slot)) return;
-    if (!settings.empty() && apply_settings && r.use_settings) apply_settings(settings);
+    bool had_settings = !settings.empty() && r.use_settings;
+    if (had_settings && apply_settings) apply_settings(settings);
+    if (loaded) loaded(slot, r.use_settings, had_settings);
     std::string note = warnings.empty() ? "" : warnings[0];
     if (slots_[slot].inst.zones.empty()) note = "This preset has no samples (an empty or credits preset)";
     if (note.empty() && loops_added) note = "Auto Loop: " + std::to_string(loops_added) + " zones looped";

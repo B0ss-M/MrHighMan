@@ -106,6 +106,9 @@ struct Zone {
     Filter filter;
     int midi_channel = -1;                           // -1 = any (multis that map parts to channels)
     int slot = 0;                                    // the plugin's instrument slot (A-D) the zone was loaded into
+    // a wavetable: the sample is wt_count single cycles of wt_size frames one after another; the voice loops one cycle and
+    // crossfades between neighbouring ones by the WT position (0 = not a wavetable; a single cycle is a plain loop)
+    int wt_size = 0, wt_count = 0;
 };
 
 struct Group {
