@@ -1,4 +1,4 @@
-// Omni Sampler: DSP building blocks (filters, envelope, LFO, reverb). 44.1 kHz, float.
+// Omni Sampler: DSP building blocks (filters, envelope, LFO, reverb, the FX page). 44.1 kHz, float.
 #pragma once
 #include <cmath>
 #include <cstdint>
@@ -245,6 +245,155 @@ struct Reverb {
         for (int i = 0; i < 8; i++) { l += cl[i].tick(in, fb, d1, d2); r += cr[i].tick(in, fb, d1, d2); }
         for (int i = 0; i < 4; i++) { l = al[i].tick(l); r = ar[i].tick(r); }
         outl = l; outr = r;
+    }
+};
+
+// tanh for the drive: a rational fit (exact at 0, within 2% to |x| = 3, 1 beyond). libm's tanhf costs tens of cycles
+// per call on ARMv7, and the drive ran two per sample and channel.
+inline float fast_tanh(float x) {
+    if (x > 3) return 1;
+    if (x < -3) return -1;
+    float x2 = x * x;
+    return x * (27 + x2) / (27 + 9 * x2);
+}
+
+// --- the FX page (1.8): EQ, compressor, chorus, delay; textbook designs (RBJ cookbook, Reiss & McPherson "Audio
+// Effects"), written here ---------------------------------------------------------------------------------------
+
+// RBJ biquad, transposed direct form II
+struct Biquad {
+    float b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0, z1 = 0, z2 = 0;
+    inline float tick(float x) {
+        float y = b0 * x + z1;
+        z1 = b1 * x - a1 * y + z2;
+        z2 = b2 * x - a2 * y;
+        return y;
+    }
+    void norm(float B0, float B1, float B2, float A0, float A1, float A2) { b0 = B0 / A0; b1 = B1 / A0; b2 = B2 / A0; a1 = A1 / A0; a2 = A2 / A0; }
+    void low_shelf(float hz, float db) {
+        float A = std::pow(10.0f, db / 40), w = 2 * PI_F * hz / SR, c = std::cos(w), al = std::sin(w) / 2 * std::sqrt(2.0f), sa = 2 * std::sqrt(A) * al;
+        norm(A * ((A + 1) - (A - 1) * c + sa), 2 * A * ((A - 1) - (A + 1) * c), A * ((A + 1) - (A - 1) * c - sa),
+             (A + 1) + (A - 1) * c + sa, -2 * ((A - 1) + (A + 1) * c), (A + 1) + (A - 1) * c - sa);
+    }
+    void high_shelf(float hz, float db) {
+        float A = std::pow(10.0f, db / 40), w = 2 * PI_F * hz / SR, c = std::cos(w), al = std::sin(w) / 2 * std::sqrt(2.0f), sa = 2 * std::sqrt(A) * al;
+        norm(A * ((A + 1) + (A - 1) * c + sa), -2 * A * ((A - 1) + (A + 1) * c), A * ((A + 1) + (A - 1) * c - sa),
+             (A + 1) - (A - 1) * c + sa, 2 * ((A - 1) - (A + 1) * c), (A + 1) - (A - 1) * c - sa);
+    }
+    void peak(float hz, float db, float q) {
+        float A = std::pow(10.0f, db / 40), w = 2 * PI_F * hz / SR, c = std::cos(w), al = std::sin(w) / (2 * q);
+        norm(1 + al * A, -2 * c, 1 - al * A, 1 + al / A, -2 * c, 1 - al / A);
+    }
+};
+
+// Three bands: low shelf 150 Hz, a broad mid at 1 kHz, high shelf 6 kHz; +-12 dB. Off (skipped) at 0 dB.
+struct Eq3 {
+    Biquad lo[2], mid[2], hi[2];
+    float glo = 0, gmid = 0, ghi = 0;
+    bool on = false;
+    void set(float l, float m, float h) {
+        on = std::fabs(l) > 0.05f || std::fabs(m) > 0.05f || std::fabs(h) > 0.05f;
+        if (l != glo) { for (auto &b : lo) b.low_shelf(150, l); glo = l; }
+        if (m != gmid) { for (auto &b : mid) b.peak(1000, m, 0.7f); gmid = m; }
+        if (h != ghi) { for (auto &b : hi) b.high_shelf(6000, h); ghi = h; }
+    }
+    inline void tick(float &l, float &r) {
+        l = hi[0].tick(mid[0].tick(lo[0].tick(l)));
+        r = hi[1].tick(mid[1].tick(lo[1].tick(r)));
+    }
+};
+
+// Feed-forward compressor, stereo-linked peak detector. One knob (amount 0..1): threshold 0 to -30 dB, ratio 1.5:1
+// to 6:1, attack 5 ms, release 150 ms, makeup half the gain reduction at threshold. The detector runs per sample; the
+// gain (a log and a pow) is worked out every 16 samples and glided to, which keeps it cheap on ARMv7.
+struct Compressor {
+    float env = 0, thr_db = 0, ratio = 1, makeup = 1, g = 1, gt = 1;
+    float att = std::exp(-1.0f / (0.005f * SR)), rel = std::exp(-1.0f / (0.150f * SR));
+    int count = 0;
+    void set(float amount) {
+        thr_db = -30 * amount;
+        ratio = 1.5f + 4.5f * amount;
+        makeup = std::pow(10.0f, -thr_db * (1 - 1 / ratio) * 0.5f / 20);
+    }
+    inline void tick(float &l, float &r) {
+        float x = std::max(std::fabs(l), std::fabs(r));
+        env = x > env ? att * env + (1 - att) * x : rel * env + (1 - rel) * x;
+        if (--count <= 0) {
+            count = 16;
+            gt = makeup;
+            if (env > 1e-6f) {
+                float db = 20 * std::log10(env);
+                if (db > thr_db) gt *= std::pow(10.0f, -(db - thr_db) * (1 - 1 / ratio) / 20);
+            }
+        }
+        g += (gt - g) * 0.08f;
+        l *= g; r *= g;
+    }
+};
+
+// Stereo chorus: one delay line per side read 12 ms + depth back, swept by triangle LFOs a quarter cycle apart. Linear
+// interpolation; the line is 50 ms.
+struct Chorus {
+    std::vector<float> bl, br;
+    size_t w = 0;
+    float phase = 0, inc = 0, depth = 0, mix = 0;
+    Chorus() : bl(size_t(0.05f * SR) + 4, 0.f), br(size_t(0.05f * SR) + 4, 0.f) {}
+    void set(float rate_hz, float depth01, float mix01) { inc = rate_hz / SR; depth = depth01 * 0.008f * SR; mix = mix01; }
+    void clear() { std::fill(bl.begin(), bl.end(), 0.f); std::fill(br.begin(), br.end(), 0.f); }
+    inline float read(const std::vector<float> &b, float d) const {
+        float p = float(w) - d;
+        if (p < 0) p += float(b.size());
+        size_t i = size_t(p);
+        float t = p - float(i);
+        size_t j = i + 1 == b.size() ? 0 : i + 1;
+        return b[i] + (b[j] - b[i]) * t;
+    }
+    inline void tick(float &l, float &r) {
+        bl[w] = l; br[w] = r;
+        phase += inc;
+        if (phase >= 1) phase -= 1;
+        auto sn = [](float p) { return p < 0.5f ? 4 * p - 1 : 3 - 4 * p; };   // a triangle LFO, -1..1
+        float s1 = sn(phase), s2 = sn(phase + 0.25f >= 1 ? phase - 0.75f : phase + 0.25f);
+        float base = 0.012f * SR;
+        float wl = read(bl, base + depth * (0.5f + 0.5f * s1)), wr = read(br, base + depth * (0.5f + 0.5f * s2));
+        if (++w >= bl.size()) w = 0;
+        l = l * (1 - 0.5f * mix) + wl * mix * 0.7f;
+        r = r * (1 - 0.5f * mix) + wr * mix * 0.7f;
+    }
+};
+
+// Stereo delay up to 2 s, tempo synced; feedback through a one-pole low-pass (tone); ping-pong crosses the feedback.
+// The delay time glides to a new setting (no zipper or click when the tempo or division changes).
+struct Delay {
+    std::vector<float> bl, br;
+    size_t w = 0;
+    float cur = 0, target = 0, fb = 0, mix = 0, damp = 0, sl = 0, sr = 0;
+    bool ping = false;
+    Delay() : bl(size_t(2.0f * SR) + 8, 0.f), br(size_t(2.0f * SR) + 8, 0.f) {}
+    void set(float seconds, float fb01, float tone01, float mix01, bool pp) {
+        target = std::max(1.0f, std::min(float(bl.size() - 4), seconds * SR));
+        if (cur <= 0) cur = target;
+        fb = fb01; damp = tone01 * 0.85f; mix = mix01; ping = pp;
+    }
+    void clear() { std::fill(bl.begin(), bl.end(), 0.f); std::fill(br.begin(), br.end(), 0.f); sl = sr = 0; }
+    inline float read(const std::vector<float> &b, float d) const {
+        float p = float(w) - d;
+        if (p < 0) p += float(b.size());
+        size_t i = size_t(p);
+        float t = p - float(i);
+        size_t j = i + 1 == b.size() ? 0 : i + 1;
+        return b[i] + (b[j] - b[i]) * t;
+    }
+    inline void tick(float &l, float &r) {
+        cur += (target - cur) * 0.0005f;
+        float dl = read(bl, cur), dr = read(br, cur);
+        sl = dl + (sl - dl) * damp;   // one-pole low-pass in the loop
+        sr = dr + (sr - dr) * damp;
+        if (ping) { bl[w] = (l + r) * 0.5f + sr * fb; br[w] = sl * fb; }
+        else { bl[w] = l + sl * fb; br[w] = r + sr * fb; }
+        if (++w >= bl.size()) w = 0;
+        l += dl * mix;
+        r += dr * mix;
     }
 };
 

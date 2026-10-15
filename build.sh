@@ -40,7 +40,7 @@ OBJS+=("$OBJ/glibc_compat.o")
   -c "$MV/wrapper/vst2_wrap.c" -o "$OBJ/vst2_wrap.o" &
 OBJS+=("$OBJ/vst2_wrap.o")
 wait
-"$ARM_CXX" "${ARCH[@]}" -shared "${OBJS[@]}" -static-libstdc++ -static-libgcc -lm -lpthread -Wl,--no-undefined \
+"$ARM_CXX" "${ARCH[@]}" -shared "${OBJS[@]}" -static-libstdc++ -static-libgcc -lm -lpthread -ldl -Wl,--no-undefined \
   -o "$PORT/build/omni_sampler.so"
 "$ARM_STRIP" "$PORT/build/omni_sampler.so"
 echo "exported: $(readelf --dyn-syms -W "$PORT/build/omni_sampler.so" | grep -E ' GLOBAL .* [0-9]+ [A-Za-z]' | grep -v UND | awk '{print $8}' | tr '\n' ' ')"

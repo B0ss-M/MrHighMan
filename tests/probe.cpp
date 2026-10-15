@@ -22,7 +22,7 @@ static void dump(VolumePtr vol, const std::string &inner, const FormatReader *r,
         std::printf("  zone \"%s\" g%d key %d-%d root %d vel %d-%d tune %+.3f gain %+.2f pan %+.2f kt %.2f start %lld stop %lld",
                     z.name.c_str(), z.group, z.key_lo, z.key_hi, z.root, z.vel_lo, z.vel_hi, z.tune, z.gain_db, z.pan,
                     z.key_tracking, (long long)z.start, (long long)z.stop);
-        for (auto &l : z.loops) std::printf(" loop %s %lld-%lld%s", loop_name(l.type), (long long)l.start, (long long)l.end, l.until_release ? " sus" : "");
+        for (auto &l : z.loops) std::printf(" loop %s %lld-%lld%s", loop_name(l.type), (long long)l.start, (long long)l.end, l.until_release ? " sus" : ""), l.crossfade ? (void)std::printf(" xf %lld", (long long)l.crossfade) : (void)0;
         if (z.one_shot) std::printf(" oneshot");
         if (z.reverse) std::printf(" reverse");
         if (z.exclusive_group) std::printf(" excl %d", z.exclusive_group);

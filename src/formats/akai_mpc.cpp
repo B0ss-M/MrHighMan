@@ -17,23 +17,36 @@ namespace {
 std::vector<PresetInfo> list_single(VolumePtr, const std::string &path) { return {PresetInfo{path_stem(path), 0}}; }
 double value_to_db(double v) { return v < 3e-8 ? -150 : std::max(-150.0, std::log(v) * 8.6858896380650365); }
 
-// A sample file by name next to the program (case-insensitive, any audio extension).
+// A sample file by name next to the program (case-insensitive, any audio extension). The folder is indexed by name
+// once: MPC expansions keep thousands of samples beside their programs, and a kit looks up dozens.
 struct Finder {
     VolumePtr vol;
     std::string dir;
     std::vector<DirEntry> listing;
+    std::map<std::string, std::vector<size_t>> by_stem, by_trimmed;   // lower-case stem -> files, in listing order
     std::map<std::string, std::pair<SampleRefPtr, AudioInfo>> cache;
-    Finder(VolumePtr v, const std::string &d) : vol(std::move(v)), dir(d), listing(vol->list(d)) {}
+    Finder(VolumePtr v, const std::string &d) : vol(std::move(v)), dir(d), listing(vol->list(d)) {
+        for (size_t i = 0; i < listing.size(); i++) {
+            if (listing[i].dir) continue;
+            std::string stem = lower(path_stem(listing[i].name));
+            by_trimmed[trim(stem)].push_back(i);
+            by_stem[std::move(stem)].push_back(i);
+        }
+    }
     bool find(const std::string &name, const char *exts, SampleRefPtr &ref, AudioInfo &ai, std::string *path = nullptr) {
         auto it = cache.find(name);
         if (it != cache.end()) { ref = it->second.first; ai = it->second.second; return true; }
-        std::string want = lower(name);
-        for (const auto &e : listing) {
-            if (e.dir) continue;
-            std::string ext = path_ext(e.name);
-            if ((" " + std::string(exts) + " ").find(" " + ext + " ") == std::string::npos) continue;
-            std::string stem = lower(path_stem(e.name));
-            if (stem != want && trim(stem) != trim(want)) continue;
+        std::string want = lower(name), allowed = " " + std::string(exts) + " ";
+        // the first file in the folder whose stem matches as it is or trimmed, with one of the extensions
+        size_t best = listing.size();
+        for (auto *index : {&by_stem, &by_trimmed}) {
+            auto m = index->find(index == &by_stem ? want : trim(want));
+            if (m == index->end()) continue;
+            for (size_t i : m->second)
+                if (i < best && allowed.find(" " + path_ext(listing[i].name) + " ") != std::string::npos) { best = i; break; }
+        }
+        if (best < listing.size()) {
+            const DirEntry &e = listing[best];
             std::string full = path_join(dir, e.name);
             ref = file_sample_ref(vol, full);
             try { ai = probe_audio(*vol->open(full)); } catch (const std::exception &) { ai = AudioInfo(); }

@@ -2,6 +2,7 @@
 #include "vfs.hpp"
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
 #include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
@@ -175,7 +176,34 @@ namespace {
 struct HostVolume : Volume {
     std::string kind() const override { return "Folder"; }
     static std::string real(const std::string &inner) { return "/" + inner; }
+    // A big folder's listing is kept while the folder is unchanged (same modification time), for up to 10 s: browsing,
+    // program stepping and a reader's sample search list the same folder one after another, and MPC expansions put
+    // thousands of files in one folder (a stat each). Small folders (the library's, which the plugin writes to; FAT
+    // keeps folder times to 2 s) are always read afresh.
     std::vector<DirEntry> list(const std::string &dir) override {
+        struct stat ds;
+        bool have = stat(real(dir).c_str(), &ds) == 0;
+        auto now = std::chrono::steady_clock::now();
+        if (have) {
+            std::lock_guard<std::mutex> lock(cache_mutex_);
+            auto it = cache_.find(dir);
+            if (it != cache_.end() && it->second.ino == ds.st_ino && it->second.sec == ds.st_mtim.tv_sec && it->second.nsec == ds.st_mtim.tv_nsec &&
+                now - it->second.at < std::chrono::seconds(10))
+                return it->second.entries;
+        }
+        std::vector<DirEntry> out = read_dir(dir);
+        if (have && out.size() >= 500) {
+            std::lock_guard<std::mutex> lock(cache_mutex_);
+            if (cache_.size() >= 8) cache_.clear();
+            cache_[dir] = Listing{ds.st_ino, ds.st_mtim.tv_sec, ds.st_mtim.tv_nsec, now, out};
+        }
+        return out;
+    }
+    void clear_cache() {
+        std::lock_guard<std::mutex> lock(cache_mutex_);
+        cache_.clear();
+    }
+    std::vector<DirEntry> read_dir(const std::string &dir) {
         std::vector<DirEntry> out;
         DIR *d = opendir(real(dir).c_str());
         if (!d) return out;
@@ -193,6 +221,16 @@ struct HostVolume : Volume {
         return out;
     }
     BlobPtr open(const std::string &path) override { return open_host_file(real(path)); }
+
+    struct Listing {
+        ino_t ino;
+        time_t sec;
+        long nsec;
+        std::chrono::steady_clock::time_point at;
+        std::vector<DirEntry> entries;
+    };
+    std::mutex cache_mutex_;
+    std::map<std::string, Listing> cache_;
     bool is_dir(const std::string &path) override {
         struct stat st;
         return stat(real(path).c_str(), &st) == 0 && S_ISDIR(st.st_mode);
@@ -228,6 +266,7 @@ const ImageType *probe_image(const std::string &name, const Blob &blob) {
 Vfs::Vfs() : host_(std::make_shared<HostVolume>()) {}
 
 void Vfs::forget() {
+    static_cast<HostVolume *>(host_.get())->clear_cache();
     std::lock_guard<std::mutex> lock(mutex_);
     mounts_.clear();
 }
@@ -242,11 +281,22 @@ VolumePtr Vfs::mount_image(const std::string &full, VolumePtr parent, const std:
     BlobPtr blob = parent->open(inner);
     const ImageType *t = probe_image(path_name(inner), *blob);
     if (!t) return nullptr;
-    VolumePtr v = t->mount(blob);
+    VolumePtr v = t->mount_at ? t->mount_at(parent, inner) : t->mount(blob);
     std::lock_guard<std::mutex> lock(mutex_);
     if (mounts_.size() > 16) mounts_.clear();   // images hold their open file; keep the cache small
     mounts_[full] = v;
     return v;
+}
+
+// folders first, then by name ignoring case (each name lowered once: folders can hold thousands of files)
+static void sort_entries(std::vector<DirEntry> &v) {
+    std::vector<std::pair<std::string, size_t>> keys(v.size());
+    for (size_t i = 0; i < v.size(); i++) keys[i] = {std::string(v[i].dir ? "0" : "1") + lower(v[i].name), i};
+    std::sort(keys.begin(), keys.end());
+    std::vector<DirEntry> out;
+    out.reserve(v.size());
+    for (auto &k : keys) out.push_back(std::move(v[k.second]));
+    v.swap(out);
 }
 
 Location Vfs::resolve(const std::string &full) {
@@ -274,19 +324,13 @@ std::vector<DirEntry> Vfs::list(const std::string &full) {
     Location l = resolve(full);
     if (l.volume->is_dir(l.inner)) {
         std::vector<DirEntry> v = l.volume->list(l.inner);
-        std::sort(v.begin(), v.end(), [](const DirEntry &a, const DirEntry &b) {
-            if (a.dir != b.dir) return a.dir;
-            return lower(a.name) < lower(b.name);
-        });
+        sort_entries(v);
         return v;
     }
     VolumePtr img = mount_image(full, l.volume, l.inner);
     if (!img) throw ParseError("not a folder or disk image: " + full);
     std::vector<DirEntry> v = img->list("");
-    std::sort(v.begin(), v.end(), [](const DirEntry &a, const DirEntry &b) {
-        if (a.dir != b.dir) return a.dir;
-        return lower(a.name) < lower(b.name);
-    });
+    sort_entries(v);
     return v;
 }
 
@@ -297,6 +341,22 @@ bool Vfs::is_container(const std::string &full) {
         return mount_image(full, l.volume, l.inner) != nullptr;
     } catch (const std::exception &) {
         return false;
+    }
+}
+
+const char *Vfs::view_name(const std::string &full) {
+    std::string ext = path_ext(full);
+    bool any = false;
+    for (auto &t : image_types()) if (t.view_ext && ext == t.view_ext) any = true;
+    if (!any) return nullptr;
+    try {
+        Location l = resolve(full);
+        if (l.volume->is_dir(l.inner)) return nullptr;
+        BlobPtr blob = l.volume->open(l.inner);
+        const ImageType *t = probe_image(path_name(l.inner), *blob);
+        return t && t->view_ext ? t->name : nullptr;
+    } catch (const std::exception &) {
+        return nullptr;
     }
 }
 

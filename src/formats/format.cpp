@@ -37,6 +37,13 @@ void register_all() {
         register_ni();
         register_roland();
         register_reason();
+        register_ensoniq();
+        register_korg();
+        register_korg_triton();
+        register_korg_trinity();
+        register_korg_m1();
+        register_yamaha();
+        register_logic();
         register_omni_native();
         register_wav_folder();
         register_images();

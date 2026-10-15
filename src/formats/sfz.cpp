@@ -264,14 +264,17 @@ Instrument load_sfz(VolumePtr vol, const std::string &path, int) {
             l.type = lt == "backward" ? LoopType::Backward : lt == "alternate" ? LoopType::Alternating : LoopType::Forward;
             l.start = int64_t(s.num2("loop_start", "loopstart", -1));
             l.end = int64_t(s.num2("loop_end", "loopend", -1));
-            l.crossfade = int64_t(s.num("loop_crossfade", 0) * 44100);   // seconds, sample rate unknown here
-            if (l.start < 0 || l.end < 0) {
-                // loop points from the file's smpl chunk, read at load time
+            double xf_s = s.num("loop_crossfade", 0);   // seconds: frames at the sample's own rate
+            int rate = 44100;
+            if (l.start < 0 || l.end < 0 || xf_s > 0) {
+                // loop points from the file's smpl chunk, and its rate, read from its header
                 try {
                     AudioInfo ai = probe_audio(*vol->open(found));
+                    if (ai.rate > 0) rate = ai.rate;
                     if (!ai.loops.empty()) { Loop f = ai.loops[0]; if (l.start < 0) l.start = f.start; if (l.end < 0) l.end = f.end; }
                 } catch (const std::exception &) {}
             }
+            l.crossfade = int64_t(xf_s * rate + 0.5);
             if (l.start >= 0 && l.end > l.start) z.loops.push_back(l);
         } else if (mode.empty()) {
             // SFZ default: loop when the file has loop points

@@ -13,9 +13,13 @@
 #include <cstring>
 #include <condition_variable>
 #include <deque>
+#include <map>
+#include <set>
+#include <sstream>
 #include <mutex>
 #include <thread>
 #include <sys/stat.h>
+#include <unistd.h>
 extern "C" {
 #include "engine.h"
 }
@@ -30,11 +34,12 @@ namespace {
 
 constexpr int ROWS = 10;
 
-enum class RowKind { Up, Drive, Folder, Image, File, Preset };
+enum class RowKind { Up, Drive, Folder, Image, File, Preset, Group };
 struct Row {
     std::string label, path;
     RowKind kind;
     int preset = 0;
+    std::string group{};   // Group: the type of file it holds (path = the folder)
 };
 
 // Numeric parameters: key, default (in parameter units). Order is irrelevant here; params.json fixes VST indices.
@@ -53,6 +58,11 @@ const NumParam NUM_PARAMS[] = {
     {"br_preview", 1},   // 1.7.2: play a kit's preview (NI .previews/<file>.ogg) when it is tapped
     // 1.7.3: each slot's key shift (its whole mapping moves up or down the keyboard; the sound keeps its pitch)
     {"slot1_shift", 0}, {"slot2_shift", 0}, {"slot3_shift", 0}, {"slot4_shift", 0},
+    // 1.8: each slot's pan (-100..100)
+    {"slot1_pan", 0}, {"slot2_pan", 0}, {"slot3_pan", 0}, {"slot4_pan", 0},
+    // 1.8: the FX page
+    {"eq_low", 0}, {"eq_mid", 0}, {"eq_high", 0}, {"comp", 0}, {"cho_mix", 0}, {"cho_rate", 50}, {"cho_depth", 50},
+    {"dly_mix", 0}, {"dly_time", 5}, {"dly_fb", 35}, {"dly_tone", 30}, {"dly_ping", 0},
     {"slot1_lo", 0}, {"slot1_hi", 127}, {"slot1_vol", 0}, {"slot1_tune", 0}, {"slot1_mute", 0},
     {"slot2_lo", 0}, {"slot2_hi", 127}, {"slot2_vol", 0}, {"slot2_tune", 0}, {"slot2_mute", 0},
     {"slot3_lo", 0}, {"slot3_hi", 127}, {"slot3_vol", 0}, {"slot3_tune", 0}, {"slot3_mute", 0},
@@ -68,6 +78,9 @@ const NumParam NUM_PARAMS[] = {
     {"mod6_src", 7}, {"mod6_dst", 2}, {"mod6_amt", 0},
     {"mod7_src", 4}, {"mod7_dst", 4}, {"mod7_amt", 0},
     {"mod8_src", 1}, {"mod8_dst", 4}, {"mod8_amt", 0},
+    // 1.8: the slot each route acts on: 0 = all (as before), 1..4 = A..D
+    {"mod1_slot", 0}, {"mod2_slot", 0}, {"mod3_slot", 0}, {"mod4_slot", 0},
+    {"mod5_slot", 0}, {"mod6_slot", 0}, {"mod7_slot", 0}, {"mod8_slot", 0},
 
 };
 constexpr int NUM_COUNT = int(sizeof NUM_PARAMS / sizeof NUM_PARAMS[0]);
@@ -81,6 +94,8 @@ struct Omni {
 
     std::mutex ui_mutex;
     std::string dir;                 // full path of the folder or image shown; "" = the drives list
+    std::string group;               // 1.8: the type group of dir shown ("Drum Programs"...); "" = the whole folder
+    std::map<std::string, std::string> xpm_kinds;   // MPC program path -> its group, read once (ui_mutex)
     std::string preset_file;
     std::string sel_path;            // the row last tapped (file or preset): highlighted until another is tapped
     // the Plugin Library's location: the user's choice (an SD card or SSD folder, saved in <data_dir>/library_path.txt
@@ -105,7 +120,11 @@ struct Omni {
     std::atomic<int> pad_req[16];
     int pad_gate[16] = {}, pad_note[16] = {};   // audio thread only
     std::atomic<int> pad_base_rev{0};
-    std::atomic<int> pad_panic{0};       // PANIC: the audio thread drops the pads' pending notes and gates
+    std::atomic<int> pad_panic{0};
+    // 1.8: each slot's key range as it is before its key shift (UI thread), so shifting is reversible: a closed end
+    // shifted off the keyboard is clamped there and comes back when shifted back (it used to stay at the edge and then
+    // count as open)
+    struct RangeBase { bool set = false, open = false; int base = 0; } range_base[4][2];       // PANIC: the audio thread drops the pads' pending notes and gates
     // the envelope faders: how far they are moved from the target slot's preset envelope (s; sustain 0..1), and whether
     // their values came from a project / patch / saved instrument (then the next load keeps them) or follow the preset
     std::atomic<float> d_env[4] = {};
@@ -135,12 +154,30 @@ int num_index(const char *key) {
 
 float num(Omni *o, const char *key) { int i = num_index(key); return i < 0 ? 0 : o->values[i].load(); }
 
-std::string default_library(Omni *o) { return path_join(o->data_dir, "library"); }
 bool host_dir(const std::string &p) { struct stat st; return !p.empty() && stat(p.c_str(), &st) == 0 && S_ISDIR(st.st_mode); }
-// the chosen library when its drive is there, else the internal one
+// 1.8: the Plugin Library is only ever on an SD card / USB drive / SSD (sample libraries are large and the internal
+// storage is small). MPC OS mounts its own storage under /media too: az01-internal (= /data), az01-internal-sd
+// (= /sdcard) and acvs-content (read-only), so a folder counts as external when it is under /media/<drive>, the drive
+// is not one of those, and (when it is mounted) it is not on the same device as /, /data or /sdcard.
+bool external_path(const std::string &p) {
+    if (p.compare(0, 7, "/media/") != 0) return false;
+    std::string drive = p.substr(7, p.find('/', 7) == std::string::npos ? std::string::npos : p.find('/', 7) - 7);
+    if (drive.empty() || drive.compare(0, 4, "az01") == 0 || drive == "acvs-content") return false;
+    struct stat st, in;
+    if (stat(p.c_str(), &st) != 0) return true;   // not connected now: judged by its name
+    for (const char *i : {"/", "/data", "/sdcard"})
+        if (stat(i, &in) == 0 && in.st_dev == st.st_dev) return false;
+    return true;
+}
+// the chosen library when its drive is there, else "" (no library: never the internal storage)
 std::string library_dir(Omni *o) {
     std::lock_guard<std::mutex> lock(o->lib_mutex);
-    return host_dir(o->lib_choice) ? o->lib_choice : default_library(o);
+    return host_dir(o->lib_choice) ? o->lib_choice : std::string();
+}
+// where SAVE TO LIBRARY / Auto Extract / SAVE PATCH write: "" (they say so) while there is no library
+void update_extract(Omni *o) {
+    std::string lib = library_dir(o);
+    o->loader.set_extract(int(num(o, "auto_extract") + 0.5f), lib.empty() ? std::string() : path_join(lib, "Extracted"));
 }
 std::string library_choice(Omni *o) {
     std::lock_guard<std::mutex> lock(o->lib_mutex);
@@ -154,6 +191,8 @@ float env_units(float ms) { return 1000.0f * std::cbrt(std::max(0.0f, std::min(E
 
 // LFO rate knob 0..100 -> 0.02..20 Hz (logarithmic)
 float lfo_hz(float v) { return 0.02f * std::pow(1000.0f, std::max(0.0f, std::min(100.0f, v)) / 100.0f); }
+// chorus rate knob 0..100 -> 0.05..5 Hz (logarithmic)
+float chorus_hz(float v) { return 0.05f * std::pow(100.0f, std::max(0.0f, std::min(100.0f, v)) / 100.0f); }
 
 void apply_settings(Omni *o) {
     Settings &s = o->sampler.settings;
@@ -180,6 +219,16 @@ void apply_settings(Omni *o) {
     s.reverb_damp.store(num(o, "rev_damp") / 100.0f);
     s.drive.store(num(o, "drive") / 100.0f);
     s.wt_pos.store(num(o, "wt_pos") / 100.0f);
+    s.eq_low.store(num(o, "eq_low")); s.eq_mid.store(num(o, "eq_mid")); s.eq_high.store(num(o, "eq_high"));
+    s.comp.store(num(o, "comp") / 100.0f);
+    s.chorus_mix.store(num(o, "cho_mix") / 100.0f);
+    s.chorus_rate.store(chorus_hz(num(o, "cho_rate")));
+    s.chorus_depth.store(num(o, "cho_depth") / 100.0f);
+    s.delay_mix.store(num(o, "dly_mix") / 100.0f);
+    s.delay_div.store(int(num(o, "dly_time") + 0.5f));
+    s.delay_fb.store(num(o, "dly_fb") / 100.0f);
+    s.delay_tone.store(num(o, "dly_tone") / 100.0f);
+    s.delay_ping.store(num(o, "dly_ping") > 0.5f ? 1 : 0);
     s.d_attack.store(o->d_env[0].load()); s.d_decay.store(o->d_env[1].load());
     s.d_sustain.store(o->d_env[2].load()); s.d_release.store(o->d_env[3].load());
     for (int i = 0; i < 2; i++) {
@@ -194,6 +243,7 @@ void apply_settings(Omni *o) {
         std::snprintf(k, sizeof k, "mod%d_src", i + 1); s.mod_src[i].store(int(num(o, k) + 0.5f));
         std::snprintf(k, sizeof k, "mod%d_dst", i + 1); s.mod_dst[i].store(int(num(o, k) + 0.5f));
         std::snprintf(k, sizeof k, "mod%d_amt", i + 1); s.mod_amt[i].store(num(o, k) / 100.0f);
+        std::snprintf(k, sizeof k, "mod%d_slot", i + 1); s.mod_layer[i].store(int(num(o, k) + 0.5f));
     }
     for (int i = 0; i < 4; i++) {
         char k[24];
@@ -204,13 +254,14 @@ void apply_settings(Omni *o) {
         std::snprintf(k, sizeof k, "slot%d_tune", i + 1); s.slot_tune[i].store(num(o, k));
         std::snprintf(k, sizeof k, "slot%d_mute", i + 1); s.slot_mute[i].store(num(o, k) > 0.5f ? 1 : 0);
         std::snprintf(k, sizeof k, "slot%d_shift", i + 1); s.slot_shift[i].store(int(std::lround(num(o, k))));
+        std::snprintf(k, sizeof k, "slot%d_pan", i + 1); s.slot_pan[i].store(std::max(-1.0f, std::min(1.0f, num(o, k) / 100.0f)));
     }
     s.layer_mode.store(int(num(o, "layer_mode") + 0.5f));
     s.ks_base.store(int(num(o, "ks_base") + 0.5f));
     o->loader.set_target(int(num(o, "target_slot") + 0.5f));
     o->loader.set_auto_loop(num(o, "auto_loop") > 0.5f);
     o->loader.set_budget_mb(int(num(o, "mem_limit")));
-    o->loader.set_extract(int(num(o, "auto_extract") + 0.5f), path_join(library_dir(o), "Extracted"));
+    update_extract(o);
 }
 
 // The target slot's preset envelope with the older offset settings (attack +, decay %, sustain %, release +) applied:
@@ -271,23 +322,29 @@ bool is_dir_host(const std::string &p) {
 
 bool listable_ext(const std::string &ext) {
     if (ext.empty()) return false;
-    for (auto &f : formats()) {
-        std::string exts = std::string(" ") + f.exts + " ";
-        if (exts.find(" " + ext + " ") != std::string::npos) return true;
-    }
-    return false;
+    // every reader's extensions, gathered once (asked for each file of a folder: expansions hold thousands)
+    static const std::set<std::string> all = [] {
+        std::set<std::string> s;
+        for (auto &f : formats()) {
+            std::istringstream in(f.exts);
+            std::string e;
+            while (in >> e) s.insert(e);
+        }
+        return s;
+    }();
+    return all.count(ext) > 0;
 }
 
 bool image_ext(const std::string &ext) {
     static const char *exts[] = {"iso", "img", "bin", "cdr", "hda", "hdf", "hds", "out", "sdk", "hfe", "imd", "dsk",
-                                 "ima", "raw", "toc", "e3", "eiv", "e4", "ei", "em", "emu", "akai", "dmg", "nrg", "mdf"};
+                                 "ima", "raw", "toc", "cue", "e3", "eiv", "e4", "ei", "em", "emu", "akai", "dmg", "nrg", "mdf"};
     for (auto *e : exts) if (ext == e) return true;
     return false;
 }
 
 std::string short_path(Omni *o, const std::string &p) {
     std::string lib = library_dir(o);
-    if (p.compare(0, lib.size(), lib) == 0) return "Library" + p.substr(lib.size());
+    if (!lib.empty() && p.compare(0, lib.size(), lib) == 0) return "Library" + p.substr(lib.size());
     if (p.compare(0, 7, "/sdcard") == 0) return "Internal" + p.substr(7);
     if (p.compare(0, 6, "/media") == 0) return p.substr(6);
     return p;
@@ -330,7 +387,7 @@ std::string browse_info(Omni *o) {
     if (o->br_busy.load()) return "Opening...";
     std::string st = o->loader.status();   // a failed load is shown here, where the tap was made
     if (st.compare(0, 6, "Error:") == 0 || st.compare(0, 7, "Extract") == 0 || st.compare(0, 4, "Save") == 0 ||
-        st.compare(0, 7, "Nothing") == 0)   // (a kit whose samples are missing still plays its preview)
+        st.compare(0, 7, "Nothing") == 0 || st.compare(0, 9, "No Plugin") == 0)   // (a kit whose samples are missing still plays its preview)
         return st + (st.compare(0, 6, "Error:") == 0 && o->sampler.previewing.load() ? " - preview playing" : "");
     return o->browse_msg.empty() ? o->info_text : o->browse_msg;
 }
@@ -368,6 +425,16 @@ std::vector<std::string> wrap_lines(const std::string &s, size_t width, size_t l
     return out;
 }
 
+// the folder line: long paths keep their start and, mostly, their end (the folder shown)
+std::string fit_loc(const std::string &s) {
+    constexpr size_t MAX = 72, HEAD = 20;
+    std::vector<size_t> starts;   // UTF-8 character starts
+    for (size_t i = 0; i < s.size(); i++) if ((static_cast<unsigned char>(s[i]) & 0xC0) != 0x80) starts.push_back(i);
+    if (starts.size() <= MAX) return s;
+    size_t tail = MAX - HEAD - 3;
+    return s.substr(0, starts[HEAD]) + "..." + s.substr(starts[starts.size() - tail]);
+}
+
 std::string fit_row(const std::string &s) {
     constexpr size_t MAX = 64, HEAD = 36;
     std::vector<size_t> starts;   // UTF-8 character starts
@@ -380,19 +447,84 @@ std::string fit_row(const std::string &s) {
 void list_drives(Omni *o) {
     o->rows.clear();
     o->dir.clear();
+    o->group.clear();
     o->preset_file.clear();
     o->top = 0;
-    o->rows.push_back({"Plugin Library", library_dir(o), RowKind::Drive});
+    std::string lib = library_dir(o);   // listed only while its drive is connected
+    if (!lib.empty()) o->rows.push_back({"Plugin Library", lib, RowKind::Drive});
     if (is_dir_host("/sdcard")) o->rows.push_back({"Internal", "/sdcard", RowKind::Drive});
     std::vector<DirEntry> media;
     try { media = o->vfs.list("/media"); } catch (const std::exception &) {}
-    for (auto &m : media) if (m.dir) o->rows.push_back({m.name, "/media/" + m.name, RowKind::Drive});
+    // MPC OS's own mounts (the internal storage again, the system data, read-only content) are not drives to browse
+    for (auto &m : media) if (m.dir && external_path("/media/" + m.name)) o->rows.push_back({m.name, "/media/" + m.name, RowKind::Drive});
     const char *extra = std::getenv("OMNI_SAMPLER_ROOT");   // tests and desktop builds
     if (extra && *extra) o->rows.push_back({extra, extra, RowKind::Drive});
     rebuild_on(o);
 }
 
-void list_folder(Omni *o, const std::string &dir) {
+// 1.8: the type group of a listable file, for folders that mix instruments with loose samples (MPC expansions:
+// hundreds of programs among thousands of WAVs). MPC programs are told apart by their Program type, read once.
+const char SAMPLES_GROUP[] = "Samples";
+std::string file_group(Omni *o, const std::string &full, const std::string &ext) {
+    static const char *const AUDIO[] = {"wav", "wave", "aif", "aiff", "aifc", "flac", "ogg", "ncw"};
+    for (const char *a : AUDIO) if (ext == a) return SAMPLES_GROUP;
+    if (ext == "omnipatch") return "Patches";
+    if (ext == "xpm") {
+        auto it = o->xpm_kinds.find(full);
+        if (it != o->xpm_kinds.end()) return it->second;
+        std::string kind = "Programs";
+        try {
+            std::vector<uint8_t> h = o->vfs.open(full)->head(4096);
+            std::string s(h.begin(), h.end());
+            size_t at = s.find("Program type=\"");
+            if (at != std::string::npos) {
+                std::string t = lower(s.substr(at + 14, 8));
+                if (!t.compare(0, 8, "keygroup")) kind = "Keygroup Programs";
+                else if (!t.compare(0, 4, "drum")) kind = "Drum Programs";
+            }
+        } catch (const std::exception &) {}
+        if (o->xpm_kinds.size() > 20000) o->xpm_kinds.clear();
+        return o->xpm_kinds[full] = kind;
+    }
+    std::string up = ext;
+    for (char &c : up) c = char(std::toupper(static_cast<unsigned char>(c)));
+    return up + " Files";
+}
+
+// A folder's listable files by type group, in the order the groups are shown; grouped only when the folder mixes
+// instruments with samples (a plain sample folder or instrument folder is listed as it is)
+struct FolderGroups {
+    std::vector<std::pair<std::string, std::vector<std::string>>> groups;   // group -> file names
+    bool mixed = false;
+};
+FolderGroups folder_groups(Omni *o, const std::string &dir, const std::vector<DirEntry> &entries) {
+    FolderGroups fg;
+    std::map<std::string, size_t> at;
+    for (auto &e : entries) {
+        if (e.dir || e.name.empty() || e.name[0] == '.') continue;
+        std::string full = path_join(dir, e.name), ext = path_ext(e.name);
+        if (!(listable_ext(ext) || ext == "omnipatch") || o->vfs.view_name(full)) continue;
+        std::string g = file_group(o, full, ext);
+        auto it = at.find(g);
+        if (it == at.end()) { it = at.emplace(g, fg.groups.size()).first; fg.groups.push_back({g, {}}); }
+        fg.groups[it->second].second.push_back(e.name);
+    }
+    bool samples = at.count(SAMPLES_GROUP) > 0;
+    fg.mixed = samples && fg.groups.size() > 1;
+    // programs first (keygroups, drums, others), other instrument types, patches, the samples last
+    auto rank = [](const std::string &g) {
+        if (g == "Keygroup Programs") return 0;
+        if (g == "Drum Programs") return 1;
+        if (g == "Programs") return 2;
+        if (g == "Patches") return 4;
+        if (g == SAMPLES_GROUP) return 5;
+        return 3;
+    };
+    std::stable_sort(fg.groups.begin(), fg.groups.end(), [&](const auto &a, const auto &b) { return rank(a.first) < rank(b.first); });
+    return fg;
+}
+
+void list_folder(Omni *o, const std::string &dir, const std::string &group = "") {
     std::vector<DirEntry> entries;
     try {
         entries = o->vfs.list(dir);
@@ -401,18 +533,34 @@ void list_folder(Omni *o, const std::string &dir) {
         o->ui_rev.fetch_add(1);
         return;
     }
+    FolderGroups fg = folder_groups(o, dir, entries);
+    std::string show = fg.mixed ? group : "";
     o->dir = dir;
+    o->group = show;
     o->preset_file.clear();
     o->top = 0;
     o->rows.clear();
-    o->rows.push_back({"..", path_dir(dir), RowKind::Up});
+    o->rows.push_back({"..", show.empty() ? path_dir(dir) : dir, RowKind::Up});
+    if (!show.empty()) {   // one type group of a mixed folder
+        for (auto &g : fg.groups)
+            if (g.first == show)
+                for (auto &n : g.second) o->rows.push_back({n, path_join(dir, n), RowKind::File});
+        o->browse_msg.clear();
+        rebuild_on(o);
+        return;
+    }
     for (auto &e : entries) {
         if (e.name.empty() || e.name[0] == '.') continue;   // hidden files, macOS "._" resource forks
         std::string full = path_join(dir, e.name), ext = path_ext(e.name);
         if (e.dir) o->rows.push_back({"[" + e.name + "]", full, RowKind::Folder});
-        else if (listable_ext(ext) || ext == "omnipatch") o->rows.push_back({e.name, full, RowKind::File});
+        else if (const char *view = o->vfs.view_name(full))   // a file shown as folders: TRITON's manifest by its view's name
+            o->rows.push_back({"[" + (ext == "csv" ? std::string(view) : e.name) + "]", full, RowKind::Folder});
+        else if (listable_ext(ext) || ext == "omnipatch") { if (!fg.mixed) o->rows.push_back({e.name, full, RowKind::File}); }
         else if (image_ext(ext)) o->rows.push_back({"<" + e.name + ">", full, RowKind::Image});
     }
+    if (fg.mixed)
+        for (auto &g : fg.groups)
+            o->rows.push_back({"[" + g.first + " (" + std::to_string(g.second.size()) + ")]", dir, RowKind::Group, 0, g.first});
     o->browse_msg.clear();
     rebuild_on(o);
 }
@@ -457,7 +605,8 @@ void tap_row(Omni *o, int index) {
     Row row = o->rows[size_t(index)];
     switch (row.kind) {
     case RowKind::Up:
-        if (!o->preset_file.empty()) { list_folder(o, o->dir); break; }
+        if (!o->preset_file.empty()) { list_folder(o, o->dir, o->group); break; }
+        if (!o->group.empty()) { list_folder(o, o->dir); break; }   // a type group: back to its folder
         if (o->dir.empty() || o->dir == "/" || row.path.empty()) list_drives(o);
         else {
             // leaving a drive root goes back to the drives list
@@ -469,8 +618,12 @@ void tap_row(Omni *o, int index) {
         }
         break;
     case RowKind::Drive:
-        if (row.path == library_dir(o)) mkdir(row.path.c_str(), 0755);
+        if (!row.path.empty() && row.path == library_dir(o)) mkdir(row.path.c_str(), 0755);
         list_folder(o, row.path);
+        break;
+    case RowKind::Group:
+        list_folder(o, row.path, row.group);
+        o->info_text = path_name(row.path) + ": " + row.label.substr(1, row.label.size() - 2);
         break;
     case RowKind::Folder:
     case RowKind::Image:
@@ -537,7 +690,14 @@ void step_program(Omni *o, int delta) {
     std::vector<DirEntry> entries;
     try { entries = o->vfs.list(path_dir(li.path)); } catch (const std::exception &) { return; }
     std::vector<std::string> files;
-    for (auto &e : entries) if (!e.dir && listable_ext(path_ext(e.name))) files.push_back(path_join(path_dir(li.path), e.name));
+    FolderGroups fg = folder_groups(o, path_dir(li.path), entries);
+    if (fg.mixed) {   // 1.8: a folder of programs and samples steps through the loaded file's own type
+        std::string g = file_group(o, li.path, path_ext(li.path));
+        for (auto &gr : fg.groups)
+            if (gr.first == g)
+                for (auto &n : gr.second) if (listable_ext(path_ext(n))) files.push_back(path_join(path_dir(li.path), n));
+    } else
+        for (auto &e : entries) if (!e.dir && listable_ext(path_ext(e.name))) files.push_back(path_join(path_dir(li.path), e.name));
     if (files.empty()) return;
     auto it = std::find(files.begin(), files.end(), li.path);
     int i = it == files.end() ? 0 : int(it - files.begin());
@@ -548,17 +708,21 @@ void step_program(Omni *o, int delta) {
 // ---------------------------------------------------------------------------------------------------------------
 // instrument settings: the sound parameters an extracted instrument remembers (not the slots, pads or system)
 
+// 1.8: mod1_slot .. mod8_slot
+bool mod_route_slot(const char *key) { return !std::strncmp(key, "mod", 3) && std::isdigit(static_cast<unsigned char>(key[3])) && !std::strcmp(key + 4, "_slot"); }
+
 bool sound_param(const char *key) {
     static const char *const NOT[] = {"mem_limit", "prog_change", "auto_extract", "pad_vel", "pad_base", "target_slot", "layer_mode",
                                       "ks_base", "auto_loop", "info_page", "br_preview"};
     for (const char *n : NOT) if (!std::strcmp(key, n)) return false;
+    if (mod_route_slot(key)) return false;   // which slot a route acts on: a patch (all four slots) keeps it
     return std::strncmp(key, "slot", 4) != 0;
 }
 
 // a patch also keeps the slots' key ranges, levels and tuning and the layer mode
 bool patch_param(const char *key) {
     if (sound_param(key)) return true;
-    if (!std::strcmp(key, "layer_mode") || !std::strcmp(key, "ks_base")) return true;
+    if (!std::strcmp(key, "layer_mode") || !std::strcmp(key, "ks_base") || mod_route_slot(key)) return true;
     return !std::strncmp(key, "slot", 4) && std::isdigit(static_cast<unsigned char>(key[4]));
 }
 
@@ -714,8 +878,11 @@ void update_displays(Omni *o) {
         int k0 = t * 4, k1 = t * 4 + 3, play = 0, mask = 0;
         for (size_t i = 0; i < m.zones.size(); i++) {
             const ZoneBrief &z = m.zones[i];
-            if (z.key_hi < k0 || z.key_lo > k1) continue;
             int sl = z.slot & 3;
+            // 1.8: where the zone plays: its slot's key shift moves it (it used to be drawn at its own keys, so a slot
+            // shifted down never showed below the instrument's lowest key); keys shifted off the keyboard are not drawn
+            int sh = s.slot_shift[sl].load(), zlo = z.key_lo + sh, zhi = z.key_hi + sh;
+            if (zhi < k0 || zlo > k1 || zhi < 0 || zlo > 127) continue;
             bool sounding = !s.slot_mute[sl].load() &&
                             (ks ? sl == o->sampler.active_slot.load() : !(s.slot_hi[sl].load() < k0 || s.slot_lo[sl].load() > k1));
             if (sounding) play = std::max(play, have && int(i) == zi ? 2 : 1);
@@ -736,6 +903,7 @@ void diag_loop(Omni *o) {
         update_displays(o);
         delete o->sampler.take_retired_preview();   // a finished preview, freed here (not on the audio thread)
         if (++tick % 30) continue;
+        update_extract(o);   // the library's drive plugged in or pulled out
         struct stat st;
         if (stat("/sdcard/omni-debug", &st) != 0) continue;
         Settings &s = o->sampler.settings;
@@ -770,8 +938,13 @@ void *create(const char *data_dir) {
             if (std::fgets(b, sizeof b, f)) o->lib_choice = trim(b);
             std::fclose(f);
         }
+        // a choice on the internal storage (before 1.8 that was allowed, and was the default) is not a library any more;
+        // the file keeps it until a new one is set. OMNI_SAMPLER_LIBRARY: tests and desktop builds (no /media there)
+        const char *test_lib = std::getenv("OMNI_SAMPLER_LIBRARY");
+        if (test_lib && *test_lib) { mkdir(test_lib, 0755); o->lib_choice = test_lib; }
+        else if (!external_path(o->lib_choice)) o->lib_choice.clear();
+        if (!o->lib_choice.empty()) set_search_dirs({o->lib_choice});   // where readers look for shared samples (M1 disk)
     }
-    mkdir(default_library(o).c_str(), 0755);
     apply_settings(o);
     {
         std::lock_guard<std::mutex> lock(o->ui_mutex);
@@ -827,12 +1000,17 @@ void set_param(void *inst, const char *key, const char *val) {
     if (ni >= 0) {
         if (!std::strncmp(key, "slot", 4) && !std::strcmp(key + 5, "_shift")) {
             // moving a slot moves its key range with it (an open end, Low at C-2 or High at G8, stays open)
-            int d = int(std::lround(std::atof(val) - o->values[ni].load()));
+            int old_shift = int(std::lround(o->values[ni].load())), new_shift = int(std::lround(std::atof(val)));
+            int slot = (key[4] - '1') & 3;
             char k[24];
-            for (const char *e : {"_lo", "_hi"}) {
-                std::snprintf(k, sizeof k, "slot%c%s", key[4], e);
-                int ki = num_index(k), v = int(std::lround(o->values[ki].load()));
-                if (d && v != (e[1] == 'l' ? 0 : 127)) o->values[ki].store(float(std::max(0, std::min(127, v + d))));
+            for (int e = 0; e < 2; e++) {
+                std::snprintf(k, sizeof k, "slot%c%s", key[4], e ? "_hi" : "_lo");
+                int ki = num_index(k), v = int(std::lround(o->values[ki].load())), edge = e ? 127 : 0;
+                Omni::RangeBase &rb = o->range_base[slot][e];
+                // the stored range still describes this end unless something else moved it (a knob, a patch, auto split)
+                bool same = rb.set && v == (rb.open ? edge : std::max(0, std::min(127, rb.base + old_shift)));
+                if (!same) { rb.set = true; rb.open = v == edge; rb.base = v - old_shift; }
+                if (!rb.open && new_shift != old_shift) o->values[ki].store(float(std::max(0, std::min(127, rb.base + new_shift))));
             }
         }
         o->values[ni].store(float(std::atof(val)));
@@ -928,26 +1106,44 @@ void browse_action(Omni *o, const std::string &key) {
         else if (!std::strcmp(k, "rowdown")) set_top(o, o->top + 1);
         else if (!std::strcmp(k, "up")) { if (!o->rows.empty() && o->rows[0].kind == RowKind::Up) tap_row(o, 0); else list_drives(o); }
         else if (!std::strcmp(k, "drives")) list_drives(o);
-        else if (!std::strcmp(k, "library")) list_folder(o, library_dir(o));
+        else if (!std::strcmp(k, "library")) {
+            std::string lib = library_dir(o);
+            if (!lib.empty()) list_folder(o, lib);
+            else {
+                std::string c = library_choice(o);
+                list_drives(o);
+                o->browse_msg = c.empty() ? "No Plugin Library yet: open a folder on an SD card or SSD, then SET LIBRARY HERE"
+                                          : "Plugin Library drive not connected: " + c;
+            }
+        }
         else if (!std::strcmp(k, "setlib")) {
-            // the folder shown becomes the Plugin Library (the drives list: back to the internal one)
+            // the folder shown becomes the Plugin Library: a real folder on an SD card / USB drive / SSD, never internal
             std::string dir = o->preset_file.empty() ? o->dir : "";
-            bool ok = dir.empty();
-            if (!ok) try { ok = o->vfs.resolve(dir).volume->kind() == "Folder" && host_dir(dir); } catch (const std::exception &) {}
-            if (!ok) o->browse_msg = "Open a folder on a drive (not inside a disk image), then SET LIBRARY HERE";
+            bool ok = false;
+            if (!dir.empty()) try { ok = o->vfs.resolve(dir).volume->kind() == "Folder" && host_dir(dir); } catch (const std::exception &) {}
+            if (!ok) o->browse_msg = "Open a folder on an SD card or SSD (not inside a disk image), then SET LIBRARY HERE";
+            else if (!external_path(dir)) o->browse_msg = "The Plugin Library must be on an SD card or SSD, not the internal storage";
             else {
                 {
                     std::lock_guard<std::mutex> lock(o->lib_mutex);
                     o->lib_choice = dir;
                 }
-                FILE *f = std::fopen(path_join(o->data_dir, "library_path.txt").c_str(), "w");
-                if (f) { std::fputs(dir.c_str(), f); std::fclose(f); }
+                set_search_dirs({dir});
+                // remembered for every project and kept by reinstalls (<data_dir> is the installer's user data);
+                // written whole then renamed, so a power cut can't leave it empty
+                std::string lp = path_join(o->data_dir, "library_path.txt");
+                FILE *f = std::fopen((lp + ".new").c_str(), "w");
+                if (f) {
+                    bool w = std::fputs(dir.c_str(), f) >= 0;
+                    w = (std::fflush(f) == 0) && w;
+                    fsync(fileno(f));
+                    if (std::fclose(f) == 0 && w) std::rename((lp + ".new").c_str(), lp.c_str());
+                }
                 apply_settings(o);
-                o->browse_msg = dir.empty() ? "Plugin Library: internal storage" : "Plugin Library: " + short_path(o, dir);
-                if (o->dir.empty()) list_drives(o);
+                o->browse_msg = "Plugin Library: " + short_path(o, dir);
             }
         }
-        else if (!std::strcmp(k, "refresh")) { o->vfs.forget(); if (o->dir.empty()) list_drives(o); else list_folder(o, o->dir); }
+        else if (!std::strcmp(k, "refresh")) { o->vfs.forget(); o->xpm_kinds.clear(); if (o->dir.empty()) list_drives(o); else list_folder(o, o->dir, o->group); }
     }
 }
 
@@ -1040,7 +1236,12 @@ int get_param(void *inst, const char *key, char *buf, int len) {
         if (ni >= 0 && k.find("_vol") != std::string::npos) return std::snprintf(buf, size_t(len), "%+.0f dB", o->values[ni].load());
         if (ni >= 0 && k.find("_tune") != std::string::npos) return std::snprintf(buf, size_t(len), "%+.0f st", o->values[ni].load());
         if (ni >= 0 && k.find("_shift") != std::string::npos) return std::snprintf(buf, size_t(len), "%+.0f keys", o->values[ni].load());
+        if (ni >= 0 && k.find("_pan") != std::string::npos) {
+            int p = int(std::lround(o->values[ni].load()));
+            return p ? std::snprintf(buf, size_t(len), "%c%d", p < 0 ? 'L' : 'R', std::abs(p)) : put(buf, len, "C");
+        }
     }
+    if (!std::strcmp(key, "cho_rate_display")) return std::snprintf(buf, size_t(len), "%.2f Hz", chorus_hz(num(o, "cho_rate")));
     if (!std::strcmp(key, "cutoff_display")) {
         float hz = 20.0f * std::pow(1000.0f, num(o, "cutoff") / 100.0f);
         return hz >= 1000 ? std::snprintf(buf, size_t(len), "%.1f kHz", hz / 1000) : std::snprintf(buf, size_t(len), "%.0f Hz", hz);
@@ -1094,8 +1295,8 @@ int get_param(void *inst, const char *key, char *buf, int len) {
     }
     if (!std::strcmp(key, "lib_path")) {
         std::string c = library_choice(o);
-        if (c.empty()) return put(buf, len, "LIBRARY: internal storage");
-        if (!host_dir(c)) return put(buf, len, "LIBRARY: " + c + " (not connected: using internal)");
+        if (c.empty()) return put(buf, len, "LIBRARY: not set - choose a folder on an SD card or SSD");
+        if (!host_dir(c)) return put(buf, len, "LIBRARY: " + c + " (drive not connected)");
         return put(buf, len, "LIBRARY: " + c);
     }
     if (!std::strcmp(key, "prog_format")) {
@@ -1135,8 +1336,8 @@ int get_param(void *inst, const char *key, char *buf, int len) {
             return put(buf, len, i < o->rows.size() ? fit_row(o->rows[i].label) : " ");
         }
         if (!std::strcmp(k, "loc")) {
-            if (!o->preset_file.empty()) return put(buf, len, short_path(o, o->preset_file));
-            return put(buf, len, o->dir.empty() ? "Drives" : short_path(o, o->dir));
+            if (!o->preset_file.empty()) return put(buf, len, fit_loc(short_path(o, o->preset_file)));
+            return put(buf, len, o->dir.empty() ? "Drives" : fit_loc(short_path(o, o->group.empty() ? o->dir : path_join(o->dir, o->group))));
         }
         if (!std::strcmp(k, "page")) {   // "11-20 of 37"
             int n = int(o->rows.size());

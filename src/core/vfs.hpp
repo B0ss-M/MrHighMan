@@ -54,6 +54,8 @@ struct Volume {
     virtual BlobPtr open(const std::string &path) = 0;           // throws ParseError when missing
     virtual bool is_dir(const std::string &path);
     virtual bool exists(const std::string &path);
+    // A view: another way of listing files that stay on the drive (not an image), so Auto Extract leaves its presets
+    virtual bool view() const { return false; }
 };
 using VolumePtr = std::shared_ptr<Volume>;
 
@@ -62,6 +64,10 @@ struct ImageType {
     const char *name;
     bool (*probe)(const std::string &lower_name, const uint8_t *head, size_t n, uint64_t size);
     VolumePtr (*mount)(BlobPtr image);                           // throws ParseError
+    // A view of a file among its neighbours (a library's index): mounted with the volume and path it is at instead.
+    // view_ext: the one extension it can be, so the browser probes only those files.
+    VolumePtr (*mount_at)(VolumePtr parent, const std::string &inner) = nullptr;
+    const char *view_ext = nullptr;
 };
 void register_image_type(const ImageType &type);
 const std::vector<ImageType> &image_types();
@@ -82,6 +88,7 @@ public:
     Location resolve(const std::string &full);                   // throws ParseError
     std::vector<DirEntry> list(const std::string &full);         // a folder or a mounted image
     bool is_container(const std::string &full);                  // folder or mountable image
+    const char *view_name(const std::string &full);              // a file that opens as a view: its type's name
     BlobPtr open(const std::string &full) { Location l = resolve(full); return l.volume->open(l.inner); }
     void forget();                                               // drop cached image mounts
 

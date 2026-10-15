@@ -1,5 +1,5 @@
 // Omni Sampler: audio decoding to int16 Pcm. Files: WAV (PCM/float/extensible, RF64, RIFX), AIFF/AIFC (none, sowt,
-// fl32, fl64, raw, in24, in32), FLAC (dr_flac), Ogg Vorbis (stb_vorbis), NI NCW. Raw helpers for sample data
+// fl32, fl64, raw, in24, in32), FLAC (dr_flac), Ogg Vorbis (stb_vorbis), NI NCW, CAF (linear PCM). Raw helpers for sample data
 // embedded in banks and disk images.
 #pragma once
 #include <cstdint>

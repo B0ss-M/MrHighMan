@@ -2586,7 +2586,8 @@
    "name": "Formats Page",
    "options": [
     "1",
-    "2"
+    "2",
+    "3"
    ],
    "default": 0
   },
@@ -2742,6 +2743,276 @@
    "default": 0,
    "display": "string",
    "type": "readout",
+   "live": true
+  },
+  {
+   "key": "slot1_pan",
+   "name": "Slot A Pan",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "slot2_pan",
+   "name": "Slot B Pan",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "slot3_pan",
+   "name": "Slot C Pan",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "slot4_pan",
+   "name": "Slot D Pan",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "eq_low",
+   "name": "EQ Low",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "eq_mid",
+   "name": "EQ Mid",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "eq_high",
+   "name": "EQ High",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "comp",
+   "name": "Compressor",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "cho_mix",
+   "name": "Chorus Mix",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "cho_rate",
+   "name": "Chorus Rate",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "cho_depth",
+   "name": "Chorus Depth",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "dly_mix",
+   "name": "Delay Mix",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "dly_time",
+   "name": "Delay Time",
+   "options": [
+    "1/32",
+    "1/16 T",
+    "1/16",
+    "1/16 .",
+    "1/8 T",
+    "1/8",
+    "1/8 .",
+    "1/4 T",
+    "1/4",
+    "1/4 .",
+    "1/2",
+    "1 Bar"
+   ],
+   "default": 5,
+   "live": true
+  },
+  {
+   "key": "dly_fb",
+   "name": "Delay Feedback",
+   "min": 0,
+   "max": 95,
+   "default": 35,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "dly_tone",
+   "name": "Delay Damping",
+   "min": 0,
+   "max": 100,
+   "default": 30,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "dly_ping",
+   "name": "Delay Mode",
+   "options": [
+    "Stereo",
+    "Ping-Pong"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "mod1_slot",
+   "name": "Mod 1 Slot",
+   "options": [
+    "All",
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "mod2_slot",
+   "name": "Mod 2 Slot",
+   "options": [
+    "All",
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "mod3_slot",
+   "name": "Mod 3 Slot",
+   "options": [
+    "All",
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "mod4_slot",
+   "name": "Mod 4 Slot",
+   "options": [
+    "All",
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "mod5_slot",
+   "name": "Mod 5 Slot",
+   "options": [
+    "All",
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "mod6_slot",
+   "name": "Mod 6 Slot",
+   "options": [
+    "All",
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "mod7_slot",
+   "name": "Mod 7 Slot",
+   "options": [
+    "All",
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "mod8_slot",
+   "name": "Mod 8 Slot",
+   "options": [
+    "All",
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0,
    "live": true
   }
  ]

@@ -25,6 +25,8 @@ import os
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+_v = json.load(open(os.path.join(HERE, "vst.json")))["version"]
+VERSION = "%d.%d.%d" % (_v // 1000, _v // 100 % 10, _v % 100)   # 1800 -> 1.8.0
 REPO = os.environ.get("MPC_VST") or os.path.join(os.path.dirname(HERE), "mpc-vst-plugins")   # sd88me/mpc-vst-plugins checkout
 ART = os.path.join(HERE, "art")
 TITILLIUM = os.path.join(REPO, "tools", "html_art", "fonts")
@@ -53,10 +55,14 @@ SLOT_COLOURS = [CYAN, VIOLET, ORANGE, GREEN]
 
 BROWSER_ROWS = 10
 WAVE_BARS = 48
+DELAY_TIMES = ["1/32", "1/16 T", "1/16", "1/16 .", "1/8 T", "1/8", "1/8 .", "1/4 T", "1/4", "1/4 .", "1/2", "1 Bar"]
+FX_KEYS = {"eq_low", "eq_mid", "eq_high", "comp", "cho_mix", "cho_rate", "cho_depth", "dly_mix", "dly_time", "dly_fb",
+           "dly_tone", "dly_ping"}
 SOUND_KEYS = {"volume", "pan", "transpose", "tune", "cutoff", "resonance", "filter_type", "filter_vel", "attack", "decay",
               "sustain", "release", "vel_sens", "bend", "polyphony", "voice_mode", "glide", "interp", "rev_mix", "rev_size",
               "rev_damp", "drive", "wt_pos", "env_attack", "env_decay", "env_sustain", "env_release"} | {"lfo%d_%s" % (i, k) for i in (1, 2) for k in ("wave", "rate", "sync", "retrig")} | \
-             {"mod%d_%s" % (i, k) for i in range(1, 9) for k in ("src", "dst", "amt")}
+             {"mod%d_%s" % (i, k) for i in range(1, 9) for k in ("src", "dst", "amt", "slot")} | FX_KEYS
+MOD_ROUTE_SLOTS = ["All", "A", "B", "C", "D"]
 LFO_WAVES = ["Sine", "Triangle", "Saw Up", "Saw Down", "Square", "S&H"]
 LFO_SYNC = ["Free", "4 Bars", "2 Bars", "1 Bar", "1/2", "1/4", "1/8", "1/16", "1/32", "1/4 T", "1/8 T", "1/16 T", "1/4 .", "1/8 .",
             "1/16 ."]
@@ -186,7 +192,7 @@ def params():
     trigger("panic", "Panic")
     # 1.7: the browser list's scroll position (a fader beside it; the data wheel and a Q-Link move it a row at a time)
     add("br_scroll", "Browser Scroll", min=0, max=1, default=1, live=True)
-    add("info_page", "Formats Page", options=["1", "2"], default=0)   # INFO: which page of the formats list
+    add("info_page", "Formats Page", options=["1", "2", "3"], default=0)   # INFO: which page of the formats list
     # 1.7: wavetables: the position through their cycles (a sound setting: saved with an instrument, Q-Link, matrix target)
     num("wt_pos", "WT Position", 0, 100, 0, "%")
     # 1.7.1: the envelope faders in real values (times on a curve: units 0..1000 = 0..60 s, sustain %); set from the preset
@@ -208,6 +214,26 @@ def params():
     # 1.7.3: BROWSE's SELECTED box in three lines, wrapped by the engine, so a long folder or file name shows in full
     for i in range(1, 4):
         text("br_sel%d" % i, "Browser Selected %d" % i)
+    # 1.8: each slot's pan (LAYERS; saved with projects and patches)
+    for i, L_ in ((1, "A"), (2, "B"), (3, "C"), (4, "D")):
+        add("slot%d_pan" % i, "Slot %s Pan" % L_, min=-100, max=100, default=0, display="int", dynamic_display=True)
+    # 1.8: the FX page: EQ, compressor, chorus and a tempo-synced delay, before the reverb (sound settings: saved with
+    # instruments, patches and projects)
+    num("eq_low", "EQ Low", -12, 12, 0, "dB")
+    num("eq_mid", "EQ Mid", -12, 12, 0, "dB")
+    num("eq_high", "EQ High", -12, 12, 0, "dB")
+    num("comp", "Compressor", 0, 100, 0, "%")
+    num("cho_mix", "Chorus Mix", 0, 100, 0, "%")
+    add("cho_rate", "Chorus Rate", min=0, max=100, default=50, display="int", dynamic_display=True)
+    num("cho_depth", "Chorus Depth", 0, 100, 50, "%")
+    num("dly_mix", "Delay Mix", 0, 100, 0, "%")
+    add("dly_time", "Delay Time", options=DELAY_TIMES, default=5)
+    num("dly_fb", "Delay Feedback", 0, 95, 35, "%")
+    num("dly_tone", "Delay Damping", 0, 100, 30, "%")
+    add("dly_ping", "Delay Mode", options=["Stereo", "Ping-Pong"], default=0)
+    # 1.8: the instrument slot each matrix route acts on (All = every slot, as before; appended so no index moves)
+    for n in range(1, 9):
+        add("mod%d_slot" % n, "Mod %d Slot" % n, options=MOD_ROUTE_SLOTS, default=0)
     # settings an extracted instrument restores reach MPC's controls through the live polling
     for p in P:
         if p["key"] in SOUND_KEYS:
@@ -690,6 +716,7 @@ LFO_BOX = [(16, 66), (16, 350)]
 LFO_BW, LFO_BH = 400, 270
 MX = (432, 66, 832, 554)
 MX_ROW0, MX_STEP = 96, 58
+MX_SRC, MX_DST, MX_SLOT, MX_PW, MX_SW = 172, 414, 572, 210, 80   # 1.8: column centres, popup widths (source/dest, slot)
 
 
 def bg_mod():
@@ -703,14 +730,41 @@ def bg_mod():
         knob_label(c, x + 270, yy + 200, "RETRIGGER")
     x, yy, w, h = MX
     panel(c, x, yy, w, h, "MOD MATRIX", yy + 26)
-    for label, cx in (("SOURCE", x + 200), ("DESTINATION", x + 480), ("AMOUNT", x + 700)):
+    # 1.8: source / destination narrower for the SLOT column (All, A-D: the slot the route acts on)
+    for label, cx in (("SOURCE", x + MX_SRC), ("DESTINATION", x + MX_DST), ("SLOT", x + MX_SLOT), ("AMOUNT", x + 700)):
         knob_label(c, cx, yy + 58, label)
     for i in range(8):
         ry = yy + MX_ROW0 + i * MX_STEP
         c.rrect(x + 14, ry - 24, w - 28, 48, 8, fill=(26, 31, 38, 255), outline=(52, 60, 72), width=1)
         c.text(x + 40, ry, str(i + 1), 18, CYAN, "Bold")
-        arrow_glyph(c, x + 340, ry, "right", (120, 200, 240), 9)
+        arrow_glyph(c, x + (MX_SRC + MX_DST) // 2, ry, "right", (120, 200, 240), 9)
     c.save("bg_mod")
+
+
+# 1.8: the FX page: EQ / compressor / reverb & drive on top, chorus / delay below; knobs: cx, cy (plugin y), key, label, colour
+FX_PANELS = [("EQ", (16, 66, 470, 270)), ("COMPRESSOR", (502, 66, 200, 270)), ("REVERB & DRIVE", (718, 66, 546, 270)),
+             ("CHORUS", (16, 350, 470, 270)), ("DELAY", (502, 350, 762, 270))]
+FX_KNOBS = [(96, 210, "eq_low", "LOW", CYAN), (251, 210, "eq_mid", "MID", CYAN), (406, 210, "eq_high", "HIGH", CYAN),
+            (602, 210, "comp", "AMOUNT", ORANGE),
+            (800, 210, "rev_mix", "MIX", VIOLET), (930, 210, "rev_size", "SIZE", VIOLET), (1060, 210, "rev_damp", "DAMPING", VIOLET),
+            (1190, 210, "drive", "DRIVE", ORANGE),
+            (96, 494, "cho_mix", "MIX", GREEN), (251, 494, "cho_rate", "RATE", GREEN), (406, 494, "cho_depth", "DEPTH", GREEN),
+            (582, 494, "dly_mix", "MIX", BLUE), (912, 494, "dly_fb", "FEEDBACK", BLUE), (1052, 494, "dly_tone", "DAMPING", BLUE)]
+
+
+def bg_fx():
+    c = Canvas(W, H, BG + (255,))
+    topbar(c, "EFFECTS")
+    for title, (x, yy, w, h) in FX_PANELS:
+        panel(c, x, yy, w, h, title, yy + 26)
+    for cx, cy, _, label, _ in FX_KNOBS:
+        knob_label(c, cx, cy - 62, label)
+    knob_label(c, 742, 432, "TIME")
+    knob_label(c, 1190, 432, "MODE")
+    c.text(26 + 444 / 2, 66 + 250, "LOW 150 HZ  ·  MID 1 KHZ  ·  HIGH 6 KHZ", 12, INK_DIM, "SemiBold", "mm")
+    c.text(502 + 100, 66 + 250, "ONE-KNOB GLUE", 12, INK_DIM, "SemiBold", "mm")
+    c.text(502 + 762 / 2, 350 + 250, "SYNCED TO MPC'S TEMPO", 12, INK_DIM, "SemiBold", "mm")
+    c.save("bg_fx")
 
 
 SLOT_X0, SLOT_STEP, SLOT_Y, SLOT_W, SLOT_H = 16, 314, 66, 300, 336
@@ -730,7 +784,7 @@ def bg_layers():
         c.rrect(x + 62, SLOT_Y + 14, SLOT_W - 76, 32, 7, fill=DARK, outline=(64, 74, 88), width=1)
         for lx, lab in ((x + 56, "LOW KEY"), (x + 150, "HIGH KEY"), (x + 244, "KEY SHIFT")):
             knob_label(c, lx, SLOT_Y + 108, lab)
-        for lx, lab in ((x + 80, "VOLUME"), (x + 220, "TRANSPOSE")):
+        for lx, lab in ((x + 56, "VOLUME"), (x + 150, "PAN"), (x + 244, "TRANSPOSE")):
             knob_label(c, lx, SLOT_Y + 208, lab)
     x, yy, w, h = LMAP
     panel(c, x, yy, w, h, "LAYER MAP", yy + 22)
@@ -784,7 +838,7 @@ INFO_PANELS = [
         ("AIFF / AIFC", ".aif .aiff .aifc", False),
         ("FLAC / Ogg Vorbis", ".flac .ogg", False)]),
     ("DISK IMAGES", (440, 350), [
-        ("CD / DVD: ISO 9660, raw BIN", ".iso .bin .img", True),
+        ("CD / DVD: ISO 9660, BIN / CUE", ".iso .bin .cue .img", True),
         ("FAT12/16/32: floppy, ZIP, CF", ".img .ima .dsk .raw", True),
         ("Akai S1000 / S3000 CD + HD", ".iso .img .hda .hds", True),
         ("Akai floppies", ".img .dsk", False),
@@ -799,9 +853,11 @@ INFO_PANELS = [
 ]
 # 1.7: INFO page 2 (PAGE 1 / PAGE 2 in the title bar): newer formats, and what cannot be read. ok None = not readable
 INFO_PANELS2 = [
-    ("REASON / SYNTH WAVES", (16, 66), [
+    ("REASON / LOGIC / SYNTH WAVES", (16, 66), [
         ("Reason NN-XT patches", ".sxt", True),
         ("  samples next to the patch", ".wav .aif", True),
+        ("Logic EXS24 / Sampler instruments", ".exs", True),   # 1.8
+        ("  samples next to it or below", ".wav .aif .caf", True),
         ("Single cycle waveforms", ".wav (256-4096)", True),
         ("Wavetables (Serum, Surge)", ".wav (clm, srge)", True),
         ("  WT POSITION: SETUP + mod matrix", "", True)]),
@@ -815,7 +871,34 @@ INFO_PANELS2 = [
     ("NOT READABLE", (864, 66), [
         ("Reason ReFills", ".rfl", None),
         ("Kontakt Player / NKS libraries", ".nki .nkx", None),
-        ("NI Massive presets (a synth, no samples)", ".nmsv", None)]),
+        ("NI Massive presets (a synth, no samples)", ".nmsv", None),
+        ("Korg TRITON program banks", ".pcg", None)]),
+    # 1.8
+    ("ENSONIQ", (16, 350), [
+        ("EPS / EPS-16+ / ASR-10 / ASR-88", ".efe", True),
+        ("  disks: raw floppy / HD images", ".img .iso", True),
+        ("  Giebler disks", ".gkh .eda .ede", True),
+        ("  HFE floppies", ".hfe", True),
+        ("  patch selects as presets", "", True)]),
+    ("YAMAHA", (864, 350), [
+        ("Motif XS / XF, MOXF libraries", ".x0a .x0v .x3a .x6a ...", True),
+        ("Montage / MODX: performances", ".x7l .x7u .x8l .x8u", True),
+        ("Montage M", ".y2l .y2u", False),
+        ("Motif ES voice + sample files", ".w7a + .w8a", True)]),
+    ("KORG", (440, 350), [
+        ("Trinity / Triton / Karma multisamples", ".kmp", True),
+        ("  samples (8 / 16 bit)", ".ksf", True),
+        ("  load scripts (all multisamples)", ".ksc", True),
+        ("TRITON content dumps", "manifest.csv", True),   # 1.8
+        ("TRINITY banks: TFD disk programs", ".pcg", True),   # 1.8
+        ("M1 programs + combis (ROM/disk)", ".syx", True)]),   # 1.8
+    ("YAMAHA", (864, 350), [
+        ("Motif XS libraries", ".x0a .x0w .x0v", True),
+        ("Motif XF libraries", ".x3a .x3w .x3v", True),
+        ("MOXF libraries", ".x6a .x6w .x6v", False),
+        ("Montage libraries", ".x7u .x7l .x7a", True),
+        ("Montage M / MODX libraries", ".y2* .x8*", False),
+        ("Motif ES waveforms", ".w7a .w8a", True)]),
 ]
 INFO_W, INFO_H = 400, 272
 
@@ -853,7 +936,12 @@ def bg_info():
     c = Canvas(W, H, BG + (255,))
     topbar(c, "SUPPORTED FORMATS")
     info_panels(c, INFO_PANELS2)
-    x, y = 16, 350
+    info_legend(c, 864, 66 + 192, red=True)   # 1.8: under NOT READABLE (KORG is full; the notes moved to page 3)
+    c.save("bg_info2")
+    # 1.8: page 3, notes and about
+    c = Canvas(W, H, BG + (255,))
+    topbar(c, "SUPPORTED FORMATS")
+    x, y = 16, 66
     panel(c, x, y, 1248, INFO_H, "NOTES", y + 26)
     notes = ["Reason NN-XT patches (.sxt) load with their samples when the samples are files next to the patch (or in a folder",
              "named after it). A patch whose samples live inside a ReFill plays them only if they were exported as files.",
@@ -862,11 +950,19 @@ def bg_info():
              "Kontakt Player / NKS libraries are encrypted the same way: they are detected and reported, not played.",
              "MV-8000 / MV-8800 drum kits start on the MV's pad 1 (A0): they are moved up to MPC's pad 1 (C1).",
              "A single cycle or wavetable plays as an oscillator: band-limited per octave, shaped by the ADSR faders, filter and MOD.",
-             "Maschine kits put each sound on its pad from MPC's pad 1; drum synth and plugin sounds have no samples: silent."]
+             "Maschine kits put each sound on its pad from MPC's pad 1; drum synth and plugin sounds have no samples: silent.",
+             "Yamaha parts that use the keyboard's own preset waveforms (not stored in the library) are left out, with a warning."]
     for i, t in enumerate(notes):
-        c.text(x + 22, y + 66 + i * 24, t, 14, INK, "Regular", "lm")
-    info_legend(c, x + 900, y + 66, red=True)   # beside the notes
-    c.save("bg_info2")
+        c.text(x + 22, y + 58 + i * 23, t, 14, INK, "Regular", "lm")
+    y = 350
+    panel(c, x, y, 1248, INFO_H, "ABOUT", y + 26)
+    about = [("Omni Sampler %s by MR HighMan" % VERSION, 18, INK, "SemiBold"),
+             ("Contact: mrhighmanproductions@gmail.com", 18, INK, "SemiBold"),
+             ("Bug reports and format requests welcome: say which file, which sampler it came from, and what went wrong.", 14, INK_DIM, "Regular")]
+    # the readers' LGPL-3.0 attribution (ConvertWithMoss) ships in licenses/NOTICE.txt with every release
+    for i, (t, size, col, wt) in enumerate(about):
+        c.text(640, y + 80 + i * 40, t, size, col, wt, "mm")
+    c.save("bg_info3")
 
 
 def clear_image():
@@ -888,6 +984,7 @@ def images():
     bg_info()
     bg_mod()
     bg_layers()
+    bg_fx()
     strip_wave("wave_bar", WAVE_W, WAVE_H)
     strip_states("ptile", PTILE_W, 16, 3, draw_ptile)
     strip_states("ltile", LT_W, LT_H, 16, draw_ltile)
@@ -926,7 +1023,7 @@ def images():
         button_image("b_clear", 160, 36, "CLEAR SLOT", lit)
         button_image("b_patch", 160, 36, "SAVE PATCH", lit)
         button_image("b_panic", 92, 36, "PANIC", lit, RED)
-        for opt in ("1", "2"):
+        for opt in ("1", "2", "3"):
             seg_image("info_page_" + opt, 58, 30, lit, "PG " + opt)
         for opt in ("Off", "On"):
             seg_image("br_preview_" + opt.lower(), 110, 34, lit, "PREVIEW " + opt.upper())
@@ -937,6 +1034,8 @@ def images():
                 seg_image("slot%d_%s" % (i, opt.lower()), 90, 30, lit, opt.upper(), SLOT_COLOURS[i] if opt == "Play" else RED)
         for opt in ("Layer", "Keyswitch"):
             seg_image(opt_name("layer_mode", opt), 120, 32, lit, opt.upper())
+        for opt in ("Stereo", "Ping-Pong"):
+            seg_image(opt_name("dly_ping", opt), 120, 32, lit, opt.upper())
         for opt in ("Off", "On"):
             seg_image("set_" + opt_name("auto_loop", opt), OPT_W, OPT_H, lit, opt.upper())
         for key, label in (("drives", "DRIVES"), ("library", "PLUGIN LIBRARY"), ("up", "FOLDER UP"), ("refresh", "REFRESH")):
@@ -1024,8 +1123,9 @@ def layout():
         L.append(knob_line(x + 56, SLOT_Y + 148, 26, "slot%d_lo" % n, col, 88))
         L.append(knob_line(x + 150, SLOT_Y + 148, 26, "slot%d_hi" % n, col, 88))
         L.append(knob_line(x + 244, SLOT_Y + 148, 26, "slot%d_shift" % n, col, 88))
-        L.append(knob_line(x + 80, SLOT_Y + 248, 26, "slot%d_vol" % n, col, 120))
-        L.append(knob_line(x + 220, SLOT_Y + 248, 26, "slot%d_tune" % n, col, 120))
+        L.append(knob_line(x + 56, SLOT_Y + 248, 26, "slot%d_vol" % n, col, 88))
+        L.append(knob_line(x + 150, SLOT_Y + 248, 26, "slot%d_pan" % n, col, 88))
+        L.append(knob_line(x + 244, SLOT_Y + 248, 26, "slot%d_tune" % n, col, 88))
         for k, opt in enumerate(("Play", "Mute")):
             m = "slot%d_%s" % (i, opt.lower())
             L.append('option cx=%d cy=%d w=90 h=30 key=slot%d_mute option=%s label="" img=art/%s_off.png img_on=art/%s_on.png'
@@ -1042,8 +1142,9 @@ def layout():
     L.append('button cx=%d cy=%d label="" key=auto_split img=art/b_split_off.png img_on=art/b_split_on.png w=160 h=36' % (980, y(ly + 188)))
     L.append('button cx=%d cy=%d label="" key=slot_clear img=art/b_clear_off.png img_on=art/b_clear_on.png w=160 h=36' % (1160, y(ly + 188)))
     L.append('button cx=%d cy=%d label="" key=patch_save img=art/b_patch_off.png img_on=art/b_patch_on.png w=160 h=36' % (800, y(ly + 188)))
-    L.append('qlinks "LAYERS" = slot1_lo,slot1_hi,slot1_vol,slot1_tune,slot2_lo,slot2_hi,slot2_vol,slot2_tune,'
-             'slot3_lo,slot3_hi,slot3_vol,slot3_tune,slot4_lo,slot4_hi,slot4_vol,slot4_tune')
+    # 1.8: a slot's bank is low key, high key, volume, pan (transpose stays on its touch knob)
+    L.append('qlinks "LAYERS" = slot1_lo,slot1_hi,slot1_vol,slot1_pan,slot2_lo,slot2_hi,slot2_vol,slot2_pan,'
+             'slot3_lo,slot3_hi,slot3_vol,slot3_pan,slot4_lo,slot4_hi,slot4_vol,slot4_pan')
     L.append("")
 
     # BROWSE
@@ -1125,23 +1226,41 @@ def layout():
     x, yy, w, h = MX
     for i in range(8):
         n, ry = i + 1, yy + MX_ROW0 + i * MX_STEP
-        L.append('popup cx=%d cy=%d w=250 h=38 label="" key=mod%d_src text_size=16' % (x + 200, y(ry), n))
-        L.append('popup cx=%d cy=%d w=250 h=38 label="" key=mod%d_dst text_size=16' % (x + 480, y(ry), n))
+        L.append('popup cx=%d cy=%d w=%d h=38 label="" key=mod%d_src text_size=16' % (x + MX_SRC, y(ry), MX_PW, n))
+        L.append('popup cx=%d cy=%d w=%d h=38 label="" key=mod%d_dst text_size=16' % (x + MX_DST, y(ry), MX_PW, n))
+        L.append('popup cx=%d cy=%d w=%d h=38 label="" key=mod%d_slot text_size=16' % (x + MX_SLOT, y(ry), MX_SW, n))
         # a small knob, not slider_h: MPC's horizontal slider is a square 150 px filmstrip box that overlaps the rows
         L.append('knob cx=%d cy=%d r=17 key=mod%d_amt label="" name=hide value=hide strip=art/%s.png' % (x + 700, y(ry), n, KNOB_STRIPS[CYAN]))
         L.append('readout cx=%d cy=%d w=66 h=32 label="" key=mod%d_amt text_size=16' % (x + 786, y(ry), n))
     L.append('qlinks "MOD" = mod1_amt,mod2_amt,mod3_amt,mod4_amt,mod5_amt,mod6_amt,mod7_amt,mod8_amt,lfo1_rate,lfo1_wave,lfo1_sync,lfo1_retrig,lfo2_rate,lfo2_wave,lfo2_sync,lfo2_retrig')
     L.append("")
 
+    # FX (1.8)
+    L.append("[tab FX]")
+    L.append("art file=art/bg_fx.png x=0 y=%d w=1280 h=628 fit=stretch" % Y_OFF)
+    header_lines(L)
+    for cx, cy, key, _, col in FX_KNOBS:
+        L.append(knob_line(cx, cy, 34, key, col, 120))
+    L.append('popup cx=%d cy=%d w=180 h=38 label="" key=dly_time text_size=17' % (742, y(474)))
+    for k, opt in enumerate(("Stereo", "Ping-Pong")):
+        m = opt_name("dly_ping", opt)
+        L.append('option cx=%d cy=%d w=120 h=32 key=dly_ping option=%s label="" img=art/%s_off.png img_on=art/%s_on.png'
+                 % (1190, y(466 + k * 40), opt, m, m))
+    L.append('qlinks "FX" = eq_low,eq_mid,eq_high,comp,cho_mix,cho_rate,cho_depth,dly_mix,dly_time,dly_fb,dly_tone,dly_ping,'
+             'rev_mix,rev_size,rev_damp,drive')
+    L.append("")
+
     # INFO
     L.append("[tab INFO]")
     L.append("art file=art/bg_info.png x=0 y=%d w=1280 h=628 fit=stretch when=info_page:1" % Y_OFF)
     L.append("art file=art/bg_info2.png x=0 y=%d w=1280 h=628 fit=stretch when=info_page:2" % Y_OFF)
+    L.append("art file=art/bg_info3.png x=0 y=%d w=1280 h=628 fit=stretch when=info_page:3" % Y_OFF)
     header_lines(L)
-    for i, opt in enumerate(("1", "2")):   # 1.7: the formats list's two pages
+    # 1.7: the formats list's pages (1.8: three; PG 3 sits right of the title, which PG 1 / PG 2 stop short of)
+    for opt, cx in (("1", 357), ("2", 421), ("3", 867)):
         n = "info_page_" + opt
         L.append('option cx=%d cy=%d w=58 h=30 key=info_page option=%s label="" img=art/%s_off.png img_on=art/%s_on.png'
-                 % (357 + i * 64, y(28), opt, n, n))
+                 % (cx, y(28), opt, n, n))
     L.append('qlinks "INFO" = volume,pan,cutoff,resonance,rev_mix,drive,pad_vel,transpose')
     return "\n".join(L) + "\n"
 

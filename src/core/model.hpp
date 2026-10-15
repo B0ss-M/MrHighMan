@@ -105,6 +105,8 @@ struct Zone {
     int bend_up = 200, bend_down = -200;             // cents
     Filter filter;
     int midi_channel = -1;                           // -1 = any (multis that map parts to channels)
+    int cc_num = -1, cc_lo = 0, cc_hi = 127;         // plays only while that controller is in [lo, hi] (-1 = always;
+                                                     // Logic's pedal-up / pedal-down piano layers on CC64)
     int slot = 0;                                    // the plugin's instrument slot (A-D) the zone was loaded into
     // a wavetable: the sample is wt_count single cycles of wt_size frames one after another; the voice loops one cycle and
     // crossfades between neighbouring ones by the WT position (0 = not a wavetable; a single cycle is a plain loop)
@@ -119,6 +121,8 @@ struct Group {
 struct Instrument {
     std::string name;
     std::string format;                              // reader name, for the display
+    std::string library, category;                   // a sound library's own category ("TRITON", "Keyboard"): SAVE TO
+                                                     // LIBRARY files it in Extracted/<library>/<category>/
     std::vector<Group> groups{Group{}};
     std::vector<Zone> zones;
     int polyphony = 0;                               // 0 = engine default
