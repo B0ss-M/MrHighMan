@@ -26,6 +26,8 @@ const FormatReader *find_reader(Volume &vol, const std::string &path);
 size_t reader_probe_bytes();
 
 // Shared helpers for readers
+// Host folders readers may search for a library's shared samples (the Plugin Library); set by the plugin
+void set_search_dirs(const std::vector<std::string> &dirs);
 void finish_instrument(Instrument &inst);                     // clamp ranges, fill defaults, drop empty zones
 double velocity_to_db(int value);                              // helpers for 0..127 scales
 inline int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
@@ -40,6 +42,13 @@ void register_emu();
 void register_ni();
 void register_roland();
 void register_reason();
+void register_ensoniq();
+void register_korg();
+void register_korg_triton();
+void register_korg_trinity();
+void register_korg_m1();
+void register_yamaha();
+void register_logic();
 void register_images();
 
 }  // namespace omni

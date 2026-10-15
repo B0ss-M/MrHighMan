@@ -62,6 +62,22 @@ int main(int argc, char **argv) {
                     get(e, inst, "layer_hit").c_str());
         if (peak == 0) fails++;
     }
+    // the sustain pedal down (CC64 127): the same note again; instruments with pedal layers (Logic's piano groups
+    // enabled by CC64) answer from another layer
+    {
+        std::string up = get(e, inst, "layer_name");
+        uint8_t ped[3] = {0xB0, 64, 127}, on[3] = {0x90, uint8_t(notes.back()), 100}, off[3] = {0x80, uint8_t(notes.back()), 0},
+                pedoff[3] = {0xB0, 64, 0};
+        e->midi(inst, ped, 3);
+        e->midi(inst, on, 3);
+        int peak = 0;
+        for (int b = 0; b < 172; b++) { e->render(inst, buf.data(), 128); for (int i = 0; i < 256; i++) peak = std::max(peak, std::abs(int(buf[i]))); }
+        e->midi(inst, off, 3);
+        e->midi(inst, pedoff, 3);
+        for (int b = 0; b < 344; b++) e->render(inst, buf.data(), 128);
+        std::printf("pedal down, note %d: peak %d | %s (pedal up: %s)\n", notes.back(), peak, get(e, inst, "layer_name").c_str(), up.c_str());
+        if (peak == 0) fails++;
+    }
     // skin pads: tap pad 13 (note 48 at the default base 36), it must sound and light while held
     {
         e->set_param(inst, "pad_13", "1");

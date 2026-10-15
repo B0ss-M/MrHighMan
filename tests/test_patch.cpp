@@ -57,6 +57,7 @@ int main(int argc, char **argv) {
     e = mpc_engine();
     (void)!std::system("rm -rf /tmp/omni-patch-test");
     const char *data = "/tmp/omni-patch-test";
+    setenv("OMNI_SAMPLER_LIBRARY", "/tmp/omni-patch-test/library", 1);   // the device only takes an external drive
 
     // 1. three instruments in A, B, C with their own ranges, a keyswitch-free layer, a tweaked filter
     void *a = e->create(data);

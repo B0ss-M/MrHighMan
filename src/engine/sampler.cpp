@@ -58,6 +58,7 @@ void Sampler::midi(const uint8_t *m, int len) {
     case 0xA0: at_ = d2 / 127.0f; break;
     case 0xE0: bend_ = float((d2 << 7 | d1) - 8192) / 8192.0f; break;
     case 0xB0:
+        cc_val_[d1 & 127] = uint8_t(d2 & 127);
         switch (d1) {
         case 1: modwheel_ = d2 / 127.0f; break;
         case 7: cc7_ = d2 / 127.0f; break;
@@ -126,6 +127,7 @@ void Sampler::do_panic() {
     held_count_ = 0;
     for (auto &k : key_down) k.store(0);
     sustain_ = false;
+    std::memset(cc_val_, 0, sizeof cc_val_);
     last_mono_note_ = -1;
     bend_ = 0; modwheel_ = 0; at_ = 0;
 }
@@ -137,6 +139,7 @@ void Sampler::all_off(bool hard) {
         else { v.released = true; v.fading = true; v.amp.fast_release(0.01f); }
     }
     sustain_ = false;
+    std::memset(cc_val_, 0, sizeof cc_val_);
 }
 
 void Sampler::note_on(int chan, int note, int vel) {
@@ -177,6 +180,7 @@ void Sampler::note_on(int chan, int note, int vel) {
         if (vel < std::max(1, z.vel_lo) && !(z.vel_lo == 0 && vel >= 1 && z.vel_hi >= vel)) continue;
         if (vel > z.vel_hi) continue;
         if (z.midi_channel >= 0 && z.midi_channel != chan) continue;
+        if (z.cc_num >= 0 && (cc_val_[z.cc_num] < z.cc_lo || cc_val_[z.cc_num] > z.cc_hi)) continue;
         if (!slot_plays(z, note)) continue;
         Trigger tr = z.trigger;
         if (tr == Trigger::Release) continue;
@@ -237,6 +241,7 @@ void Sampler::note_off(int chan, int note) {
             const Zone &z = prog_->inst.zones[size_t(zi)];
             if (settings.slot_shift[zone_slot(z)].load() != shift) continue;
             if (z.trigger != Trigger::Release || vel < z.vel_lo || vel > z.vel_hi) continue;
+            if (z.cc_num >= 0 && (cc_val_[z.cc_num] < z.cc_lo || cc_val_[z.cc_num] > z.cc_hi)) continue;
             if (z.midi_channel >= 0 && z.midi_channel != chan) continue;
             if (!slot_plays(z, note)) continue;
             start_voice(zi, chan, note, vel, true, 0, zn);
@@ -301,8 +306,10 @@ void Sampler::start_voice(int zi, int chan, int note, int vel, bool release_trig
     v.rnd = float(double(rand_ >> 8) / double(1u << 23) - 1.0);
     {   // matrix: sample start offset (a share of the playable length, positive amounts only)
         float acc = 0;
+        int vs = zone_slot(z);
         for (int k = 0; k < MOD_SLOTS; k++)
-            if (slot_dst_[k] == MD_START && slot_amt_[k] != 0) acc += slot_amt_[k] * src_val(v, slot_src_[k]);
+            if (slot_dst_[k] == MD_START && slot_amt_[k] != 0 && (slot_layer_[k] < 0 || slot_layer_[k] == vs))
+                acc += slot_amt_[k] * src_val(v, slot_src_[k]);
         if (acc > 0 && !z.reverse) v.start = std::min(v.stop - 1, v.start + int64_t(std::min(1.0f, acc) * 0.9f * float(v.stop - v.start)));
     }
     v.reverse_ = z.reverse;
@@ -380,8 +387,10 @@ void Sampler::block_mod(Voice &v, int n, double &step, float &cutoff_mul) {
     }
     // the matrix's per-voice destinations
     float m_pitch = 0, m_cut = 0, m_res = 0, m_vol = 0, m_pan = 0, m_wt = 0;
+    int vslot = zone_slot(z);
     for (int k = 0; k < MOD_SLOTS; k++) {
         if (slot_amt_[k] == 0 || slot_src_[k] == MS_OFF) continue;
+        if (slot_layer_[k] >= 0 && slot_layer_[k] != vslot) continue;   // a route for another slot
         float x = slot_amt_[k] * src_val(v, slot_src_[k]);
         switch (slot_dst_[k]) {
         case MD_PITCH: m_pitch += x; break;
@@ -430,6 +439,9 @@ void Sampler::transport(double ppq, double tempo, int playing, int ppq_valid) {
 }
 
 // beats (quarter notes) per LFO cycle for each sync setting; 0 = free
+// the FX delay's times (beats): 1/32, 1/16 T, 1/16, 1/16 ., 1/8 T, 1/8, 1/8 ., 1/4 T, 1/4, 1/4 ., 1/2, 1 bar
+static const double DELAY_BEATS[] = {0.125, 1.0 / 6, 0.25, 0.375, 1.0 / 3, 0.5, 0.75, 2.0 / 3, 1, 1.5, 2, 4};
+constexpr int DELAY_COUNT = int(sizeof DELAY_BEATS / sizeof DELAY_BEATS[0]);
 static const double SYNC_BEATS[] = {0, 16, 8, 4, 2, 1, 0.5, 0.25, 0.125, 2.0 / 3, 1.0 / 3, 1.0 / 6, 1.5, 0.75, 0.375};
 constexpr int SYNC_COUNT = int(sizeof SYNC_BEATS / sizeof SYNC_BEATS[0]);
 
@@ -440,6 +452,8 @@ void Sampler::update_mod(int frames) {
         slot_src_[k] = settings.mod_src[k].load();
         slot_dst_[k] = settings.mod_dst[k].load();
         slot_amt_[k] = settings.mod_amt[k].load();
+        int ly = settings.mod_layer[k].load();
+        slot_layer_[k] = ly >= 1 && ly <= 4 ? ly - 1 : -1;
         if (slot_src_[k] <= MS_OFF || slot_src_[k] >= MS_COUNT || slot_dst_[k] <= MD_OFF || slot_dst_[k] >= MD_COUNT) slot_amt_[k] = 0;
         if (slot_amt_[k] != 0 && (slot_dst_[k] == MD_CUTOFF || slot_dst_[k] == MD_RES)) cut_mod_ = true;
     }
@@ -518,7 +532,9 @@ void Sampler::render_voice(Voice &v, float *outl, float *outr, int n) {
         amp_lfo_gain = std::pow(10.0f, float(z.amp_lfo_depth * MAX_VOLUME_DEPTH) * v.alfo.value / 20.0f);
     const int interp = settings.interpolation.load();
     const int16_t *d = v.pcm->data.data();
-    const float bal_l = v.mod_pan > 0 ? 1 - v.mod_pan : 1, bal_r = v.mod_pan < 0 ? 1 + v.mod_pan : 1;
+    // the matrix's pan and the slot's (1.8) as one balance, read per block so a turned knob moves held notes too
+    const float bal = std::max(-1.0f, std::min(1.0f, v.mod_pan + settings.slot_pan[z.slot < 0 || z.slot > 3 ? 0 : z.slot].load()));
+    const float bal_l = bal > 0 ? 1 - bal : 1, bal_r = bal < 0 ? 1 + bal : 1;
     const float gl = v.gain * v.mod_gain * bal_l * v.pan_l * amp_lfo_gain * (1.0f / 32768.0f),
                 gr = v.gain * v.mod_gain * bal_r * v.pan_r * amp_lfo_gain * (1.0f / 32768.0f);
     const bool zf_on = v.zf[0].on, fenv_on = z.filter.env.set, penv_on = z.pitch_env.set;
@@ -558,15 +574,26 @@ void Sampler::render_voice(Voice &v, float *outl, float *outr, int n) {
         return;
     }
     for (int i = 0; i < n; i++) {
-        // Fast path: a forward run that can reach no loop point, end or start this block. It works in 32-bit
-        // indices: on ARMv7 every double <-> int64 conversion of the generic path below is a library call.
-        if (v.dir > 0) {
+        // Fast path: a run that can reach no loop point, end or start this block, forwards or (1.8) backwards
+        // (backward loops, the backward half of alternating loops, reversed samples). It works in 32-bit indices: on
+        // ARMv7 every double <-> int64 conversion of the generic path below is a library call.
+        {
             bool loop_active = v.looping && !(v.released && v.loop_until_release);
-            int64_t lim = loop_active ? std::min(v.loop_end - 1, v.stop) : v.stop;   // first index the run may not read
-            double hi = double(lim - 3), lo = double(v.start + 1);
-            double pos = v.pos;
-            if (pos >= lo && pos <= hi) {
-                int k = int((hi - pos) / step) + 1;
+            double pos = v.pos, lo, hi;
+            int k = 0;
+            if (v.dir > 0) {
+                int64_t lim = loop_active ? std::min(v.loop_end - 1, v.stop) : v.stop;   // first index the run may not read
+                hi = double(lim - 3); lo = double(v.start + 1);
+                if (pos >= lo && pos <= hi) k = int((hi - pos) / step) + 1;
+            } else if (loop_active || v.reverse_) {   // released out of a backward loop: the generic path turns it round
+                // reads p[i0 - 1 .. i0 + 2]: keep them inside the loop (while it loops) or the sample
+                int64_t bottom = loop_active ? std::max(v.loop_start, v.start) : v.start;
+                int64_t top = loop_active ? std::min(v.loop_end, v.stop) : v.stop;
+                lo = double(bottom + 1); hi = double(top - 3);
+                if (pos >= lo && pos <= hi) k = int((pos - lo) / step) + 1;
+            }
+            const double dstep = v.dir > 0 ? step : -step;
+            if (k > 0) {
                 if (k > n - i) k = n - i;
                 for (int e = i + k; i < e; i++) {
                     if (fenv_on) v.fenv.tick();
@@ -587,7 +614,7 @@ void Sampler::render_voice(Voice &v, float *outl, float *outr, int n) {
                         sl = p[0];
                         sr = ch > 1 ? float(p[1]) : sl;
                     }
-                    pos += step;
+                    pos += dstep;
                     float a = v.amp.tick();
                     if (v.amp.done()) { v.on = false; v.pos = pos; return; }
                     if (zf_on) { sl = v.zf[0].tick(sl); sr = ch > 1 ? v.zf[1].tick(sr) : sl; }
@@ -738,9 +765,34 @@ void Sampler::render(int16_t *out, int frames) {
     float mix = std::max(0.0f, std::min(1.0f, settings.reverb_mix.load() + g_rev_add_)),
           drive = std::max(0.0f, std::min(1.0f, settings.drive.load() + g_drive_add_));
     if (mix > 0.001f) reverb_.set(settings.reverb_size.load(), settings.reverb_damp.load());
+    // 1.8: the FX page, before the reverb: EQ, compressor, chorus, delay. Each is skipped while off; the chorus and
+    // delay lines are cleared when switched back on, so no old audio comes back
+    eq_.set(settings.eq_low.load(), settings.eq_mid.load(), settings.eq_high.load());
+    float comp = settings.comp.load();
+    if (comp > 0.001f) comp_.set(comp);
+    float cmix = settings.chorus_mix.load(), dmix = settings.delay_mix.load();
+    if (cmix > 0.001f) {
+        if (!chorus_on_) chorus_.clear();
+        chorus_.set(settings.chorus_rate.load(), settings.chorus_depth.load(), cmix);
+    }
+    chorus_on_ = cmix > 0.001f;
+    if (dmix > 0.001f) {
+        if (!delay_on_) delay_.clear();
+        int dv = std::max(0, std::min(DELAY_COUNT - 1, settings.delay_div.load()));
+        double tempo = tempo_ > 20 ? tempo_ : 120;
+        delay_.set(float(DELAY_BEATS[dv] * 60.0 / tempo), settings.delay_fb.load(), settings.delay_tone.load(), dmix, settings.delay_ping.load() != 0);
+    }
+    delay_on_ = dmix > 0.001f;
+    const bool eq_on = eq_.on, comp_on = comp > 0.001f;
     float pk = 0;
+    // the drive's normalisation, once per block (it was a tanh per sample)
+    const float dk = 1 + drive * 8, dnorm = 1 / std::tanh(dk);
     for (int i = 0; i < frames; i++) {
         float a = l[i], b = r[i];
+        if (eq_on) eq_.tick(a, b);
+        if (comp_on) comp_.tick(a, b);
+        if (chorus_on_) chorus_.tick(a, b);
+        if (delay_on_) delay_.tick(a, b);
         if (mix > 0.001f) {
             float wl, wr;
             reverb_.tick(a, b, wl, wr);
@@ -750,9 +802,8 @@ void Sampler::render(int16_t *out, int frames) {
         if (pv) { a += pvl_[size_t(i)]; b += pvr_[size_t(i)]; }   // the preview: after the reverb, at the plugin's volume
         a *= vol * pl; b *= vol * pr;
         if (drive > 0.001f) {
-            float k = 1 + drive * 8;
-            a = std::tanh(a * k) / std::tanh(k) ;
-            b = std::tanh(b * k) / std::tanh(k);
+            a = fast_tanh(a * dk) * dnorm;
+            b = fast_tanh(b * dk) * dnorm;
         }
         // soft limit above -1 dBFS instead of hard clipping
         auto lim = [](float x) { float ax = std::fabs(x); return ax < 0.89f ? x : (x > 0 ? 1 : -1) * (0.89f + 0.11f * std::tanh((ax - 0.89f) / 0.11f)); };

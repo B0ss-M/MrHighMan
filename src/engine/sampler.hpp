@@ -36,11 +36,15 @@ struct Settings {
     std::atomic<float> lfo_rate[2]{};
     std::atomic<int> mod_src[MOD_SLOTS]{}, mod_dst[MOD_SLOTS]{};
     std::atomic<float> mod_amt[MOD_SLOTS]{};   // -1..1
+    // 1.8: the instrument slot a route acts on: 0 = all, 1..4 = A..D (its per-voice destinations only; Drive, Reverb
+    // Mix and the LFO rates are shared by every slot)
+    std::atomic<int> mod_layer[MOD_SLOTS]{};
     // instrument slots A-D: key range, gain (linear), transpose (semitones), mute; layer_mode 0 = layer (every
     // slot in its range), 1 = keyswitch (ks_base..ks_base+3 pick the one slot that plays; they make no sound)
     std::atomic<int> slot_lo[4]{}, slot_hi[4]{}, slot_mute[4]{};
     std::atomic<int> slot_shift[4]{};   // 1.7.3: semitones the slot's mapping moves on the keyboard (pitch unchanged)
     std::atomic<float> slot_gain[4]{}, slot_tune[4]{};
+    std::atomic<float> slot_pan[4]{};   // 1.8: each slot's pan, -1..1 (a balance on top of the zones' own pan)
     std::atomic<int> layer_mode{0}, ks_base{24};
     std::atomic<float> volume_db{0}, pan{0}, transpose{0}, tune_cents{0};
     std::atomic<float> cutoff_hz{20000}, resonance{0}, filter_type{0}, filter_vel{0}, filter_env{0};
@@ -50,6 +54,12 @@ struct Settings {
     std::atomic<float> glide_s{0};
     std::atomic<float> reverb_mix{0}, reverb_size{0.6f}, reverb_damp{0.4f};
     std::atomic<float> drive{0};
+    // 1.8: the FX page. EQ gains in dB; compressor amount, chorus / delay mix, depth, feedback and tone 0..1; chorus rate
+    // in Hz; delay_div an index into DELAY_BEATS (sampler.cpp); delay_ping crosses the repeats left / right
+    std::atomic<float> eq_low{0}, eq_mid{0}, eq_high{0}, comp{0};
+    std::atomic<float> chorus_mix{0}, chorus_rate{0.6f}, chorus_depth{0.5f};
+    std::atomic<float> delay_mix{0}, delay_fb{0.35f}, delay_tone{0.3f};
+    std::atomic<int> delay_div{5}, delay_ping{0};
     std::atomic<float> wt_pos{0};                      // wavetables: the position through their cycles, 0..1
     // 1.7.1: the PLAY page's envelope faders show the preset's own envelope; what they are moved by is applied to every
     // zone on top of its own envelope (seconds; sustain 0..1)
@@ -138,6 +148,7 @@ private:
     uint32_t rand_ = 12345;
     float bend_ = 0, modwheel_ = 0, cc7_ = 1, cc10_ = 0, cc11_ = 1;
     bool sustain_ = false;
+    uint8_t cc_val_[128] = {};   // each controller's last value, for zones enabled by a controller
     float at_ = 0;                                         // channel / poly aftertouch 0..1
     // modulation (audio thread): transport, LFO state, the global sources and this block's matrix snapshot
     double ppq_ = 0, tempo_ = 120;
@@ -145,7 +156,7 @@ private:
     double lfo_phase_[2] = {};
     float lfo_sh_[2] = {};
     float gsrc_[MS_COUNT] = {};
-    int slot_src_[MOD_SLOTS] = {}, slot_dst_[MOD_SLOTS] = {};
+    int slot_src_[MOD_SLOTS] = {}, slot_dst_[MOD_SLOTS] = {}, slot_layer_[MOD_SLOTS] = {};   // layer: -1 all, 0..3 A..D
     float slot_amt_[MOD_SLOTS] = {};
     float g_drive_add_ = 0, g_rev_add_ = 0;
     bool cut_mod_ = false;
@@ -158,6 +169,11 @@ private:
     float last_pitch_semi_ = 0;
     int swap_fade_ = 0;
     Reverb reverb_;
+    Eq3 eq_;
+    Compressor comp_;
+    Chorus chorus_;
+    Delay delay_;
+    bool chorus_on_ = false, delay_on_ = false;
     std::vector<float> mixl_, mixr_;
 
     void note_on(int chan, int note, int vel);

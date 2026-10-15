@@ -399,6 +399,61 @@ PcmPtr decode_aiff(const Blob &blob, AudioInfo *info, bool header_only) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// CAF (Apple Core Audio Format): "caff", version 1, then chunks of a 4-byte type and a big-endian 64-bit size (the data
+// chunk may say -1: up to the end of the file). desc: sample rate (a big-endian double), format ID, flags (1 float,
+// 2 little-endian), bytes and frames per packet, channels, bits. data: a 32-bit edit count, then the audio. Linear PCM
+// only (Logic's sampler instruments use it); compressed CAF (AAC, ALAC, IMA4) is reported: decoding it was tried in 1.8 and
+// removed, as the expanded audio is several times the file and MPC keeps a plugin's memory locked.
+
+PcmPtr decode_caf(const Blob &blob, AudioInfo *info, bool header_only) {
+    std::vector<uint8_t> h = blob.head(8);
+    if (h.size() < 8 || std::memcmp(h.data(), "caff", 4)) throw ParseError("not a CAF file");
+    uint64_t size = blob.size(), pos = 8, data = 0, data_len = 0;
+    double rate = 0;
+    std::string fmt;
+    uint32_t flags = 0, channels = 0, bits = 0, frame_bytes = 0;
+    while (pos + 12 <= size) {
+        std::vector<uint8_t> c = blob.bytes(pos, 12);
+        int64_t len = int64_t(be64(c.data() + 4));
+        uint64_t body = pos + 12;
+        if (!std::memcmp(c.data(), "desc", 4) && len >= 32) {
+            std::vector<uint8_t> d = blob.bytes(body, 32);
+            uint64_t r = be64(d.data());
+            std::memcpy(&rate, &r, 8);
+            fmt.assign(reinterpret_cast<char *>(d.data() + 8), 4);
+            flags = be32(d.data() + 12); frame_bytes = be32(d.data() + 16);
+            channels = be32(d.data() + 24); bits = be32(d.data() + 28);   // 20: frames per packet
+        } else if (!std::memcmp(c.data(), "data", 4)) {
+            data = body + 4;
+            data_len = len < 0 || body + uint64_t(len) > size ? size - data : uint64_t(len) - 4;
+            break;   // the data chunk is last or runs to the end
+        }
+        if (len < 0) break;
+        pos = body + uint64_t(len);
+    }
+    if (!channels || !data || rate <= 0) throw ParseError("CAF without desc or data chunk");
+    if (fmt != "lpcm") throw ParseError(fmt == "aac " || fmt == "alac" ? "compressed CAF samples (" + fmt + ") are not supported: convert them to WAV or AIFF"
+                                                         : "CAF with '" + fmt + "' audio (only linear PCM is read)");
+    bool fl = flags & 1, le = flags & 2;
+    Enc enc;
+    if (fl) enc = bits == 64 ? (le ? Enc::F64LE : Enc::F64BE) : (le ? Enc::F32LE : Enc::F32BE);
+    else switch (bits) {
+        case 8: enc = Enc::S8; break;
+        case 16: enc = le ? Enc::S16LE : Enc::S16BE; break;
+        case 24: enc = le ? Enc::S24LE : Enc::S24BE; break;
+        case 32: enc = le ? Enc::S32LE : Enc::S32BE; break;
+        default: throw ParseError("CAF with " + std::to_string(bits) + "-bit samples");
+    }
+    int fb = enc_bytes(enc) * int(channels);
+    if (frame_bytes && int(frame_bytes) != fb) throw ParseError("CAF with packed or padded samples");
+    int64_t frames = int64_t(data_len / uint64_t(fb));
+    if (info) { info->rate = int(std::lround(rate)); info->channels = int(channels); info->bits = int(bits); info->frames = frames; }
+    if (header_only) return nullptr;
+    std::vector<uint8_t> d = blob.bytes(data, size_t(frames) * fb);
+    return pcm_from_raw(d.data(), frames, int(channels), enc, int(std::lround(rate)));
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // FLAC (dr_flac over a Blob)
 
 struct BlobStream { const Blob *blob; uint64_t pos; };
@@ -570,7 +625,7 @@ PcmPtr decode_ncw(const Blob &blob, AudioInfo *info) {
 // dispatch
 
 namespace {
-enum class Kind { Wav, Aiff, Flac, Ogg, Ncw, Unknown };
+enum class Kind { Wav, Aiff, Flac, Ogg, Ncw, Caf, Unknown };
 Kind sniff(const Blob &blob) {
     std::vector<uint8_t> h = blob.head(12);
     if (h.size() >= 12 && (!std::memcmp(h.data(), "RIFF", 4) || !std::memcmp(h.data(), "RF64", 4) ||
@@ -579,6 +634,7 @@ Kind sniff(const Blob &blob) {
     if (h.size() >= 12 && !std::memcmp(h.data(), "FORM", 4) &&
         (!std::memcmp(h.data() + 8, "AIFF", 4) || !std::memcmp(h.data() + 8, "AIFC", 4))) return Kind::Aiff;
     if (h.size() >= 4 && !std::memcmp(h.data(), "fLaC", 4)) return Kind::Flac;
+    if (h.size() >= 4 && !std::memcmp(h.data(), "caff", 4)) return Kind::Caf;
     if (h.size() >= 4 && !std::memcmp(h.data(), "OggS", 4)) return Kind::Ogg;
     if (h.size() >= 4 && le32(h.data()) == NCW_MAGIC) return Kind::Ncw;
     if (h.size() >= 10 && !std::memcmp(h.data(), "ID3", 3)) return Kind::Flac;   // FLAC with an ID3 tag in front
@@ -593,6 +649,7 @@ PcmPtr decode_audio(const Blob &blob, AudioInfo *info) {
     case Kind::Flac: return decode_flac(blob, info, false);
     case Kind::Ogg: return decode_ogg(blob, info, false);
     case Kind::Ncw: return decode_ncw(blob, info);
+    case Kind::Caf: return decode_caf(blob, info, false);
     default: throw ParseError("unknown audio file format");
     }
 }
@@ -604,6 +661,7 @@ AudioInfo probe_audio(const Blob &blob) {
     case Kind::Aiff: decode_aiff(blob, &info, true); break;
     case Kind::Flac: decode_flac(blob, &info, true); break;
     case Kind::Ogg: decode_ogg(blob, &info, true); break;
+    case Kind::Caf: decode_caf(blob, &info, true); break;
     case Kind::Ncw: {
         std::vector<uint8_t> h = blob.head(20);
         if (h.size() >= 20) { info.channels = le16(h.data() + 8); info.bits = le16(h.data() + 10);
@@ -617,7 +675,7 @@ AudioInfo probe_audio(const Blob &blob) {
 
 bool is_audio_ext(const std::string &ext) {
     return ext == "wav" || ext == "wave" || ext == "aif" || ext == "aiff" || ext == "aifc" || ext == "flac" ||
-           ext == "ogg" || ext == "ncw";
+           ext == "ogg" || ext == "ncw" || ext == "caf";
 }
 
 SampleRefPtr file_sample_ref(VolumePtr volume, const std::string &path) {

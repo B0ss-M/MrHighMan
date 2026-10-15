@@ -5,9 +5,11 @@
 namespace omni {
 
 void register_images() {
+    register_cue();
     register_floppy_containers();
     register_roland_images();
     register_emu_images();
+    register_ensoniq_images();
     register_iso9660();
     register_fat();
     register_akai_images();

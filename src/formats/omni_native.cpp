@@ -168,6 +168,8 @@ Instrument load_omni(VolumePtr vol, const std::string &path, int) {
     inst.name = j["name"].as_str(path_stem(path));
     std::string fmt = j["format"].as_str("");
     inst.format = fmt.empty() ? "Omni instrument" : fmt + " (extracted)";
+    inst.library = j["library"].as_str("");
+    inst.category = j["category"].as_str("");
     inst.polyphony = j["polyphony"].as_int(0);
     inst.gain_db = j["gain_db"].as_num(0);
     inst.groups.clear();
@@ -216,6 +218,7 @@ Instrument load_omni(VolumePtr vol, const std::string &path, int) {
         z.bend_up = zj["bend_up"].as_int(200); z.bend_down = zj["bend_down"].as_int(-200);
         z.filter = filter_from(zj["filter"]);
         z.midi_channel = zj["midi_channel"].as_int(-1);
+        z.cc_num = zj["cc_num"].as_int(-1); z.cc_lo = zj["cc_lo"].as_int(0); z.cc_hi = zj["cc_hi"].as_int(127);
         z.wt_size = zj["wt_size"].as_int(0); z.wt_count = zj["wt_count"].as_int(0);
         inst.zones.push_back(z);
     }
@@ -349,7 +352,8 @@ std::string write_omni(const Instrument &inst, const std::vector<PcmPtr> &zone_p
         o.add("loops", loops + "]").add("amp_env", env_json(z.amp_env)).num("amp_lfo_depth", z.amp_lfo_depth).add("amp_lfo", lfo_json(z.amp_lfo))
             .num("pitch_env_depth", z.pitch_env_depth).add("pitch_env", env_json(z.pitch_env)).num("pitch_lfo_depth", z.pitch_lfo_depth)
             .add("pitch_lfo", lfo_json(z.pitch_lfo)).num("bend_up", z.bend_up).num("bend_down", z.bend_down)
-            .add("filter", filter_json(z.filter)).num("midi_channel", z.midi_channel);
+            .add("filter", filter_json(z.filter)).num("midi_channel", z.midi_channel)
+            .num("cc_num", z.cc_num).num("cc_lo", z.cc_lo).num("cc_hi", z.cc_hi);
         if (z.wt_count > 1) o.num("wt_size", z.wt_size).num("wt_count", z.wt_count);
         zones += (zones.size() > 1 ? ",\n" : "\n") + o.done();
     }
@@ -362,7 +366,9 @@ std::string write_omni(const Instrument &inst, const std::vector<PcmPtr> &zone_p
     samples += "]";
     // header keys first: omni_source_of reads them from the start of the file
     std::string doc = "{\"omni\":" + std::to_string(OMNI_VERSION) + ",\"source\":" + jstr(source) + ",\"source_preset\":" + std::to_string(source_preset) + ",\"name\":" + jstr(inst.name) +
-                      ",\"format\":" + jstr(inst.format) + ",\"polyphony\":" + std::to_string(inst.polyphony) + ",\"gain_db\":" + jnum(inst.gain_db) +
+                      ",\"format\":" + jstr(inst.format) +
+                      (inst.library.empty() ? std::string() : ",\"library\":" + jstr(inst.library) + ",\"category\":" + jstr(inst.category)) +
+                      ",\"polyphony\":" + std::to_string(inst.polyphony) + ",\"gain_db\":" + jnum(inst.gain_db) +
                       (settings.empty() ? std::string() : ",\n\"settings\":" + settings) +
                       ",\n\"groups\":" + groups + ",\n\"samples\":" + samples + ",\n\"zones\":" + zones + "}\n";
     std::string out = path_join(out_dir, name + ".omni");

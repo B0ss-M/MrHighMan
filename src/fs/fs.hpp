@@ -37,8 +37,10 @@ private:
 void register_akai_images();
 void register_roland_images();
 void register_iso9660();
+void register_cue();                 // .cue + its .bin files (data tracks as their file system, audio tracks as WAV)
 void register_fat();
 void register_emu_images();
+void register_ensoniq_images();
 void register_floppy_containers();   // HFE, IMD -> sector images handed to the other types
 
 }  // namespace omni

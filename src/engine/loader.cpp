@@ -1,6 +1,9 @@
 // Omni Sampler: loader thread (see loader.hpp).
 #include "loader.hpp"
 #include <algorithm>
+#include <cmath>
+#include <map>
+#include <tuple>
 #include <chrono>
 #include <cstdio>
 #include <sys/stat.h>
@@ -8,6 +11,48 @@
 #include "autoloop.hpp"
 
 namespace omni {
+
+// A forward loop's crossfade (Kontakt, Maschine, SFZ loop_crossfade, .omni), baked into the audio once at load as the
+// hardware samplers did: the last xf frames before the loop end blend into the xf frames before the loop start, so the
+// jump back is seamless and the voice still plays plain data (the audio thread's fast path, no per-sample mixing).
+// The blended copy is the zone's own (never the decode cache's), shared by the zones with the same loop. Returns the
+// bytes the copies add; the zones' crossfades are then 0 (done).
+static int64_t bake_loop_crossfades(Instrument &inst, std::vector<PcmPtr> &pcm) {
+    std::map<std::tuple<const Pcm *, int64_t, int64_t, int64_t>, PcmPtr> baked;
+    int64_t added = 0;
+    for (size_t i = 0; i < inst.zones.size(); i++) {
+        Zone &z = inst.zones[i];
+        if (!pcm[i] || z.loops.empty() || z.reverse || z.one_shot) continue;
+        Loop &l = z.loops[0];
+        if (l.type != LoopType::Forward || l.crossfade <= 0) continue;
+        const Pcm &src = *pcm[i];
+        int64_t ls = std::max<int64_t>(0, l.start), le = std::min<int64_t>(l.end + 1, src.frames());
+        int64_t xf = std::min({l.crossfade, ls, le - ls});   // needs xf frames before the loop start
+        if (xf < 2) continue;
+        auto key = std::make_tuple(pcm[i].get(), ls, le, xf);
+        auto it = baked.find(key);
+        if (it == baked.end()) {
+            auto out = std::make_shared<Pcm>(src);
+            const int ch = out->channels;
+            int16_t *d = out->data.data();
+            for (int64_t k = 0; k < xf; k++) {
+                // equal power: the two ends are different stretches of the sound, mostly uncorrelated
+                float w = float(k + 1) / float(xf + 1);
+                float gin = std::sqrt(w), gout = std::sqrt(1.0f - w);
+                for (int c = 0; c < ch; c++) {
+                    size_t a = size_t(le - xf + k) * size_t(ch) + size_t(c), b = size_t(ls - xf + k) * size_t(ch) + size_t(c);
+                    float v = float(d[a]) * gout + float(d[b]) * gin;
+                    d[a] = int16_t(std::lround(std::max(-32768.0f, std::min(32767.0f, v))));
+                }
+            }
+            added += int64_t(out->bytes());
+            it = baked.emplace(key, out).first;
+        }
+        pcm[i] = it->second;
+        l.crossfade = 0;   // it is in the audio now: an .omni saved from this keeps the blend, not a second one
+    }
+    return added;
+}
 
 Loader::Loader(Sampler &sampler, Vfs &vfs) : sampler_(sampler), vfs_(vfs) {
     thread_ = std::thread([this] { run(); });
@@ -233,6 +278,7 @@ void Loader::load(const Request &r, uint32_t serial) {
     for (auto c = cache_.begin(); c != cache_.end();) { if (c->second.expired()) c = cache_.erase(c); else ++c; }
     if (skipped) warnings.insert(warnings.begin(), std::to_string(skipped) + " samples over the memory limit");
     if (failed) warnings.insert(warnings.begin(), std::to_string(failed) + " samples failed to decode");
+    used += bake_loop_crossfades(inst, pcm);
     int loops_added = auto_loop_.load() ? auto_loop(inst, pcm) : 0;
 
     LoadedInfo li;
@@ -290,7 +336,9 @@ void Loader::load(const Request &r, uint32_t serial) {
     }
     revision.fetch_add(1);
     // a preset from inside a disk image: keep it as its own instrument file, so the project needs only that
-    if (in_image && extract_mode_.load() == 1 && !slots_[slot].inst.zones.empty() && !superseded()) extract(slot, false);
+    // (not from a view such as the TRITON categories: those presets stay on the drive, SAVE TO LIBRARY keeps one)
+    if (in_image && !loc.volume->view() && extract_mode_.load() == 1 && !slots_[slot].inst.zones.empty() && !superseded())
+        extract(slot, false);
     if (!refresh.empty() && !superseded()) {
         std::string json;
         for (auto &kv : settings) {
@@ -355,7 +403,8 @@ void Loader::extract(int slot, bool with_settings) {
         dir = extract_dir_;
     }
     const Slot &sl = slots_[slot];
-    if (li.path.empty() || sl.inst.zones.empty() || dir.empty()) { set_status("Nothing to save"); return; }
+    if (li.path.empty() || sl.inst.zones.empty()) { set_status("Nothing to save"); return; }
+    if (dir.empty()) { set_status("No Plugin Library: set one on an SD card or SSD (BROWSE)"); return; }
     std::string settings = with_settings && get_settings ? get_settings() : "";
     bool is_omni = ends_with_ci(li.path, ".omni");
     // an extracted instrument is rewritten in place (its samples stay); anything else gets a new file
@@ -363,6 +412,10 @@ void Loader::extract(int slot, bool with_settings) {
     int source_preset = is_omni ? li.source_preset : li.preset;
     std::string out_dir = is_omni ? path_dir(li.path)
                                   : path_join(dir, path_stem(sl.container).empty() ? "Instruments" : path_stem(sl.container));
+    if (!is_omni && !sl.inst.library.empty()) {   // a library with categories: Extracted/<library>/<category>/
+        out_dir = path_join(dir, omni_file_safe(sl.inst.library));
+        if (!sl.inst.category.empty()) out_dir = path_join(out_dir, omni_file_safe(sl.inst.category));
+    }
     set_status((with_settings ? "Saving " : "Extracting ") + li.name);
     std::string out;
     try {
@@ -407,7 +460,8 @@ void Loader::write_patch() {
         loaded.push_back(s);
         name += (name.empty() ? "" : " + ") + li.name;
     }
-    if (loaded.empty() || dir.empty()) { set_status("Nothing to save: load instruments into the slots first"); return; }
+    if (loaded.empty()) { set_status("Nothing to save: load instruments into the slots first"); return; }
+    if (dir.empty()) { set_status("No Plugin Library: set one on an SD card or SSD (BROWSE)"); return; }
     // a new file each time: "<A> + <B>", numbered when that name is taken
     std::string base = omni_file_safe(name);
     name = base;
