@@ -859,7 +859,7 @@ INFO_PANELS2 = [
         ("Logic EXS24 / Sampler instruments", ".exs", True),   # 1.8
         ("  samples next to it or below", ".wav .aif .caf", True),
         ("Single cycle waveforms", ".wav (256-4096)", True),
-        ("Wavetables (Serum, Surge)", ".wav (clm, srge)", True),
+        ("Wavetables (Serum, Surge, WaveEdit)", ".wav .wt", True),   # 1.8.1: .wt, chunkless WAVs
         ("  WT POSITION: SETUP + mod matrix", "", True)]),
     ("ROLAND MV / NATIVE INSTRUMENTS", (440, 66), [
         ("MV-8000 / MV-8800 patches", ".mv0", True),
@@ -879,7 +879,8 @@ INFO_PANELS2 = [
         ("  disks: raw floppy / HD images", ".img .iso", True),
         ("  Giebler disks", ".gkh .eda .ede", True),
         ("  HFE floppies", ".hfe", True),
-        ("  patch selects as presets", "", True)]),
+        ("  patch selects as presets", "", True),
+        ("SD-1 / VFX-SD programs (ROMs)", ".syx", True)]),   # 1.8.1
     ("YAMAHA", (864, 350), [
         ("Motif XS / XF, MOXF libraries", ".x0a .x0v .x3a .x6a ...", True),
         ("Montage / MODX: performances", ".x7l .x7u .x8l .x8u", True),

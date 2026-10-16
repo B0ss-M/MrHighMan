@@ -6,6 +6,9 @@
 // wavetable (frames marked by a Serum "clm " or Surge "srge" chunk) plays its cycles with the WT position crossfading
 // between them. Either way the keyboard is split by octaves into band-limited copies (harmonics above what the octave's
 // top note can carry removed by FFT), so high notes don't alias.
+// 1.8.1: Surge / Bitwig .wt files too, and wavetable WAVs with no chunk (many Serum packs, WaveEdit's 64 x 256): see
+// guess_cycle. A single cycle that loops over the whole file (e.g. 600 frames looped 0-599) is an oscillator too, its
+// pitch from its length.
 #include <cmath>
 #include <complex>
 #include <cstring>
@@ -19,6 +22,7 @@ std::vector<PresetInfo> list_audio(VolumePtr, const std::string &path) { return 
 // a wavetable's cycle length from its WAV chunks: Serum "clm " ("<!>2048 ..."), Surge "srge" (version, cycle length)
 int wavetable_cycle(const Blob &b) {
     std::vector<uint8_t> h = b.head(1 << 16);
+    if (h.size() >= 12 && !std::memcmp(h.data(), "vawt", 4)) return int(le32(&h[4]));   // .wt
     if (h.size() < 12 || std::memcmp(h.data(), "RIFF", 4) || std::memcmp(h.data() + 8, "WAVE", 4)) return 0;
     for (size_t p = 12; p + 8 <= h.size();) {
         uint32_t n = le32(&h[p + 4]);
@@ -33,6 +37,61 @@ int wavetable_cycle(const Blob &b) {
         if (!std::memcmp(&h[p], "data", 4)) break;   // the metadata chunks come before the audio
         p += 8 + n + (n & 1);
     }
+    return 0;
+}
+
+bool single_cycle_size(int64_t frames);
+
+// A wavetable WAV with no chunk to say so (mono, no loop, more than one cycle's worth). In order: a Folderinfo.txt beside
+// it whose first line is the cycle length ("[2048]", as KRC's Serum folders have); the smallest cycle length (256 ...
+// 4096, 2-256 cycles) at which 9 in 10 cycles either end where they start (the jump back no bigger than 3 of their own
+// steps) or match the cycle next to them (correlation 0.9+), at least half of them not near silent; else WaveEdit's
+// layout, 64 x 256 (16384 16-bit frames). Old samplers' drum hits (block-sized, silent tails) and recordings fail.
+int guess_cycle(VolumePtr vol, const std::string &path, const Blob &b, const AudioInfo &ai) {
+    if (ai.channels != 1 || !ai.loops.empty() || single_cycle_size(ai.frames) || ai.frames < 512 || ai.frames > 256 * 4096 ||
+        ai.frames % 256) return 0;
+    auto fits = [&](int64_t n) { return n > 1 && ai.frames % n == 0 && ai.frames / n >= 2 && ai.frames / n <= 256; };
+    try {
+        std::vector<uint8_t> t = vol->open(path_join(path_dir(path), "Folderinfo.txt"))->head(64);
+        size_t i = 0;
+        while (i < t.size() && (t[i] == ' ' || t[i] == '\t')) i++;
+        if (i < t.size() && t[i] == '[') {
+            int64_t n = 0;
+            for (i++; i < t.size() && isdigit(t[i]); i++) n = n * 10 + (t[i] - '0');
+            if (i < t.size() && t[i] == ']' && fits(n)) return int(n);
+        }
+    } catch (const std::exception &) {}
+    PcmPtr p = decode_audio(b);
+    const std::vector<int16_t> &x = p->data;
+    if (int64_t(x.size()) < ai.frames) return 0;
+    for (int n : {256, 512, 1024, 2048, 4096}) {
+        if (!fits(n)) continue;
+        int count = int(ai.frames / n);
+        std::vector<double> energy(static_cast<size_t>(count), 0.0), corr(static_cast<size_t>(count), 0.0);   // corr[c]: cycle c against c + 1
+        for (int c = 0; c < count; c++) {
+            double e = 0;
+            for (int i = 0; i < n; i++) e += double(x[size_t(c * n + i)]) * x[size_t(c * n + i)];
+            energy[size_t(c)] = std::sqrt(e);
+        }
+        for (int c = 0; c + 1 < count; c++) {
+            double d = 0;
+            for (int i = 0; i < n; i++) d += double(x[size_t(c * n + i)]) * x[size_t((c + 1) * n + i)];
+            double den = energy[size_t(c)] * energy[size_t(c + 1)];
+            corr[size_t(c)] = den > 0 ? d / den : 0;
+        }
+        int good = 0, loud = 0;
+        for (int c = 0; c < count; c++) {
+            const int16_t *f = &x[size_t(c * n)];
+            double steps = 0;
+            for (int i = 0; i + 1 < n; i++) steps += std::abs(f[i + 1] - f[i]);
+            bool wraps = std::abs(f[n - 1] - f[0]) <= 3 * steps / (n - 1) + 64;
+            bool alike = (c > 0 && corr[size_t(c - 1)] >= 0.9) || (c + 1 < count && corr[size_t(c)] >= 0.9);
+            if (wraps || alike) good++;
+            if (energy[size_t(c)] / std::sqrt(double(n)) > 330) loud++;
+        }
+        if (good * 10 >= count * 9 && loud * 2 >= count) return n;
+    }
+    if (ai.frames == 16384 && ai.bits == 16) return 256;
     return 0;
 }
 
@@ -141,11 +200,14 @@ Instrument load_audio(VolumePtr vol, const std::string &path, int) {
     Instrument inst;
     inst.name = path_stem(path);
     std::string ext = path_ext(path);
-    int cyc = ext == "wav" || ext == "wave" ? wavetable_cycle(*blob) : 0;
+    int cyc = ext == "wav" || ext == "wave" || ext == "wt" ? wavetable_cycle(*blob) : 0;
+    if (!cyc && (ext == "wav" || ext == "wave")) cyc = guess_cycle(vol, path, *blob, ai);
+    // a loop over the whole of a cycle-sized file: the cycle itself
+    bool whole_loop = ai.loops.size() == 1 && ai.loops[0].start == 0 && ai.loops[0].end == ai.frames - 1;
     if (cyc > 1 && ai.frames >= cyc && ai.frames % cyc == 0 && ai.frames / cyc <= 1024) {
         oscillator_zones(inst, vol, path, ai, cyc, int(ai.frames / cyc));
         inst.format = ai.frames / cyc > 1 ? "Wavetable (" + std::to_string(ai.frames / cyc) + " cycles)" : "Single cycle";
-    } else if (ai.loops.empty() && single_cycle_size(ai.frames)) {
+    } else if ((ai.loops.empty() || whole_loop) && single_cycle_size(ai.frames)) {
         oscillator_zones(inst, vol, path, ai, int(ai.frames), 1);
         inst.format = "Single cycle";
     } else {
@@ -172,7 +234,7 @@ Instrument load_audio(VolumePtr vol, const std::string &path, int) {
 }  // namespace
 
 void register_wav_folder() {
-    register_reader({"Audio file", "wav wave aif aiff aifc flac ogg ncw", nullptr, list_audio, load_audio});
+    register_reader({"Audio file", "wav wave aif aiff aifc flac ogg ncw wt", nullptr, list_audio, load_audio});
 }
 
 }  // namespace omni

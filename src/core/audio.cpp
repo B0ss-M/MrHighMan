@@ -622,10 +622,35 @@ PcmPtr decode_ncw(const Blob &blob, AudioInfo *info) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Surge / Bitwig wavetable (.wt): "vawt", cycle length (u32 LE), cycle count (u16), flags (u16: 4 int16, else float;
+// 8 the int16s use the full range, else 15 bits; 0x10 XML after the audio), then the cycles one after another, mono.
+// The cycles have no rate of their own: 44.1 kHz, as the oscillator tunes them by their length.
+
+PcmPtr decode_vawt(const Blob &blob, AudioInfo *info, bool header_only) {
+    std::vector<uint8_t> h = blob.head(12);
+    if (h.size() < 12 || std::memcmp(h.data(), "vawt", 4)) throw ParseError("not a .wt wavetable");
+    uint32_t size = le32(h.data() + 4), count = le16(h.data() + 8), flags = le16(h.data() + 10);
+    if (size < 2 || size > 65536 || count < 1) throw ParseError("bad .wt wavetable header");
+    int64_t frames = int64_t(size) * count;
+    bool i16 = flags & 4;
+    if (blob.size() < 12 + uint64_t(frames) * (i16 ? 2 : 4)) throw ParseError(".wt wavetable cut short");
+    if (info) { info->rate = 44100; info->channels = 1; info->bits = i16 ? 16 : 32; info->frames = frames; }
+    if (header_only) return nullptr;
+    std::vector<uint8_t> d = blob.bytes(12, size_t(frames) * (i16 ? 2 : 4));
+    auto p = std::make_shared<Pcm>();
+    p->rate = 44100;
+    p->channels = 1;
+    p->data.resize(size_t(frames));
+    convert_raw(d.data(), size_t(frames), i16 ? Enc::S16LE : Enc::F32LE, p->data.data());
+    if (i16 && !(flags & 8)) for (int16_t &v : p->data) v = int16_t(std::max(-32768, std::min(32767, v * 2)));
+    return PcmPtr(p);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // dispatch
 
 namespace {
-enum class Kind { Wav, Aiff, Flac, Ogg, Ncw, Caf, Unknown };
+enum class Kind { Wav, Aiff, Flac, Ogg, Ncw, Caf, Vawt, Unknown };
 Kind sniff(const Blob &blob) {
     std::vector<uint8_t> h = blob.head(12);
     if (h.size() >= 12 && (!std::memcmp(h.data(), "RIFF", 4) || !std::memcmp(h.data(), "RF64", 4) ||
@@ -636,6 +661,7 @@ Kind sniff(const Blob &blob) {
     if (h.size() >= 4 && !std::memcmp(h.data(), "fLaC", 4)) return Kind::Flac;
     if (h.size() >= 4 && !std::memcmp(h.data(), "caff", 4)) return Kind::Caf;
     if (h.size() >= 4 && !std::memcmp(h.data(), "OggS", 4)) return Kind::Ogg;
+    if (h.size() >= 12 && !std::memcmp(h.data(), "vawt", 4)) return Kind::Vawt;
     if (h.size() >= 4 && le32(h.data()) == NCW_MAGIC) return Kind::Ncw;
     if (h.size() >= 10 && !std::memcmp(h.data(), "ID3", 3)) return Kind::Flac;   // FLAC with an ID3 tag in front
     return Kind::Unknown;
@@ -650,6 +676,7 @@ PcmPtr decode_audio(const Blob &blob, AudioInfo *info) {
     case Kind::Ogg: return decode_ogg(blob, info, false);
     case Kind::Ncw: return decode_ncw(blob, info);
     case Kind::Caf: return decode_caf(blob, info, false);
+    case Kind::Vawt: return decode_vawt(blob, info, false);
     default: throw ParseError("unknown audio file format");
     }
 }
@@ -662,6 +689,7 @@ AudioInfo probe_audio(const Blob &blob) {
     case Kind::Flac: decode_flac(blob, &info, true); break;
     case Kind::Ogg: decode_ogg(blob, &info, true); break;
     case Kind::Caf: decode_caf(blob, &info, true); break;
+    case Kind::Vawt: decode_vawt(blob, &info, true); break;
     case Kind::Ncw: {
         std::vector<uint8_t> h = blob.head(20);
         if (h.size() >= 20) { info.channels = le16(h.data() + 8); info.bits = le16(h.data() + 10);

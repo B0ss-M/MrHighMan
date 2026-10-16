@@ -28,6 +28,11 @@ size_t reader_probe_bytes();
 // Shared helpers for readers
 // Host folders readers may search for a library's shared samples (the Plugin Library); set by the plugin
 void set_search_dirs(const std::vector<std::string> &dirs);
+// A folder of shared samples (an instrument's ROM dumps, a sample disk) that `is` recognises: the cached one; else
+// beside the file (each folder above it and two levels under each); else in the search dirs (three levels). The
+// cache is the caller's (one per kind of folder); folders are inner paths of the volume.
+using IsFolder = bool (*)(Volume &, const std::string &);
+std::string find_beside(Volume &vol, const std::string &file, IsFolder is, std::string &cache);
 void finish_instrument(Instrument &inst);                     // clamp ranges, fill defaults, drop empty zones
 double velocity_to_db(int value);                              // helpers for 0..127 scales
 inline int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
@@ -47,6 +52,8 @@ void register_korg();
 void register_korg_triton();
 void register_korg_trinity();
 void register_korg_m1();
+void register_korg_ws();
+void register_ensoniq_sd1();
 void register_yamaha();
 void register_logic();
 void register_images();

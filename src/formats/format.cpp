@@ -23,6 +23,63 @@ bool has_ext(const char *exts, const std::string &ext) {
 }  // namespace
 
 void register_reader(const FormatReader &reader) { storage().push_back(reader); }
+
+// ---- shared sample folders (M1 ROM dumps / disk, Wavestation ROM dumps) ----
+
+namespace {
+std::mutex dirs_mutex;
+std::vector<std::string> extra_dirs;   // host folders to search too (the Plugin Library)
+
+// a folder that `is`: <dir> itself or a folder up to `depth` levels below it
+bool search_folder(Volume &vol, const std::string &dir, int depth, IsFolder is, std::string &found) {
+    if (is(vol, dir)) { found = dir; return true; }
+    if (depth <= 0) return false;
+    std::vector<DirEntry> list;
+    try { list = vol.list(dir); } catch (const std::exception &) { return false; }
+    if (list.size() > 4000) return false;
+    for (const DirEntry &e : list)
+        if (e.dir && !e.name.empty() && e.name[0] != '.' && search_folder(vol, path_join(dir, e.name), depth - 1, is, found)) return true;
+    return false;
+}
+}  // namespace
+
+void set_search_dirs(const std::vector<std::string> &dirs) {
+    std::lock_guard<std::mutex> lock(dirs_mutex);
+    extra_dirs = dirs;
+}
+
+std::string find_beside(Volume &vol, const std::string &file, IsFolder is, std::string &cache) {
+    std::vector<std::string> extra;
+    {
+        std::lock_guard<std::mutex> lock(dirs_mutex);
+        if (!cache.empty() && vol.kind() == "Folder" && is(vol, cache)) return cache;
+        extra = extra_dirs;
+    }
+    std::string found;
+    std::string dir = path_dir(file), below;
+    for (int up = 0; up < 8 && !found.size(); up++) {
+        if (is(vol, dir)) { found = dir; break; }
+        std::vector<DirEntry> list;
+        try { list = vol.list(dir); } catch (const std::exception &) {}
+        if (list.size() <= 4000)
+            for (const DirEntry &e : list)
+                if (e.dir && e.name != below && !e.name.empty() && e.name[0] != '.' && search_folder(vol, path_join(dir, e.name), 1, is, found)) break;
+        if (dir.empty() || !found.empty()) break;
+        below = path_name(dir);
+        dir = path_dir(dir);
+    }
+    if (found.empty() && vol.kind() == "Folder")
+        for (const std::string &lib : extra) {
+            std::string inner = lib;
+            while (!inner.empty() && inner[0] == '/') inner.erase(0, 1);
+            if (!inner.empty() && vol.is_dir(inner) && search_folder(vol, inner, 3, is, found)) break;
+        }
+    if (!found.empty() && vol.kind() == "Folder") {
+        std::lock_guard<std::mutex> lock(dirs_mutex);
+        cache = found;
+    }
+    return found;
+}
 const std::vector<FormatReader> &formats() { return storage(); }
 size_t reader_probe_bytes() { return 4096; }
 
@@ -42,6 +99,8 @@ void register_all() {
         register_korg_triton();
         register_korg_trinity();
         register_korg_m1();
+        register_korg_ws();
+        register_ensoniq_sd1();
         register_yamaha();
         register_logic();
         register_omni_native();
