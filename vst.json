@@ -74,5 +74,6 @@
       "-lpthread"
     ]
   },
-  "art": "html"
+  "art": "html",
+  "targets": ["armv7", "aarch64"]
 }

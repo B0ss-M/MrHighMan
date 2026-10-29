@@ -4,5 +4,11 @@
   "device": "Akai MPC Live II",
   "firmware": "MPC OS 3.9.1",
   "date": "2026-10-10"
+ },
+ {
+  "version": "1.8.0",
+  "device": "Akai MPC XL (Gen2)",
+  "firmware": "MPC OS 3.9.1",
+  "date": "2026-10-29"
  }
 ]

@@ -716,6 +716,13 @@ struct FlushDenormals {
         __asm__ volatile("vmsr fpscr, %0" : : "r"(v));
     }
     ~FlushDenormals() { __asm__ volatile("vmsr fpscr, %0" : : "r"(saved)); }
+#elif defined(__aarch64__)
+    uint64_t saved;
+    FlushDenormals() {
+        __asm__ volatile("mrs %0, fpcr" : "=r"(saved));
+        __asm__ volatile("msr fpcr, %0" : : "r"(saved | (1ull << 24)));   // FZ
+    }
+    ~FlushDenormals() { __asm__ volatile("msr fpcr, %0" : : "r"(saved)); }
 #elif defined(__SSE__) || defined(__x86_64__)
     unsigned saved;
     FlushDenormals() { saved = __builtin_ia32_stmxcsr(); __builtin_ia32_ldmxcsr(saved | 0x8040); }   // FTZ | DAZ
