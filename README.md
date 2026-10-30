@@ -1,11 +1,11 @@
 # Omni Sampler
 
-A multi-format sampler instrument for the MPC OS standalone hardware (VST2, armv7), by MR HighMan. It loads
+A multi-format sampler instrument for the MPC OS standalone hardware (VST2, armv7 for Gen1 and aarch64 for Gen2), by MR HighMan. It loads
 instruments from Akai, E-mu, Native Instruments, Roland, Ensoniq, Korg and Yamaha samplers, SoundFonts and SFZ, straight from their files or from
 the disk images they shipped on (sampler CDs, floppies, hard disks, CF/ZIP dumps), and plays them through its own
 engine. Nothing is converted on disk.
 
-Requires a modded unit with root access (the installer edits `MPC.settings`). Tested on an MPC Live (Gen1, armv7).
+Requires a modded unit with root access (the installer edits `MPC.settings`). Tested on an MPC Live (Gen1, armv7) and an MPC XL (Gen2, aarch64).
 
 Contact: mrhighmanproductions@gmail.com (bug reports and format requests welcome).
 
@@ -311,7 +311,8 @@ vibrato on every voice costs about twice as much per voice; lower Polyphony on S
 
 ## Install
 
-Download `Omni-Sampler-<version>-mpc-armv7.zip` from [Releases](../../releases) and install it with the
+Download `Omni-Sampler-<version>-mpc-armv7.zip` (Gen1) or `Omni-Sampler-<version>-mpc-aarch64.zip` (Gen2) from
+[Releases](../../releases) and install it with the
 [MPC plugin installer](https://github.com/sd88me/mpc-vst-plugins), or unzip it, copy the folder to the MPC and run
 `sh install.sh` as root (it stops MPC, backs up `MPC.settings`, installs and restarts MPC). The zip's `INSTALL.md`
 has the full steps, including a manual install. `uninstall.sh` removes it again.
@@ -330,7 +331,7 @@ check that out next to this repo and point `MPC_VST` at it.
 git clone https://github.com/sd88me/mpc-vst-plugins
 export MPC_VST=$PWD/mpc-vst-plugins
 python3 design.py                       # params.json, layout.conf, skin.css, art/ (the skin design)
-./build.sh                              # build/omni_sampler.so (armhf), build/skin/, pluginlist-entry.xml
+./build.sh                              # build/omni_sampler.so (armhf), build/aarch64/omni_sampler.so, build/skin/, pluginlist-entry.xml
 "$MPC_VST/tools/test_port.sh" vst.json  # x86 host test (ASan)
 tests/build_x86.sh                      # build/x86/probe, test_engine, test_patch (ASan; --fast for -O2)
 build/x86/probe <file|image/path>       # list / dump what a reader makes of a file
@@ -338,7 +339,8 @@ build/x86/test_engine <file> [preset] [notes]  # load, play, browse, save/restor
 build/x86/test_patch <file> <image/preset> <file>  # save a 3-slot patch, reopen it; project settings, mono pads
 ```
 
-Without Docker, `build.sh` needs `arm-linux-gnueabihf-g++-12` and a Python with Playwright (`HTML_ART_PYTHON`).
+Without Docker, `build.sh` needs `arm-linux-gnueabihf-g++-12` and a Python with Playwright (`HTML_ART_PYTHON`), and builds
+the armv7 plugin only; the Gen2 (aarch64) build comes from the Docker path (`vst.json` `targets`).
 A release zip is made with upstream's current `tools/release.py` (see its `docs/RELEASING.md`), which makes the portable
 layout; `omni-sampler/` is the user's data, so pass it as `--user-data`:
 
@@ -347,7 +349,11 @@ python3 $MPC_VST/tools/release.py --so build/omni_sampler.so --skin "build/skin/
   --entry build/pluginlist-entry.xml --version X.Y.Z --id omni-sampler --repo B0ss-M/MrHighMan \
   --license LGPL-3.0-or-later --extra build/licenses:licenses --user-data omni-sampler --bench build/bench.json -o dist
 ```
- The PLAY page design is drawn
+
+Run it again with `--so build/aarch64/omni_sampler.so` (and without `--bench`) for the Gen2 zip,
+`Omni-Sampler-<version>-mpc-aarch64.zip`; both zips go on the same release.
+
+The PLAY page design is drawn
 by `design.py` at MPC's 1280 x 628 plugin area. The title font is Michroma (OFL, `fonts/`).
 
 ## License
