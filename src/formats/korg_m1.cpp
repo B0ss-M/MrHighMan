@@ -203,9 +203,7 @@ struct Source {
     bool card = false;  // a Plus+1 program card: the card bank is the Plus+1's
 };
 
-std::mutex dirs_mutex;
-std::vector<std::string> extra_dirs;   // host folders to search too (the Plugin Library)
-std::string cached_disk, cached_rom;   // last found, inner paths of the host volume
+std::string cached_disk, cached_rom;   // last found, inner paths of the host volume (find_beside)
 
 // the chip file names in a folder listing ("ic36.bin" ... "ic43.bin", any case); empty when one is missing
 std::vector<std::string> chip_files(const std::vector<DirEntry> &list) {
@@ -230,55 +228,6 @@ bool is_disk(Volume &vol, const std::string &dir) {
             if (!e.dir && (equals_ci(e.name, "00_PIANO.KMP") || equals_ci(e.name, "85_DWGS_.KMP"))) have++;
     } catch (const std::exception &) {}
     return have == 2;
-}
-
-using IsDir = bool (*)(Volume &, const std::string &);
-
-// a folder that `is`: <dir> itself or a folder up to `depth` levels below it
-bool search(Volume &vol, const std::string &dir, int depth, IsDir is, std::string &found) {
-    if (is(vol, dir)) { found = dir; return true; }
-    if (depth <= 0) return false;
-    std::vector<DirEntry> list;
-    try { list = vol.list(dir); } catch (const std::exception &) { return false; }
-    if (list.size() > 4000) return false;
-    for (const DirEntry &e : list)
-        if (e.dir && !e.name.empty() && e.name[0] != '.' && search(vol, path_join(dir, e.name), depth - 1, is, found)) return true;
-    return false;
-}
-
-// The last one found; else beside the file (each folder above it and two levels under each), else the Plugin Library
-// (three levels: <library>/Korg/TRITON_Content_Dump/M1 ...)
-std::string find_near(Volume &vol, const std::string &file, IsDir is, std::string &cache) {
-    std::vector<std::string> extra;
-    {
-        std::lock_guard<std::mutex> lock(dirs_mutex);
-        if (!cache.empty() && vol.kind() == "Folder" && is(vol, cache)) return cache;
-        extra = extra_dirs;
-    }
-    std::string found;
-    std::string dir = path_dir(file), below;
-    for (int up = 0; up < 8 && !found.size(); up++) {
-        if (is(vol, dir)) { found = dir; break; }
-        std::vector<DirEntry> list;
-        try { list = vol.list(dir); } catch (const std::exception &) {}
-        if (list.size() <= 4000)
-            for (const DirEntry &e : list)
-                if (e.dir && e.name != below && !e.name.empty() && e.name[0] != '.' && search(vol, path_join(dir, e.name), 1, is, found)) break;
-        if (dir.empty() || !found.empty()) break;
-        below = path_name(dir);
-        dir = path_dir(dir);
-    }
-    if (found.empty() && vol.kind() == "Folder")
-        for (const std::string &lib : extra) {
-            std::string inner = lib;
-            while (!inner.empty() && inner[0] == '/') inner.erase(0, 1);
-            if (!inner.empty() && vol.is_dir(inner) && search(vol, inner, 3, is, found)) break;
-        }
-    if (!found.empty() && vol.kind() == "Folder") {
-        std::lock_guard<std::mutex> lock(dirs_mutex);
-        cache = found;
-    }
-    return found;
 }
 
 RomPtr open_rom(Volume &vol, const std::string &dir) {
@@ -615,9 +564,9 @@ Instrument load_from(const Bank &b, VolumePtr vol, const std::string &path, int 
     Source src;
     src.vol = vol;
     src.card = b.card;
-    std::string rom = find_near(*vol, path, is_rom, cached_rom);
+    std::string rom = find_beside(*vol, path, is_rom, cached_rom);
     if (!rom.empty()) src.rom = open_rom(*vol, rom);
-    else src.disk = find_near(*vol, path, is_disk, cached_disk);
+    else src.disk = find_beside(*vol, path, is_disk, cached_disk);
     if (!src.rom && src.disk.empty())
         throw ParseError("M1 samples not found: put the M1 sample ROM dumps (ic36.bin ... ic43.bin) or Korg's M1 sample disk "
                          "(the folder with 00_PIANO.KMP) beside the M1 files or in the Plugin Library");
@@ -671,11 +620,6 @@ std::vector<PresetInfo> list_card(VolumePtr vol, const std::string &path) {
 Instrument load_card(VolumePtr vol, const std::string &path, int index) { return load_from(read_card(*vol, path), vol, path, index); }
 
 }  // namespace
-
-void set_search_dirs(const std::vector<std::string> &dirs) {
-    std::lock_guard<std::mutex> lock(dirs_mutex);
-    extra_dirs = dirs;
-}
 
 void register_korg_m1() {
     register_reader({"Korg M1 SysEx", "syx", probe_syx, list_syx, load_syx});

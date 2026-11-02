@@ -21,11 +21,11 @@ Contact: mrhighmanproductions@gmail.com (bug reports and format requests welcome
 | Roland | S-700 series (S-750 / S-760 / S-770, SP-700, DJ-70) CD-ROM, hard-disk and floppy images: volumes (banks), performances and patches; S-50 / S-550 / S-330 / W-30 floppy images and S-500 "LAND" CD-ROMs; MV-8000 / MV-8800 patches `.MV0` |
 | Reason | NN-XT patches `.sxt`, with their samples as files next to the patch (or in a folder named after it) |
 | Apple Logic | EXS24 / Sampler instruments `.exs` (both byte orders), with their samples (WAV, AIFF, CAF) found by name next to the instrument, around it or in the folders below it; consolidated instruments (one sample file for all zones) included |
-| Ensoniq | EPS / EPS-16+ / ASR-10 / ASR-88 instruments `.efe`, and their disks: raw floppy and hard-disk images (`.img`), Giebler `.gkh`, `.eda`, `.ede`, HFE floppies |
-| Korg | Trinity / Triton / Karma multisamples `.kmp` with their `.ksf` samples (8 and 16 bit), single samples `.ksf`, load scripts `.ksc`; TRITON content dumps (the ROM and EXB-PCM banks as FLAC + JSON cards): `programs/manifest.csv` shows as the folder **TRITON by Category** (the programs in the TRITON's 16 categories), `multisamples/manifest.csv` lists the multisamples; TRINITY program banks `.pcg` (KORG Collection TRINITY): the programs that play the TFD sample disks, by category; M1 / M1R / M1EX SysEx `.syx` (programs, combinations, drum kits), played from the M1's sample ROM dumps or Korg's M1 sample disk |
+| Ensoniq | EPS / EPS-16+ / ASR-10 / ASR-88 instruments `.efe`, and their disks: raw floppy and hard-disk images (`.img`), Giebler `.gkh`, `.eda`, `.ede`, HFE floppies; SD-1 / VFX-SD SysEx programs `.syx`, played from the SD-1's wave ROM dumps |
+| Korg | Trinity / Triton / Karma multisamples `.kmp` with their `.ksf` samples (8 and 16 bit), single samples `.ksf`, load scripts `.ksc`; TRITON content dumps (the ROM and EXB-PCM banks as FLAC + JSON cards): `programs/manifest.csv` shows as the folder **TRITON by Category** (the programs in the TRITON's 16 categories), `multisamples/manifest.csv` lists the multisamples; TRINITY program banks `.pcg` (KORG Collection TRINITY): the programs that play the TFD sample disks, by category; M1 / M1R / M1EX SysEx `.syx` (programs, combinations, drum kits), played from the M1's sample ROM dumps or Korg's M1 sample disk; Wavestation / EX / A/D / SR SysEx `.syx` (performances, patches), played from the Wavestation EX ROM dumps |
 | Yamaha | Motif XS `.X0A .X0W .X0V`, Motif XF `.X3A .X3W .X3V`, MOXF `.X6A .X6W .X6V`, Montage `.X7U .X7L .X7A`, Montage M `.Y2L .Y2U`, MODX `.X8U .X8L .X8A` libraries: waveforms, and Montage / MODX performances; Motif ES waveforms `.W7A` + `.W8A` |
 | Open formats | SoundFont 2 `.sf2`, SFZ `.sfz`; samples in WAV (PCM, float, ADPCM, RF64), AIFF/AIFC, CAF (linear PCM), FLAC, Ogg Vorbis |
-| Synth waves | single-cycle waveforms (a WAV of 256, 512, 600, 1024, 2048 or 4096 frames) and wavetables (WAV with a Serum `clm ` or Surge `srge` chunk) |
+| Synth waves | single-cycle waveforms (a WAV of 256, 512, 600, 1024, 2048 or 4096 frames) and wavetables (Serum / Surge / WaveEdit WAVs, Surge and Bitwig `.wt`) |
 | Disk images | ISO 9660 (Joliet, Rock Ridge; `.iso`, raw `.bin`), CUE sheets (`.cue` + its `.bin` files: a data CD opens as its file system, CD audio tracks as `Track NN.wav`; a renamed `.bin` is found by the `.cue`'s name), FAT12/16/32 (floppies, partitioned cards and ZIP disks), Akai and E-mu sampler file systems, HFE and IMD floppy images, Nero `.nrg` CD images. Images open like folders, also nested (an Akai CD image on a FAT card) |
 
 MV-8000 / MV-8800 patches (`.MV0`) load straight from the file, samples and all, stereo samples included. Drum kits
@@ -112,6 +112,29 @@ only the global data (the drum kits, `ORIGGLOB.SYX`) lends its kits to the progr
 (`ORIGPROG.SYX`), and says so when opened itself; sequencer data (function 48, songs) has no sounds and says so. Files
 with a Mac header before the SysEx (MacBinary) read too. SAVE TO LIBRARY files a sound in `Extracted/Korg M1/<file name>/`.
 
+Korg Wavestation SysEx banks (`.syx`, from a Wavestation, EX, A/D or SR: the banks of the Wavestation Patch Archive,
+the SR's ROM sounds moved into RAM banks, factory banks) list their performances (`Pf00`-`Pf49`) and patches
+(`Pt00`-`Pt34`) as presets (1.8). An all-data dump (RAM1 and RAM2 in one message, as on MSP's sound disks) lists
+`Pf00`-`Pf99` and `Pt00`-`Pt69`, its performances playing the patches of both banks. The sound comes from the Wavestation EX expansion ROM: dumps of its four EPROMs,
+`ws3p7.bin`, `ws3p8.bin`, `ws3p9.bin`, `ws4p0.bin` (512 KB each, MAME's korgwsex set), unzipped into one folder beside
+the banks or in the Plugin Library. The ROM carries its own wave table (88 multisampled waves: pianos, basses, strings,
+drum kit ...), so no OS chips are needed; its 30 single-cycle VS waves (VS126-VS155) play too, each as six
+band-limited copies across the keyboard. The Wavestation's own 365 waves are in ROMs not read (the original's wave ROMs
+were never dumped publicly; the SR's chip 814 is the EX data again): sounds that use them, about three in four, say so. A patch brings its 1, 2 or 4 oscillators (wave, coarse and fine tune,
+level, amp envelope), mixed as the joystick's start point sets; a wave sequence plays its first wave. A performance
+layers its parts (patch, level, key and velocity range, transpose, detune); patches from another bank come from the
+file of that bank beside it (factory RAM1 + RAM2). Filters, LFOs, the vector envelope and effects are not read.
+
+Ensoniq SD-1 / VFX-SD SysEx files (`.syx`: one program, or a bank of 60, as the SD-1 sends them) list their programs as
+presets (1.8.1). They play from the SD-1's own waves: dumps of its wave chips `u34.bin`, `u35.bin`, `u36.bin` (512 KB
+each; the VFX's `u14`-`u16` and the VFX-SD's `u57`/`u58`/`u60` are the same data), `u37.bin`, `u38.bin` (1 MB each, the
+SD-1's extra waves: drums, pianos, violin ...), and its OS, `sd1_410_hi.bin` + `sd1_410_lo.bin` (or 4.02, or 3.00),
+which holds the table of where each wave and its keyboard zones are (MAME's sd132 set): all in one folder beside the
+banks or in the Plugin Library. A program brings the voices its first patch select plays (up to six), each with its
+wave's keyboard zones, transpose and fine tune, volume, pan, key zone, velocity threshold and amplitude envelope
+(Env3); transwaves play as wavetables, WT POSITION moving through them. Filters, Env1/Env2, LFOs, the wave start index
+and effects are not read, nor the drum-map waves (a few programs say so).
+
 Yamaha libraries (YSFC: Motif XS / XF, MOXF, Montage, Montage M, MODX) list their performances or voices as presets,
 each element or part a layer with its key and velocity range, tuning, pan, filter and amplitude envelope. Parts that use
 the keyboard's own preset waveforms are not in the library, so they are left out and the plugin says how many. Motif
@@ -148,13 +171,19 @@ floppies, IMD. Reports and sample files welcome.
 
 ## Single cycles and wavetables
 
-A WAV that is one cycle of a waveform (256-4096 frames, no loop) loads as an oscillator: it loops the cycle at each key's
+A WAV that is one cycle of a waveform (256-4096 frames, no loop or a loop over the whole file) loads as an oscillator: it loops the cycle at each key's
 pitch, split by octaves into band-limited copies (the harmonics a key's pitch would fold back above half the sample rate
 are removed), so high notes stay clean. It gets a synth envelope (attack 3 ms, decay 1 s, sustain full, release 0.25 s)
 for the PLAY page's ADSR faders to shape, and everything else (filter, drive, LFOs, the MOD matrix, layers, patches)
-works as for any instrument. A wavetable (a WAV whose Serum `clm ` or Surge `srge` chunk gives its cycle length) plays
+works as for any instrument. A wavetable plays
 its cycles with **WT POSITION** (SETUP, a Q-Link) crossfading between them; **WT Position** is also a MOD matrix
 destination, so an LFO, the envelope, velocity or the mod wheel can sweep it. SAVE TO LIBRARY and SAVE PATCH keep it.
+
+Wavetables it recognises: a Surge / Bitwig `.wt` file; a WAV whose Serum `clm ` or Surge `srge` chunk gives its cycle
+length; a WAV with no such chunk, when a `Folderinfo.txt` beside it starts with the cycle length (`[2048]`, as some Serum
+packs ship); else a mono WAV, with no loop, whose 256-4096-frame cycles visibly join up or follow on from each other; else
+WaveEdit's 64 cycles of 256 frames (16,384 16-bit frames). Tables made of unrelated noise-like frames can only be found
+the first and last ways.
 
 ## Pages
 
