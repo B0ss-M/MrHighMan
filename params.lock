@@ -295,3 +295,5 @@ mod5_slot
 mod6_slot
 mod7_slot
 mod8_slot
+br_enter
+br_wheel
