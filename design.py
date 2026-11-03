@@ -135,7 +135,7 @@ def params():
     # the browser
     for r in range(1, BROWSER_ROWS + 1):
         add("br_%d" % r, "Browser Row %d" % r, min=0, max=1, default=0, display="string", live=True)
-    for k, n in (("prev", "Browser Page Up"), ("next", "Browser Page Down"), ("up", "Browser Up"),
+    for k, n in (("prev", "Browser Row Up"), ("next", "Browser Row Down"), ("up", "Browser Up"),
                  ("drives", "Browser Drives"), ("library", "Browser Library"), ("refresh", "Browser Refresh")):
         trigger("br_" + k, n)
     for k, n in (("loc", "Browser Folder"), ("page", "Browser Page"), ("info", "Browser Info")):
@@ -204,8 +204,8 @@ def params():
     # 1.7.3: a simple scroll, one row at a time: the row buttons beside the list, and Q-Link 1 as an encoder (an option
     # param steps one option per nudge; the engine moves a row and returns it to the middle). Replaces the 1.7 fader
     # (br_scroll, kept above so the later indices don't move), which jumped by list length
-    trigger("br_rowup", "Browser Row Up")
-    trigger("br_rowdown", "Browser Row Down")
+    trigger("br_rowup", "Browser Page Up")
+    trigger("br_rowdown", "Browser Page Down")
     add("br_row", "Browser Scroll", options=["Up", "-", "Down"], default=1, live=True)
     # 1.7.3: each slot's key shift: its whole mapping moves up or down the keyboard, pitch unchanged (a kit from C1
     # played from C0, leaving C1 up for a bass); the slot's key range moves with it
@@ -238,6 +238,12 @@ def params():
     for p in P:
         if p["key"] in SOUND_KEYS:
             p["live"] = True
+    # last, so every earlier index (saved projects, Q-Link maps) stays put: pressing the data wheel on BROWSE opens or
+    # loads the highlighted row (the "wheel" field over the folder line)
+    trigger("br_enter", "Browser Open")
+    # the data wheel's own control (the "wheel" field over the folder line), separate from Q-Link 1's br_row: it moves
+    # the highlight. refresh_display: the engine puts it back on "-" after each step and MPC must read that back
+    add("br_wheel", "Browser Wheel", options=["Up", "-", "Down"], default=1, live=True, refresh_display=True)
     return {"name": "Omni Sampler", "params": P}
 
 
@@ -1154,6 +1160,9 @@ def layout():
     header_lines(L)
     x, yy, w, h = BR_LIST
     L.append('readout cx=%d cy=%d w=%d h=34 label="" key=br_loc text_size=17' % (x + w // 2, y(yy + 29), w - 40))
+    # the data wheel scrolls the list's highlight while this has focus (a tap on the folder line); Enter opens the row
+    # key=br_row: MPC sends the data wheel on this page to Q-Link 1's parameter (br_row), seen on the device 2026-11-02
+    L.append('wheel cx=%d cy=%d w=%d h=34 key=br_row enter=br_enter' % (x + w // 2, y(yy + 29), w - 40))
     # 1.7: smaller row text (MPC draws 24 px by default) and long names shortened in the middle by the engine
     L.append('list x=%d y=%d w=%d h=%d cols=1 rows=%d th=40 gap=4 key=br text_size=19' % (x + 14, y(yy + 56), w - 84, BROWSER_ROWS * 44 - 4, BROWSER_ROWS))
     # 1.7.3: one row up / down per tap (the page arrows below move ten)
@@ -1191,7 +1200,9 @@ def layout():
         n = "set_" + opt_name("auto_extract", opt)
         L.append('option cx=%d cy=%d w=%d h=%d key=auto_extract option="%s" label="" img=art/%s_off.png img_on=art/%s_on.png'
                  % (x + 318 + i * 104, y(yy + 500), 98, 34, opt, n, n))
-    L.append('qlinks "BROWSE" = br_row,volume,pan,cutoff,resonance,rev_mix,drive,pad_vel')
+    # 16 (four Q-Link pages, like every other page): the first 8 as before, then the PLAY page's envelope and tuning
+    L.append('qlinks "BROWSE" = br_row,volume,pan,cutoff,resonance,rev_mix,drive,pad_vel,'
+             'env_attack,env_decay,env_sustain,env_release,filter_vel,vel_sens,transpose,tune')
     L.append("")
 
     # SETUP
@@ -1262,7 +1273,8 @@ def layout():
         n = "info_page_" + opt
         L.append('option cx=%d cy=%d w=58 h=30 key=info_page option=%s label="" img=art/%s_off.png img_on=art/%s_on.png'
                  % (cx, y(28), opt, n, n))
-    L.append('qlinks "INFO" = volume,pan,cutoff,resonance,rev_mix,drive,pad_vel,transpose')
+    L.append('qlinks "INFO" = volume,pan,cutoff,resonance,rev_mix,drive,pad_vel,transpose,'
+             'env_attack,env_decay,env_sustain,env_release,filter_vel,vel_sens,tune,glide')
     return "\n".join(L) + "\n"
 
 

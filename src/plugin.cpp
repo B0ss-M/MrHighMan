@@ -98,6 +98,11 @@ struct Omni {
     std::map<std::string, std::string> xpm_kinds;   // MPC program path -> its group, read once (ui_mutex)
     std::string preset_file;
     std::string sel_path;            // the row last tapped (file or preset): highlighted until another is tapped
+    int cur = -1;                    // the data wheel / Q-Link 1 highlight (an index into rows); -1 until one is turned
+    // one Q-Link / data wheel turn: when its last event came, when it started, its direction and its last step (one row
+    // per turn; a turn held past 300 ms scrolls fast)
+    std::chrono::steady_clock::time_point turn_last{}, turn_start{}, turn_step{};
+    int turn_dir = 0;
     // the Plugin Library's location: the user's choice (an SD card or SSD folder, saved in <data_dir>/library_path.txt
     // for every project), else <data_dir>/library on the internal storage
     std::mutex lib_mutex;
@@ -115,7 +120,7 @@ struct Omni {
     std::string info_text;           // the last tapped item
     std::string browse_msg;
     std::atomic<int> row_on[ROWS];
-    std::atomic<int> trig_on[18];   // one per TRIGGERS entry
+    std::atomic<int> trig_on[19];   // one per TRIGGERS entry
     // the skin's 16 pads: a tap queues a note (set_param), the audio thread plays it with a fixed gate (render)
     std::atomic<int> pad_req[16];
     int pad_gate[16] = {}, pad_note[16] = {};   // audio thread only
@@ -362,6 +367,7 @@ void set_top(Omni *o, int t) {
 void rebuild_on(Omni *o) {
     int m = max_top(o);
     if (o->top > m) o->top = m;
+    if (o->cur >= int(o->rows.size())) o->cur = o->rows.empty() ? -1 : int(o->rows.size()) - 1;
     o->scroll_pos.store(m ? 1.0f - float(o->top) / float(m) : 1.0f);
     LoadedInfo li = o->loader.info();
     for (int r = 0; r < ROWS; r++) {
@@ -374,6 +380,7 @@ void rebuild_on(Omni *o) {
             int lpre = li.source.empty() ? li.preset : li.source_preset;
             if (row.kind == RowKind::Preset) on = (row.path == o->sel_path && row.preset == o->sel_preset) || (row.path == lp && row.preset == lpre);
             else if (row.kind == RowKind::File) on = row.path == o->sel_path || row.path == lp;
+            if (o->cur >= 0) on = int(i) == o->cur;   // one box: once the highlight is in use, only it is lit
         }
         o->row_on[r].store(on);
     }
@@ -450,6 +457,7 @@ void list_drives(Omni *o) {
     o->group.clear();
     o->preset_file.clear();
     o->top = 0;
+    if (o->cur >= 0) o->cur = 0;
     std::string lib = library_dir(o);   // listed only while its drive is connected
     if (!lib.empty()) o->rows.push_back({"Plugin Library", lib, RowKind::Drive});
     if (is_dir_host("/sdcard")) o->rows.push_back({"Internal", "/sdcard", RowKind::Drive});
@@ -539,6 +547,7 @@ void list_folder(Omni *o, const std::string &dir, const std::string &group = "")
     o->group = show;
     o->preset_file.clear();
     o->top = 0;
+    if (o->cur >= 0) o->cur = 0;
     o->rows.clear();
     o->rows.push_back({"..", show.empty() ? path_dir(dir) : dir, RowKind::Up});
     if (!show.empty()) {   // one type group of a mixed folder
@@ -568,6 +577,7 @@ void list_folder(Omni *o, const std::string &dir, const std::string &group = "")
 void list_presets(Omni *o, const std::string &file, const std::vector<PresetInfo> &presets) {
     o->preset_file = file;
     o->top = 0;
+    if (o->cur >= 0) o->cur = 0;
     o->rows.clear();
     o->rows.push_back({".. " + path_name(file), o->dir, RowKind::Up});
     for (size_t i = 0; i < presets.size(); i++) o->rows.push_back({presets[i].name, file, RowKind::Preset, int(i)});
@@ -602,6 +612,7 @@ bool play_preview(Omni *o, const std::string &file) {
 
 void tap_row(Omni *o, int index) {
     if (index < 0 || index >= int(o->rows.size())) return;
+    o->cur = index;   // a tap moves the highlight there: taps and the wheel share one position
     Row row = o->rows[size_t(index)];
     switch (row.kind) {
     case RowKind::Up:
@@ -672,6 +683,22 @@ void tap_row(Omni *o, int index) {
 }
 
 // Step through the presets of the loaded file, then on through the loadable files of its folder.
+// 1.8.x: the slot's < > arrows move the highlight onto the row they load (a preset of the file listed, or a file of the
+// folder shown), so what is highlighted and what is loaded stay the same; the list scrolls to show it (ui_mutex held)
+void follow_highlight(Omni *o, const std::string &path, int preset) {
+    for (int i = 0; i < int(o->rows.size()); i++) {
+        const Row &r = o->rows[size_t(i)];
+        bool hit = preset >= 0 ? r.kind == RowKind::Preset && r.path == path && r.preset == preset
+                               : r.kind == RowKind::File && r.path == path;
+        if (!hit) continue;
+        o->cur = i;
+        if (i < o->top) set_top(o, i);
+        else if (i >= o->top + ROWS) set_top(o, i - ROWS + 1);
+        else rebuild_on(o);
+        return;
+    }
+}
+
 void step_program(Omni *o, int delta) {
     LoadedInfo li = o->loader.info();
     if (li.path.empty()) return;
@@ -685,6 +712,7 @@ void step_program(Omni *o, int delta) {
     if (n > 1) {
         int p = (li.preset + delta + n) % n;
         o->loader.request(li.path, p);
+        follow_highlight(o, li.path, p);
         return;
     }
     std::vector<DirEntry> entries;
@@ -703,6 +731,7 @@ void step_program(Omni *o, int delta) {
     int i = it == files.end() ? 0 : int(it - files.begin());
     i = (i + delta + int(files.size())) % int(files.size());
     o->loader.request(files[size_t(i)], 0);
+    follow_highlight(o, files[size_t(i)], -1);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -984,10 +1013,11 @@ void midi(void *inst, const uint8_t *msg, int len) {
 bool is_trigger_on(const char *val) { return std::atof(val) > 0.5f; }
 
 // the trigger buttons, latched while held so the button lights
-constexpr int TRIGGER_COUNT = 18;
+constexpr int TRIGGER_COUNT = 19;
 const char *const TRIGGERS[TRIGGER_COUNT] = {"prog_prev", "prog_next", "br_prev", "br_next", "br_up", "br_drives", "br_library",
                                              "br_refresh", "pad_down", "pad_up", "br_extract", "slot_clear", "auto_split",
-                                             "br_setlib", "patch_save", "panic", "br_rowup", "br_rowdown"};
+                                             "br_setlib", "patch_save", "panic", "br_rowup", "br_rowdown",
+                                             "br_enter"};
 int trigger_index(const char *key) {
     for (int i = 0; i < TRIGGER_COUNT; i++) if (!std::strcmp(key, TRIGGERS[i])) return i;
     return -1;
@@ -1045,13 +1075,57 @@ void set_param(void *inst, const char *key, const char *val) {
         o->ui_rev.fetch_add(1);
         return;
     }
-    if (!std::strcmp(key, "br_row")) {
-        // 1.7.3: Q-Link 1 as an encoder: each nudge is one option either side of the middle ("-"), one row that way; the
-        // engine reports the middle again so the next nudge starts there
+    if (!std::strcmp(key, "br_wheel") || !std::strcmp(key, "br_enter") || !std::strcmp(key, "br_row")) {
+        // 1.8.x diagnostics: with /sdcard/omni-debug present, each write of the browser's wheel, Enter and Q-Link scroll
+        // is appended to /tmp/omni-wheel.log (what MPC actually sends; the file stops growing at 64 KB)
+        struct stat st;
+        if (stat("/sdcard/omni-debug", &st) == 0) {
+            if (stat("/tmp/omni-wheel.log", &st) != 0 || st.st_size < 65536) {
+                if (FILE *f = std::fopen("/tmp/omni-wheel.log", "a")) {
+                    std::fprintf(f, "%lld %s=%s\n", (long long)std::chrono::duration_cast<std::chrono::milliseconds>(
+                                     std::chrono::steady_clock::now().time_since_epoch()).count(), key, val);
+                    std::fclose(f);
+                }
+            }
+        }
+    }
+    if (!std::strcmp(key, "br_row") || !std::strcmp(key, "br_wheel")) {
+        // 1.8.x: a highlight in the browser list (the first step shows it on the top row shown); the list scrolls to keep
+        // it in view. Enter (br_enter) opens a folder or loads the highlighted file / preset, as a tap does.
+        // Q-Link 1 and the data wheel (MPC sends both here on BROWSE; logged on the device 2026-11-02). Each event is one
+        // option either side of the middle ("-"): 2 = down, 0 = up; MPC mixes "-" (1) into a turn, which only keeps the
+        // turn alive. One row per turn: events 200 ms or less apart are one turn and its first step moves one row; a turn
+        // held past 300 ms scrolls on at 10 rows a second (long lists). A new direction is a new turn.
+        // OMNI_WHEEL_MS=0 (tests): every 0 / 2 is one row
         int v = int(std::lround(std::atof(val)));
-        if (v == 1) return;
+        int hint = v >= 2 ? 1 : v <= 0 ? -1 : 0;
         std::lock_guard<std::mutex> lock(o->ui_mutex);
-        set_top(o, o->top + (v < 1 ? -1 : 1));
+        const char *ms_env = std::getenv("OMNI_WHEEL_MS");
+        bool grouped = !(ms_env && std::atoi(ms_env) == 0);
+        auto now = std::chrono::steady_clock::now();
+        bool new_turn = now - o->turn_last > std::chrono::milliseconds(200);
+        o->turn_last = now;
+        if (hint == 0) return;
+        if (grouped && !new_turn && hint == o->turn_dir) {
+            if (now - o->turn_start < std::chrono::milliseconds(300) || now - o->turn_step < std::chrono::milliseconds(100)) return;
+        } else {
+            o->turn_dir = hint;
+            o->turn_start = now;
+        }
+        o->turn_step = now;
+        int dir = hint;
+        int n = int(o->rows.size());
+        if (n == 0) return;
+        if (o->cur < 0 || o->cur < o->top || o->cur >= o->top + ROWS) o->cur = o->top;
+        else o->cur = std::max(0, std::min(n - 1, o->cur + dir));
+        if (o->cur < o->top) set_top(o, o->cur);
+        else if (o->cur >= o->top + ROWS) set_top(o, o->cur - ROWS + 1);
+        else rebuild_on(o);
+        // with PREVIEW ON, load as you scroll (the user's choice, 2026-11-02: MPC doesn't pass the wheel press to the plugin):
+        // a preset row loads as soon as it is highlighted, as a tap would; with PREVIEW OFF it is only highlighted and a tap
+        // loads it. Folders, disk images and bank files always open with a tap, so scrolling never jumps into another list.
+        // The loader keeps only the newest request, so a fast spin loads where it stops
+        if (num(o, "br_preview") > 0.5f && o->rows[size_t(o->cur)].kind == RowKind::Preset) tap_row(o, o->cur);
         o->ui_rev.fetch_add(1);
         return;
     }
@@ -1100,10 +1174,16 @@ void browse_action(Omni *o, const std::string &key) {
             tap_row(o, o->top + std::atoi(k) - 1);
             return;
         }
-        if (!std::strcmp(k, "prev")) set_top(o, o->top - ROWS);
-        else if (!std::strcmp(k, "next")) set_top(o, o->top + ROWS);
-        else if (!std::strcmp(k, "rowup")) set_top(o, o->top - 1);
-        else if (!std::strcmp(k, "rowdown")) set_top(o, o->top + 1);
+        if (!std::strcmp(k, "enter")) {
+            if (o->cur >= 0 && o->cur < int(o->rows.size())) tap_row(o, o->cur);
+            else if (!o->rows.empty()) { o->cur = o->top; rebuild_on(o); }
+            return;
+        }
+        // 1.8.x (the user, 2026-11-02): the big blue buttons beside the list page by 10, the small arrows under it by one row
+        if (!std::strcmp(k, "prev")) set_top(o, o->top - 1);
+        else if (!std::strcmp(k, "next")) set_top(o, o->top + 1);
+        else if (!std::strcmp(k, "rowup")) set_top(o, o->top - ROWS);
+        else if (!std::strcmp(k, "rowdown")) set_top(o, o->top + ROWS);
         else if (!std::strcmp(k, "up")) { if (!o->rows.empty() && o->rows[0].kind == RowKind::Up) tap_row(o, 0); else list_drives(o); }
         else if (!std::strcmp(k, "drives")) list_drives(o);
         else if (!std::strcmp(k, "library")) {
@@ -1212,7 +1292,7 @@ int get_param(void *inst, const char *key, char *buf, int len) {
         !std::strcmp(key, "prog_format_on"))
         return std::snprintf(buf, size_t(len), "%d", int((o->loader.revision.load() + o->ui_rev.load()) & 1));
     if (!std::strcmp(key, "lib_path_on")) return std::snprintf(buf, size_t(len), "%d", int(o->ui_rev.load() & 1));
-    if (!std::strcmp(key, "br_row")) return std::snprintf(buf, size_t(len), "1");
+    if (!std::strcmp(key, "br_row") || !std::strcmp(key, "br_wheel")) return std::snprintf(buf, size_t(len), "1");   // the middle again
     if (!std::strcmp(key, "br_scroll")) return std::snprintf(buf, size_t(len), "%.4f", o->scroll_pos.load());
     if (!std::strcmp(key, "br_info_on") || !std::strcmp(key, "br_sel1_on") || !std::strcmp(key, "br_sel2_on") ||
         !std::strcmp(key, "br_sel3_on"))   // also shows the loader's errors: follows its revision too
@@ -1333,6 +1413,7 @@ int get_param(void *inst, const char *key, char *buf, int len) {
         const char *k = key + 3;
         if (std::isdigit(static_cast<unsigned char>(*k))) {
             size_t i = size_t(o->top + std::atoi(k) - 1);
+            if (i < o->rows.size() && int(i) == o->cur) return put(buf, len, fit_row("> " + o->rows[i].label));
             return put(buf, len, i < o->rows.size() ? fit_row(o->rows[i].label) : " ");
         }
         if (!std::strcmp(k, "loc")) {

@@ -30,4 +30,6 @@ g++ "${FLAGS[@]}" "${WARN[@]}" -I"$PORT/src" -I"$MV/wrapper" "$PORT/tests/test_e
   -lpthread -o "$OUT/test_engine"
 g++ "${FLAGS[@]}" "${WARN[@]}" -I"$PORT/src" -I"$MV/wrapper" "$PORT/tests/test_patch.cpp" "$PORT/src/plugin.cpp" "${OBJS[@]}" \
   -lpthread -o "$OUT/test_patch"
-echo "built $OUT/probe $OUT/test_engine $OUT/test_patch"
+g++ "${FLAGS[@]}" "${WARN[@]}" -I"$PORT/src" -I"$MV/wrapper" "$PORT/tests/test_wheel.cpp" "$PORT/src/plugin.cpp" "${OBJS[@]}" \
+  -lpthread -o "$OUT/test_wheel"
+echo "built $OUT/probe $OUT/test_engine $OUT/test_patch $OUT/test_wheel"

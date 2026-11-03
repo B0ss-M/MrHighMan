@@ -442,7 +442,7 @@
   },
   {
    "key": "br_prev",
-   "name": "Browser Page Up",
+   "name": "Browser Row Up",
    "min": 0,
    "max": 1,
    "default": 0,
@@ -451,7 +451,7 @@
   },
   {
    "key": "br_next",
-   "name": "Browser Page Down",
+   "name": "Browser Row Down",
    "min": 0,
    "max": 1,
    "default": 0,
@@ -2652,7 +2652,7 @@
   },
   {
    "key": "br_rowup",
-   "name": "Browser Row Up",
+   "name": "Browser Page Up",
    "min": 0,
    "max": 1,
    "default": 0,
@@ -2661,7 +2661,7 @@
   },
   {
    "key": "br_rowdown",
-   "name": "Browser Row Down",
+   "name": "Browser Page Down",
    "min": 0,
    "max": 1,
    "default": 0,
@@ -3014,6 +3014,27 @@
    ],
    "default": 0,
    "live": true
+  },
+  {
+   "key": "br_enter",
+   "name": "Browser Open",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "br_wheel",
+   "name": "Browser Wheel",
+   "options": [
+    "Up",
+    "-",
+    "Down"
+   ],
+   "default": 1,
+   "live": true,
+   "refresh_display": true
   }
  ]
 }

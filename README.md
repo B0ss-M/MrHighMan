@@ -327,6 +327,12 @@ current installer needs; older zips used `/sdcard/vst` and the installer refuses
 The build uses the VST2 wrapper and skin tools of [mpc-vst-plugins](https://github.com/sd88me/mpc-vst-plugins):
 check that out next to this repo and point `MPC_VST` at it.
 
+The skin uses two layout features that upstream's skin tools don't have: `option` buttons (the slot, PLAY / MUTE,
+preview, auto-extract and filter-type buttons) and knob `width=`. Built with upstream's `tools/shadow_skin.py` those
+buttons are silently left out and the LAYERS knobs cover the PLAY / MUTE row, so the 1.8.1 release zips take their skin
+from [B0ss-M/mpc-vst-plugins](https://github.com/B0ss-M/mpc-vst-plugins)'s skin tools (with the browser's `wheel` field
+added) and the plugin, `params.h` and wrapper from upstream `adc48a3`. Both number the parameters the same way.
+
 ```
 git clone https://github.com/sd88me/mpc-vst-plugins
 export MPC_VST=$PWD/mpc-vst-plugins
