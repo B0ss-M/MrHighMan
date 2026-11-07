@@ -104,6 +104,7 @@ void register_all() {
         register_yamaha();
         register_logic();
         register_omni_native();
+        register_rom_map();
         register_wav_folder();
         register_images();
     });

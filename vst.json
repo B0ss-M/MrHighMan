@@ -34,6 +34,7 @@
       "src/formats/ni_kontakt.cpp",
       "src/formats/ni_maschine.cpp",
       "src/formats/omni_native.cpp",
+      "src/formats/rom_map.cpp",
       "src/formats/roland.cpp",
       "src/formats/reason_sxt.cpp",
       "src/formats/ensoniq.cpp",
