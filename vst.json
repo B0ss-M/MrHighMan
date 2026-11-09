@@ -46,6 +46,7 @@
       "src/formats/yamaha.cpp",
       "src/formats/logic_exs.cpp",
       "src/formats/sf2.cpp",
+      "src/formats/nxs_klp.cpp",
       "src/formats/sfz.cpp",
       "src/formats/wav.cpp",
       "src/fs/akai_fs.cpp",

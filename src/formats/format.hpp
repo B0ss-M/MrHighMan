@@ -41,6 +41,7 @@ inline double clampd(double v, double lo, double hi) { return v < lo ? lo : v > 
 // Registration functions of the modules (each file adds its readers / image types)
 void register_sfz();
 void register_sf2();
+void register_nxs_klp();
 void register_wav_folder();
 void register_akai();
 void register_emu();
