@@ -105,6 +105,7 @@ void register_all() {
         register_logic();
         register_omni_native();
         register_nxs_klp();
+        register_nxs();
         register_wav_folder();
         register_images();
     });

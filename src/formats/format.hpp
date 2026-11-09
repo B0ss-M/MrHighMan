@@ -42,6 +42,7 @@ inline double clampd(double v, double lo, double hi) { return v < lo ? lo : v > 
 void register_sfz();
 void register_sf2();
 void register_nxs_klp();
+void register_nxs();
 void register_wav_folder();
 void register_akai();
 void register_emu();
