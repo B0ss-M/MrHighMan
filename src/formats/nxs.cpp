@@ -32,10 +32,12 @@
 // Not read: envelopes, filters, effects and velocity (they live in Nexus presets, not in .nxs); word [6].
 // Also here: Nexus 2.3-2.7 presets (.fxp), their sample layers built from these readers (see "presets" below).
 #include <algorithm>
+#include <array>
 #include <cstring>
 #include <map>
 #include "../core/bytes.hpp"
 #include "format.hpp"
+#include "../third_party/tinf/tinf.h"
 
 namespace omni {
 namespace {
@@ -452,8 +454,7 @@ Instrument load_nxs(VolumePtr vol, const std::string &path, int) {
 //     <library>/Samples/Rom/ZigSaw LD1.nxs; "OSC/..." = a built-in synth oscillator), LAY0..LAY7_PROP (byte 0: layer
 //     on), LAYn_SRCS (byte i = 1: the layer plays OSCi), LAYn_KEYZ (key low, key high), and ~440 more (filter, amp,
 //     LFOs, arp, trance gate, effects) not read yet: their scales are not measured.
-// NEXUS2 Preset (2.0-2.2) is Syncrosoft MCFACT copy protection and NEXUS3..5 Preset are encrypted with a key built into
-// Nexus: neither is read.
+// NEXUS2 Preset (2.0-2.2) uses MCFACT. Nexus 5 uses a separate XXTEA/zlib container.
 const char *FXP_READABLE[] = {"NEXUS2.3 Preset", "NEXUS2.4 Preset", "NEXUS2.5 Preset", "NEXUS2.7 Preset"};
 
 uint32_t be32(const uint8_t *p) { return uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 | uint32_t(p[2]) << 8 | p[3]; }
@@ -465,17 +466,82 @@ bool probe_fxp(const std::string &, const uint8_t *h, size_t n, uint64_t) {
 
 using Chunks = std::map<std::string, std::vector<uint8_t>>;
 
+// Nexus 5 stores little-endian XXTEA words. The decrypted name supplies the
+// first four words of the key for the compressed preset state.
+void decode_xxtea(uint8_t *bytes, size_t size, const std::array<uint32_t, 4> &key) {
+    std::vector<uint32_t> words(size / 4);
+    for (size_t i = 0; i < words.size(); ++i) words[i] = le32(bytes + i * 4);
+    constexpr uint32_t delta = 0x9e3779b9u;
+    uint32_t sum = uint32_t(6 + 52 / words.size()) * delta;
+    uint32_t y = words.front();
+    for (; sum; sum -= delta) {
+        const uint32_t e = (sum >> 2) & 3;
+        for (size_t i = words.size(); i-- > 0;) {
+            const uint32_t z = i ? words[i - 1] : words.back();
+            const uint32_t mix = (((z >> 5) ^ (y << 2)) + ((y >> 3) ^ (z << 4))) ^
+                                 ((sum ^ y) + (key[(i & 3) ^ e] ^ z));
+            y = words[i] -= mix;
+        }
+    }
+    for (size_t i = 0; i < size; ++i) bytes[i] = uint8_t(words[i / 4] >> (8 * (i % 4)));
+}
+
+Chunks read_nexus5(std::vector<uint8_t> &state) {
+    if (state.size() < 60 || state.size() % 4) throw ParseError("Nexus 5 preset: invalid state size");
+    constexpr std::array<uint32_t, 4> name_key{0xc6d1f376u, 0x311a3163u, 0x03df7bcfu, 0x7fe15371u};
+    decode_xxtea(state.data() + 16, 32, name_key);
+    std::array<uint32_t, 4> key;
+    for (size_t i = 0; i < key.size(); ++i) key[i] = le32(state.data() + 16 + i * 4);
+    decode_xxtea(state.data() + 48, state.size() - 48, key);
+
+    const uint32_t expected = le32(state.data() + 48);
+    if (expected < 16 || expected > (8u << 20)) throw ParseError("Nexus 5 preset: invalid decompressed size");
+    std::vector<uint8_t> bytes(expected);
+    bool inflated = false;
+    // The zlib stream can have up to three zero bytes of XXTEA word padding.
+    for (size_t end = state.size(); state.size() - end < 4; --end) {
+        unsigned int actual = expected;
+        if (tinf_zlib_uncompress(bytes.data(), &actual, state.data() + 52, unsigned(end - 52)) == TINF_OK &&
+            actual == expected) {
+            inflated = true;
+            break;
+        }
+        if (state[end - 1] != 0) break;
+    }
+    if (!inflated) throw ParseError("Nexus 5 preset: invalid compressed state");
+
+    Chunks chunks;
+    for (size_t pos = 0; pos + 16 <= bytes.size();) {
+        const auto *tag = reinterpret_cast<const char *>(bytes.data() + pos);
+        if (!tag[0]) {
+            if (pos + 16 != bytes.size() ||
+                !std::all_of(bytes.begin() + pos, bytes.end(), [](uint8_t byte) { return byte == 0; }) ||
+                !chunks.count("LAY0_PROP")) break;
+            return chunks;
+        }
+        const uint32_t length = le32(bytes.data() + pos + 12);
+        const uint64_t padded = (uint64_t(length) + 15) & ~uint64_t(15);
+        pos += 16;
+        if (padded > bytes.size() - pos || chunks.size() >= 4096) break;
+        chunks[std::string(tag, strnlen(tag, 12))].assign(bytes.begin() + pos, bytes.begin() + pos + length);
+        pos += size_t(padded);
+    }
+    throw ParseError("Nexus 5 preset: invalid sub-chunks");
+}
+
 // The descrambled sub-chunks of a readable preset; ParseError says why others are not read.
-Chunks read_fxp(const Blob &f) {
+Chunks read_fxp(const Blob &f, bool *nexus5 = nullptr) {
     std::vector<uint8_t> h = f.head(0x4c);
     if (!probe_fxp("", h.data(), h.size(), f.size())) throw ParseError("not a Nexus preset");
     uint32_t size = be32(&h[0x38]);
     if (size < 0x30 || size > (4u << 20) || uint64_t(size) + 0x3c > f.size()) throw ParseError("Nexus preset: bad chunk size");
     std::vector<uint8_t> b = f.bytes(0x3c, size);
     std::string magic(reinterpret_cast<const char *>(b.data()), strnlen(reinterpret_cast<const char *>(b.data()), 16));
+    if (nexus5) *nexus5 = magic == "NEXUS5 Preset";
+    if (magic == "NEXUS5 Preset") return read_nexus5(b);
     if (std::find(std::begin(FXP_READABLE), std::end(FXP_READABLE), magic) == std::end(FXP_READABLE)) {
         if (magic == "NEXUS2 Preset") throw ParseError("Nexus 2.0-2.2 preset: copy-protected (MCFACT), not read");
-        throw ParseError("Nexus preset \"" + magic + "\": unsupported state; Nexus 2.3–2.7 presets are supported");
+        throw ParseError("Nexus preset \"" + magic + "\": unsupported state; Nexus 2.3–2.7 and Nexus 5 presets are supported");
     }
     for (size_t i = 0x10; i < 0x30; i++) b[i] ^= 0x5a;
     std::string name(reinterpret_cast<const char *>(&b[0x10]), strnlen(reinterpret_cast<const char *>(&b[0x10]), 0x20));
@@ -532,7 +598,8 @@ std::vector<PresetInfo> list_fxp(VolumePtr vol, const std::string &path) {
 }
 
 Instrument load_fxp(VolumePtr vol, const std::string &path, int) {
-    Chunks ch = read_fxp(*vol->open(path));
+    bool nexus5 = false;
+    Chunks ch = read_fxp(*vol->open(path), &nexus5);
     static std::string cached_samples;
     std::string samples = find_beside(*vol, path, is_nexus_samples, cached_samples);
     Instrument inst;
@@ -554,10 +621,12 @@ Instrument load_fxp(VolumePtr vol, const std::string &path, int) {
         }
         for (size_t i = 0; i < srcs->second.size() && i < 8; i++) {
             if (!srcs->second[i]) continue;
-            auto osc = ch.find("OSC" + std::to_string(i));
-            if (osc == ch.end() || osc->second.size() < 35) continue;
-            const char *s = reinterpret_cast<const char *>(&osc->second[3]);
-            std::string ref(s, strnlen(s, 32));
+            auto osc = ch.find((nexus5 ? "OSC_NAME" : "OSC") + std::to_string(i));
+            const size_t offset = nexus5 ? 0 : 3;
+            if (osc == ch.end() || osc->second.size() < (nexus5 ? 1u : 35u)) continue;
+            const char *s = reinterpret_cast<const char *>(osc->second.data() + offset);
+            const size_t capacity = nexus5 ? osc->second.size() : std::min<size_t>(osc->second.size() - offset, 32);
+            std::string ref(s, strnlen(s, capacity));
             if (ref.empty() || ref.back() == '/') continue;
             if (ref.compare(0, 4, "OSC/") == 0) {
                 problems.push_back("layer " + std::to_string(n + 1) + ": built-in oscillator " + ref.substr(4) + " (not read)");
