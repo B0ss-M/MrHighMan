@@ -1,6 +1,10 @@
 // Omni Sampler: SoundFont 2 (.sf2, E-mu's format) and the SF2-style DLS-less banks. Generators merge per the SF2.04
 // spec: instrument global zone + local zone set values, preset global + local zones add to them. Unit conversions
 // follow ConvertWithMoss's Sf2Detector (LGPL-3.0); attenuation uses E-mu's 0.4 factor like the hardware.
+// SoundFont 1 (.sbk, AWE32, ifil 1.x): sample names in sdta/snam, 16-byte shdr records (start, end, loop start, loop
+// end; 44.1 kHz, no pitch), samples before the first one at address 0 are in the card's ROM, and generator amounts
+// are in AWE register units, converted to SF2 units as Takashi Iwai's awesfx (sbkconv.c) does. Generator 55 is the
+// sample's pitch in cents.
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -18,7 +22,7 @@ enum Gen {
     VOL_DECAY = 36, VOL_SUSTAIN = 37, VOL_RELEASE = 38, KEY_VOL_HOLD = 39, KEY_VOL_DECAY = 40, INSTRUMENT = 41,
     KEY_RANGE = 43, VEL_RANGE = 44, LOOP_START_COARSE = 45, KEYNUM = 46, VELOCITY = 47, ATTENUATION = 48,
     LOOP_END_COARSE = 50, COARSE_TUNE = 51, FINE_TUNE = 52, SAMPLE_ID = 53, SAMPLE_MODES = 54, SCALE_TUNE = 56,
-    EXCLUSIVE = 57, ROOT_KEY = 58, GEN_COUNT = 61
+    SAMPLE_PITCH_SF1 = 55, EXCLUSIVE = 57, ROOT_KEY = 58, GEN_COUNT = 61
 };
 
 struct Gens {
@@ -43,7 +47,35 @@ struct Sf2 {
     std::vector<GenRec> pgens, igens;
     uint64_t smpl_off = 0, smpl_len = 0, sm24_off = 0, sm24_len = 0;
     std::string bank_name;
+    int version = 2;
 };
+
+// SoundFont 1 generator amount -> SF2 units (awesfx sbkconv.c)
+int16_t sf1_amount(int op, int v) {
+    auto msec_tc = [](int ms) { return int(std::log(std::max(ms, 1) / 1000.0) / std::log(2.0) * 1200.0); };
+    switch (op) {
+    case CUTOFF: return int16_t(v == 127 ? 14400 : 59 * v + 4366);
+    case RESONANCE: return int16_t(v * 3 / 2);
+    case 15: case 16: return int16_t(v * 1000 / 256);   // chorus / reverb send
+    case PAN: return int16_t(v * 1000 / 127 - 500);
+    case ATTENUATION: return int16_t(v <= 0 ? 1000 : int(-200.0 * std::log10(v / 127.0) * 10));
+    case SCALE_TUNE: return int16_t(v ? 50 : 100);
+    case MOD_LFO_DELAY: case VIB_LFO_DELAY: case MOD_DELAY: case MOD_ATTACK: case MOD_HOLD: case MOD_DECAY:
+    case MOD_RELEASE: case VOL_DELAY: case VOL_ATTACK: case VOL_HOLD: case VOL_DECAY: case VOL_RELEASE:
+        return int16_t(msec_tc(v));
+    case KEY_MOD_HOLD: case KEY_MOD_DECAY: case KEY_VOL_HOLD: case KEY_VOL_DECAY: return int16_t(v * 5.55);
+    case MOD_LFO_FREQ: case VIB_LFO_FREQ:
+        if (v <= 0) return int16_t(op == MOD_LFO_FREQ ? -725 : -15600);
+        return int16_t(1200 * std::log2(double(v)) - 7925.0);
+    case MOD_LFO_PITCH: case VIB_LFO_PITCH: case MOD_ENV_PITCH: return int16_t((1200 * v / 64 + 1) / 2);
+    case MOD_LFO_CUTOFF: return int16_t(1200 * 3 * v / 64);
+    case MOD_ENV_CUTOFF: return int16_t(1200 * 6 * v / 64);
+    case MOD_LFO_VOL: return int16_t(120 * v / 64);
+    case MOD_SUSTAIN: return int16_t(v < 96 ? 1000 * (96 - v) / 96 : 0);
+    case VOL_SUSTAIN: return int16_t(v < 96 ? (2000 - 21 * v) / 2 : 0);
+    default: return int16_t(v);
+    }
+}
 
 void parse_bags(Reader r, size_t rec, std::vector<Sf2::Bag> &out) {
     std::vector<size_t> idx;
@@ -57,6 +89,7 @@ Sf2 parse(const Blob &blob) {
     if (h.size() < 12 || std::memcmp(h.data(), "RIFF", 4) || std::memcmp(h.data() + 8, "sfbk", 4))
         throw ParseError("not a SoundFont 2 file");
     uint64_t pos = 12, size = blob.size();
+    std::vector<std::string> sf1_names;
     while (pos + 12 <= size) {
         std::vector<uint8_t> ch = blob.bytes(pos, 12);
         uint64_t len = le32(ch.data() + 4);
@@ -70,6 +103,13 @@ Sf2 parse(const Blob &blob) {
             if (list == "sdta") {
                 if (id == "smpl") { sf.smpl_off = body; sf.smpl_len = std::min(sl, size - body); }
                 if (id == "sm24") { sf.sm24_off = body; sf.sm24_len = std::min(sl, size - body); }
+                if (id == "snam") {
+                    std::vector<uint8_t> d = blob.bytes(body, size_t(std::min<uint64_t>(sl, size - body)));
+                    Reader r(d);
+                    while (r.left() >= 20) sf1_names.push_back(r.str(20));
+                }
+            } else if (list == "INFO" && id == "ifil" && sl >= 2) {
+                sf.version = le16(blob.bytes(body, 2).data());
             } else if (list == "INFO" && id == "INAM") {
                 sf.bank_name = Reader(blob.bytes(body, size_t(std::min<uint64_t>(sl, 256)))).str(size_t(std::min<uint64_t>(sl, 256)));
             } else if (list == "pdta") {
@@ -100,7 +140,21 @@ Sf2 parse(const Blob &blob) {
                 else if (id == "ibag") parse_bags(r, 4, sf.ibags);
                 else if (id == "pgen" || id == "igen") {
                     auto &g = id == "pgen" ? sf.pgens : sf.igens;
-                    while (r.left() >= 4) { int op = r.u16le(); g.push_back({op, r.s16le()}); }
+                    while (r.left() >= 4) {
+                        int op = r.u16le(), v = r.s16le();
+                        g.push_back({op, sf.version == 1 ? sf1_amount(op, v) : int16_t(v)});
+                    }
+                } else if (id == "shdr" && sf.version == 1) {
+                    bool in_rom = true;   // the ROM samples come first, until one starts at address 0
+                    while (r.left() >= 16) {
+                        Sf2::Sample s;
+                        s.name = sf.samples.size() < sf1_names.size() ? sf1_names[sf.samples.size()] : "";
+                        s.start = r.u32le(); s.end = r.u32le(); s.loop_start = r.u32le(); s.loop_end = r.u32le();
+                        s.rate = 44100; s.pitch = 60; s.correction = 0; s.link = 0;
+                        if (s.start == 0) in_rom = false;
+                        s.type = in_rom ? 0x8001 : 1;
+                        sf.samples.push_back(s);
+                    }
                 } else if (id == "shdr") {
                     while (r.left() >= 46) {
                         Sf2::Sample s;
@@ -181,10 +235,11 @@ Instrument load_sf2(VolumePtr vol, const std::string &path, int index) {
     if (index < 0 || size_t(index) >= sf.presets.size()) throw ParseError("no such preset");
     const Sf2::Preset &pr = sf.presets[size_t(index)];
     Instrument inst;
-    inst.format = "SoundFont 2";
+    inst.format = sf.version == 1 ? "SoundFont 1" : "SoundFont 2";
     inst.name = pr.name;
     inst.groups.clear();
     std::vector<SampleRefPtr> refs(sf.samples.size());
+    int rom_zones = 0;
 
     Gens pglobal;
     for (size_t b = pr.bag_lo; b < pr.bag_hi && b < sf.pbags.size(); b++) {
@@ -204,7 +259,7 @@ Instrument load_sf2(VolumePtr vol, const std::string &path, int index) {
             size_t si = uint16_t(g.v[SAMPLE_ID]);
             if (si >= sf.samples.size()) continue;
             const Sf2::Sample &s = sf.samples[si];
-            if (s.type & 0x8000) continue;   // ROM samples are not in the file
+            if (s.type & 0x8000) { rom_zones++; continue; }   // ROM samples are not in the file
             // key/velocity ranges intersect between preset and instrument
             int klo = g.set[KEY_RANGE] ? g.lo(KEY_RANGE) : 0, khi = g.set[KEY_RANGE] ? g.hi(KEY_RANGE) : 127;
             int vlo = g.set[VEL_RANGE] ? g.lo(VEL_RANGE) : 0, vhi = g.set[VEL_RANGE] ? g.hi(VEL_RANGE) : 127;
@@ -232,6 +287,12 @@ Instrument load_sf2(VolumePtr vol, const std::string &path, int index) {
             z.root = g.set[ROOT_KEY] && g.v[ROOT_KEY] >= 0 ? g.v[ROOT_KEY] : (s.pitch <= 127 ? s.pitch : 60);
             if (g.set[KEYNUM] && g.v[KEYNUM] >= 0) { z.key_tracking = 0; z.root = g.v[KEYNUM]; }
             z.tune = sum(COARSE_TUNE) + (sum(FINE_TUNE) + s.correction) / 100.0;
+            if (sf.version == 1 && !(g.set[KEYNUM] && g.v[KEYNUM] >= 0)) {
+                int cents = g.set[SAMPLE_PITCH_SF1] ? g.v[SAMPLE_PITCH_SF1] : 0;   // SF1 default: pitch 0 = key 0
+                int root = clampi((cents + 50) / 100, 0, 127);
+                if (!g.set[ROOT_KEY] || g.v[ROOT_KEY] < 0) z.root = root;
+                z.tune -= (cents - root * 100) / 100.0;
+            }
             if (g.set[SCALE_TUNE] || pz.set[SCALE_TUNE]) z.key_tracking = clampd(sum(SCALE_TUNE, 100) / 100.0, 0, 1);
             z.pan = clampd(sum(PAN) / 500.0, -1, 1);
             z.gain_db = -sum(ATTENUATION) * 0.04;
@@ -301,10 +362,12 @@ Instrument load_sf2(VolumePtr vol, const std::string &path, int index) {
                 z.amp_lfo.rate_hz = cents_hz(m.set[MOD_LFO_FREQ] ? m.v[MOD_LFO_FREQ] : 0);
                 z.amp_lfo.delay = timecents(m, MOD_LFO_DELAY);
             }
-            z.amp_vel_curve = 1;   // SF2 default: concave velocity to attenuation (about x^3)
+            z.amp_vel_curve = 0.6309;   // SF2 default: concave velocity to attenuation, 40 log10(v / 127) dB = x^2 (3^0.6309 = 2)
             inst.zones.push_back(std::move(z));
         }
     }
+    if (inst.zones.empty() && rom_zones)
+        throw ParseError("this preset only uses the sound card's ROM samples, which are not in the file");
     finish_instrument(inst);
     return inst;
 }

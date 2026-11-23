@@ -1,4 +1,4 @@
-// Omni Sampler: floppy disk containers. An HFE (HxC floppy emulator) or IMD (ImageDisk) file opens as a folder with
+// Omni Sampler: floppy disk containers. An HFE (HxC floppy emulator), IMD (ImageDisk) or TD0 (Teledisk) file opens as a folder with
 // one raw sector image inside, which the other image types and readers then take: Akai S900/S1000 floppies, Emax
 // banks, MPC2000/MPC60 FAT disks, and E-mu Emulator I/II disks (.ei / .eii). HFE track decoding (IBM MFM, IBM FM,
 // E-mu FM) is translated from ConvertWithMoss's file/hfe package (LGPL-3.0); the E-mu FM format was documented by
@@ -325,11 +325,106 @@ VolumePtr mount_imd(BlobPtr blob) {
 
 bool probe_imd(const std::string &, const uint8_t *h, size_t n, uint64_t) { return n >= 4 && !std::memcmp(h, "IMD ", 4); }
 
+// --- TD0 (Sydex Teledisk), after Dave Dunfield's format notes -----------------------------------------------------
+// 12-byte header ("TD"; "td" = LZHUF-compressed, not read), an optional comment block (stepping bit 7), then tracks:
+// sector count (0xFF ends), cylinder, head, crc; per sector: cylinder, head, number, size code, flags, crc, and unless
+// flags 0x30 a data block: u16 length, method (0 raw, 1 repeated 2-byte pattern, 2 runs of literals / patterns).
+VolumePtr mount_td0(BlobPtr blob) {
+    std::vector<uint8_t> d = blob->all(64 << 20);
+    Reader r(d);
+    if (d.size() < 12 || d[0] != 'T' || d[1] != 'D') throw ParseError("compressed (advanced) Teledisk images are not read");
+    r.skip(12);
+    if (d[7] & 0x80) { r.skip(2); size_t len = r.u16le(); r.skip(6 + len); }
+    std::vector<Sector> sectors;
+    std::vector<bool> no_id;     // per sector: data read without an ID field (flag 0x40): protection / format marks
+    int tracks = 0, sides = 1;
+    while (!r.eof()) {
+        int ns = r.u8();
+        if (ns == 0xFF) break;
+        int cyl = r.u8(), head = r.u8() & 1;
+        r.u8();
+        tracks = std::max(tracks, cyl + 1);
+        sides = std::max(sides, head + 1);
+        for (int i = 0; i < ns; i++) {
+            Sector s;
+            s.cyl = r.u8(); s.head = r.u8() & 1; s.num = r.u8();
+            int sc = r.u8(), flags = r.u8();
+            r.u8();
+            s.size = sc <= 6 ? 128 << sc : 0;
+            s.crc_ok = true;
+            s.cyl = cyl; s.head = head;   // the track's own address (an ID-less sector's is junk)
+            if (flags & 0x30) continue;   // no data block (deleted / skipped sector)
+            size_t len = r.u16le();
+            if (!len) continue;
+            size_t end = r.pos() + len;
+            int method = r.u8();
+            std::vector<uint8_t> &o = s.data;
+            if (method == 0) { const uint8_t *p = r.take(len - 1); o.assign(p, p + len - 1); }
+            else if (method == 1) {
+                size_t count = r.u16le();
+                uint8_t a = r.u8(), b = r.u8();
+                for (size_t k = 0; k < count; k++) { o.push_back(a); o.push_back(b); }
+            } else if (method == 2) {
+                while (r.pos() < end) {
+                    int type = r.u8();
+                    if (type == 0) { size_t n = r.u8(); const uint8_t *p = r.take(n); o.insert(o.end(), p, p + n); }
+                    else {
+                        size_t n = size_t(1) << type, rep = r.u8();
+                        const uint8_t *p = r.take(n);
+                        for (size_t k = 0; k < rep; k++) o.insert(o.end(), p, p + n);
+                    }
+                }
+            } else throw ParseError("bad Teledisk sector encoding");
+            if (r.pos() != end) throw ParseError("damaged Teledisk image");
+            if (!s.size) continue;
+            o.resize(size_t(s.size), 0);
+            sectors.push_back(std::move(s));
+            no_id.push_back((flags & 0x40) != 0);
+        }
+    }
+    if (sectors.empty()) throw ParseError("empty Teledisk image");
+    std::map<int, int> sizes, nums;
+    for (auto &s : sectors) sizes[s.size]++;
+    int bps = std::max_element(sizes.begin(), sizes.end(), [](auto &a, auto &b) { return a.second < b.second; })->first;
+    // the disk's own sectors: the run of consecutive numbers common on the tracks, from the lowest (some disks lose
+    // one sector per track to a missing ID, so "common" is a quarter of the most frequent); stray ones (an extra
+    // sector 110 on every track, format leftovers) fall outside it
+    int most = 0;
+    for (size_t i = 0; i < sectors.size(); i++)
+        if (sectors[i].size == bps && !no_id[i]) most = std::max(most, ++nums[sectors[i].num]);
+    auto common = [&](int num) { auto it = nums.find(num); return it != nums.end() && it->second * 4 >= most; };
+    int first = -1;
+    for (auto &kv : nums) if (common(kv.first)) { first = kv.first; break; }
+    if (first < 0) throw ParseError("damaged Teledisk image");
+    int last = first;
+    while (common(last + 1)) last++;
+    int spt = last - first + 1;
+    // Teledisk may read one cylinder past the end, or stop after the last used one: a standard 80-cylinder disk
+    uint64_t disk80 = uint64_t(80) * sides * spt * bps;
+    if (disk80 == 819200 || disk80 == 1638400 || disk80 == 737280 || disk80 == 1474560) tracks = 80;
+    std::vector<uint8_t> image(size_t(tracks) * sides * spt * bps, 0);
+    for (size_t i = 0; i < sectors.size(); i++) {
+        const Sector &s = sectors[i];
+        if (no_id[i] || s.size != bps || s.num < first || s.num > last) continue;
+        size_t lba = (size_t(s.cyl) * sides + size_t(s.head)) * spt + size_t(s.num - first);
+        if ((lba + 1) * size_t(bps) <= image.size()) std::copy(s.data.begin(), s.data.end(), image.begin() + long(lba * bps));
+    }
+    auto vol = std::make_shared<TreeVolume>("Floppy (Teledisk)");
+    vol->add_file("disk.img", make_mem_blob(std::move(image)));
+    return vol;
+}
+
+bool probe_td0(const std::string &, const uint8_t *h, size_t n, uint64_t) {
+    return n >= 12 && ((h[0] == 'T' && h[1] == 'D') || (h[0] == 't' && h[1] == 'd')) && h[4] >= 0x10 && h[4] <= 0x21 &&
+           h[9] >= 1 && h[9] <= 2;
+}
+
 }  // namespace
 
 void register_floppy_containers() {
     register_image_type({"HFE floppy", probe_hfe, mount_hfe});
     register_image_type({"IMD floppy", probe_imd, mount_imd});
+    register_image_type({"Teledisk floppy", probe_td0, mount_td0});
 }
 
 }  // namespace omni

@@ -51,6 +51,7 @@ struct Envelope {
     bool set = false;
     double delay = 0, start_level = 0, attack = 0, hold = 0, decay = 0, sustain = 1, release = 0, end_level = 0;
     double attack_slope = 0, decay_slope = 0, release_slope = 0;   // -1..1: 0 linear, + exponential-ish
+    double attack_level = 1, break_level = -1, slope_time = 0;
     double time_key_tracking = 0, time_vel_tracking = 0;           // -1..1
 };
 
@@ -90,6 +91,7 @@ struct Zone {
     double amp_key_tracking = 0;                     // dB per key / 1 around root (CWM: 1 = 1 dB/key)
     double amp_vel_depth = 1, amp_vel_curve = 0;     // depth 0..1, curve: x^(3^curve)
     bool reverse = false, one_shot = false;
+    bool seq_step = false;   // a wave sequence step (Wavestation): the sample waits out the amp delay; ends once faded to 0
     int exclusive_group = 0;                         // >0: the zone's choke group
     int off_by = -1;                                 // choked by notes of this group; -1 = its own exclusive_group
     Trigger trigger = Trigger::Attack;
@@ -128,6 +130,9 @@ struct Instrument {
     int polyphony = 0;                               // 0 = engine default
     double gain_db = 0;
     std::vector<std::string> warnings;               // shown on the info line, logged
+    // 2.4.10: sound settings the preset itself carries (formats/synth_patch.hpp: its synth translated onto Omni's SYNTH
+    // engine), applied like an .omni's when the preset is loaded (not over a project's own, restored settings)
+    std::vector<std::pair<std::string, float>> settings;
 };
 
 // A preset inside a file (an SF2 preset, an E4 bank preset, an Akai program...): enough to list it.

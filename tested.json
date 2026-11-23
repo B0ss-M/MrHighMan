@@ -10,5 +10,17 @@
   "device": "Akai MPC XL (Gen2)",
   "firmware": "MPC OS 3.9.1",
   "date": "2026-10-29"
+ },
+ {
+  "version": "1.8.2",
+  "device": "Akai MPC Live II",
+  "firmware": "MPC OS 3.9.1",
+  "date": "2026-10-22"
+ },
+ {
+  "version": "2.3.0",
+  "device": "Akai MPC Live II (Hakai)",
+  "firmware": "MPC OS 3.9.1.2",
+  "date": "2026-11-23"
  }
 ]

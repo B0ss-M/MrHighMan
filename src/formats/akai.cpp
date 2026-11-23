@@ -6,9 +6,11 @@ namespace omni {
 void register_akai_s();
 void register_akai_akp();
 void register_akai_mpc();
+void register_akai_s612();
 
 void register_akai() {
     register_akai_s();
+    register_akai_s612();
     register_akai_akp();
     register_akai_mpc();
 }

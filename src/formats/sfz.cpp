@@ -194,7 +194,12 @@ Instrument load_sfz(VolumePtr vol, const std::string &path, int) {
     for (auto &h : headers) {
         if (h.name == "control") {
             control = h.ops;
-            if (control.count("default_path")) base_dir = path_resolve(path_dir(path), control["default_path"]);
+            if (control.count("default_path")) {
+                // 2.4.21: fall back to the .sfz folder when default_path names a folder that is not there
+                // (Arturia maps say "default_path=Arctic Winter/" while the samples often sit beside the .sfz).
+                std::string d = path_resolve(path_dir(path), control["default_path"]), found;
+                base_dir = find_ci(*vol, d, found) ? found : path_dir(path);
+            }
             octave_offset = std::atoi(control["octave_offset"].c_str());
             note_offset = std::atoi(control["note_offset"].c_str());
             continue;
@@ -234,8 +239,16 @@ Instrument load_sfz(VolumePtr vol, const std::string &path, int) {
         if (s.has("xfout_lokey") && s.has("xfout_hikey")) z.key_xfade_hi = key("xfout_hikey", 0) - key("xfout_lokey", 0);
         z.vel_lo = int(s.num("lovel", 0));
         z.vel_hi = int(s.num("hivel", 127));
-        if (s.has("xfin_lovel") && s.has("xfin_hivel")) z.vel_xfade_lo = int(s.num("xfin_hivel", 0) - s.num("xfin_lovel", 0));
-        if (s.has("xfout_lovel") && s.has("xfout_hivel")) z.vel_xfade_hi = int(s.num("xfout_hivel", 0) - s.num("xfout_lovel", 0));
+        // 2.4.27 (velocity audit #7): the sampler fades from vel_lo / vel_hi, so the zone starts where the fade-in starts
+        // (silent below xfin_lovel, as SFZ defines it) and the width runs from there (was measured from xfin_lovel only)
+        if (s.has("xfin_lovel") && s.has("xfin_hivel")) {
+            z.vel_lo = std::max(z.vel_lo, int(s.num("xfin_lovel", 0)));
+            z.vel_xfade_lo = std::max(0, int(s.num("xfin_hivel", 0)) - z.vel_lo);
+        }
+        if (s.has("xfout_lovel") && s.has("xfout_hivel")) {
+            z.vel_hi = std::min(z.vel_hi, int(s.num("xfout_hivel", 127)));
+            z.vel_xfade_hi = std::max(0, z.vel_hi - int(s.num("xfout_lovel", 127)));
+        }
 
         std::string trig = s.str("trigger", "attack");
         z.trigger = trig == "release" || trig == "release_key" ? Trigger::Release : trig == "first" ? Trigger::First

@@ -17,6 +17,7 @@ static void dump(VolumePtr vol, const std::string &inner, const FormatReader *r,
     std::printf("instrument \"%s\" format=%s zones=%zu groups=%zu poly=%d gain=%.2f\n", inst.name.c_str(),
                 inst.format.c_str(), inst.zones.size(), inst.groups.size(), inst.polyphony, inst.gain_db);
     for (auto &w : inst.warnings) std::printf("  warning: %s\n", w.c_str());
+    for (auto &kv : inst.settings) std::printf("  setting %s=%g\n", kv.first.c_str(), double(kv.second));   // 2.4.10
     std::map<SampleRef *, PcmPtr> done;
     for (auto &z : inst.zones) {
         std::printf("  zone \"%s\" g%d key %d-%d root %d vel %d-%d tune %+.3f gain %+.2f pan %+.2f kt %.2f start %lld stop %lld",
@@ -28,6 +29,8 @@ static void dump(VolumePtr vol, const std::string &inner, const FormatReader *r,
         if (z.exclusive_group) std::printf(" excl %d", z.exclusive_group);
         if (z.trigger != Trigger::Attack) std::printf(" trig %d", int(z.trigger));
         if (z.play_logic != PlayLogic::Always) std::printf(" rr %d/%d", z.seq_position, z.seq_length);
+        if (z.amp_env.set && z.amp_env.delay > 0) std::printf(" dly%.3f", z.amp_env.delay);
+        if (z.seq_step) std::printf(" seqstep");
         if (z.amp_env.set) std::printf(" env a%.3f h%.3f d%.3f s%.2f r%.3f", z.amp_env.attack, z.amp_env.hold, z.amp_env.decay, z.amp_env.sustain, z.amp_env.release);
         if (z.filter.type != FilterType::None) std::printf(" filter %d/%dp %.0fHz res %.2f env %.2f", int(z.filter.type), z.filter.poles, z.filter.cutoff, z.filter.resonance, z.filter.env_depth);
         std::printf(" sample \"%s\" %dHz %dch %lld", z.sample->name.c_str(), z.sample->rate, z.sample->channels, (long long)z.sample->frames);
@@ -73,8 +76,12 @@ int main(int argc, char **argv) {
             return 0;
         }
         if (!std::strcmp(argv[2], "-all")) {
-            for (auto &p : presets) dump(loc.volume, loc.inner, r, p.index, decode);
-            return 0;
+            int failed = 0;   // one preset's error does not hide the rest
+            for (auto &p : presets) {
+                try { dump(loc.volume, loc.inner, r, p.index, decode); }
+                catch (const std::exception &e) { std::printf("error: %s\n", e.what()); failed++; }
+            }
+            return failed ? 1 : 0;
         }
         int i = std::atoi(argv[2]);
         if (i < 0 || i >= int(presets.size())) { std::printf("no preset %d\n", i); return 1; }

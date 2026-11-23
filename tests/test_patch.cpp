@@ -1,6 +1,6 @@
 // Omni Sampler patch test: save a multi-slot patch, reopen it in a fresh instance, check slots + settings.
 // Also: project reload keeps the project's settings over an .omni's; mono fallback leaves no pad lit.
-//   test_patch <slot A file> <slot B: a preset inside a disk image> <slot C file>   (data in /tmp/omni-patch-test)
+//   test_patch <slot A file> <slot B: a preset inside a disk image> <slot C file: testdata/directwave/Test DW.dwp>   (data in /tmp/omni-patch-test)
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -35,7 +35,7 @@ static void settle(void *in, int min_ms = 300) {
 static int voices_for(void *in, int note) {
     uint8_t on[3] = {0x90, uint8_t(note), 100}, off[3] = {0x80, uint8_t(note), 0};
     e->midi(in, on, 3); run(in, 20);
-    int v = std::atoi(get(in, "status").c_str());
+    int v = std::atoi(get(in, "voices").c_str());
     e->midi(in, off, 3); run(in, 800);
     return v;
 }
@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
         void *h = e->create(data);
         e->set_param(h, "state", (std::string("omni-sampler 1\nslot1_path=") + argv[3] + "\nslot1_preset=0\n").c_str());
         settle(h, 800);
-        auto v = [&] { return std::atoi(get(h, "status").c_str()); };
+        auto v = [&] { return std::atoi(get(h, "voices").c_str()); };
         auto msg = [&](uint8_t a, uint8_t b, uint8_t c) { uint8_t m[3] = {a, b, c}; e->midi(h, m, 3); };
         msg(0x90, 62, 100); run(h, 20); msg(0x81, 62, 0); run(h, 800);
         check(v() == 0, "note-on channel 1, note-off channel 2: released (" + std::to_string(v()) + " voices)");
@@ -218,7 +218,7 @@ int main(int argc, char **argv) {
         settle(k, 1000);
         auto msg = [&](uint8_t a, uint8_t b2, uint8_t c) { uint8_t mm[3] = {a, b2, c}; e->midi(k, mm, 3); };
         msg(0x90, 36, 100); run(k, 30);
-        int on36 = std::atoi(get(k, "status").c_str());
+        int on36 = std::atoi(get(k, "voices").c_str());
         std::string nm = get(k, "layer_name");
         msg(0x80, 36, 0); run(k, 600);
         check(on36 > 0 && get(k, "prog_format").find("MV-8000") != std::string::npos, "MV-8000 kit: pad 1 (note 36) plays " + nm);
@@ -343,14 +343,16 @@ int main(int argc, char **argv) {
             uint8_t on[3] = {0x90, 60, 100}, off[3] = {0x80, 60, 0};
             e->midi(h, on, 3); run(h, 103); e->midi(h, off, 3);
             int b = 0;
-            for (; b < 3000; b++) { e->render(h, buf.data(), 128); if (std::atoi(get(h, "status").c_str()) == 0 && b > 2) break; }
+            for (; b < 3000; b++) { e->render(h, buf.data(), 128); if (std::atoi(get(h, "voices").c_str()) == 0 && b > 2) break; }
             return b * 128 / 44100.0;
         };
         e->set_param(v, "br_path", path_dir_of(argv[3]).c_str());
         bool tapped = tap_named(v, path_dir_of(argv[3]), argv[3] + path_dir_of(argv[3]).size() + 1);
         settle(v, 800);
         std::string ad = get(v, "env_attack_display"), dd = get(v, "env_decay_display"), sd = get(v, "env_sustain_display"), rd = get(v, "env_release_display");
-        check(tapped && ad == "10 ms" && dd == "300 ms" && sd == "3 %" && rd == "400 ms",
+        // 2.4.14: the values of testdata/directwave/Test DW.dwp's zones (a 1 ms, d 583 ms, s 80 %, r 77 ms; probe shows them):
+        // the expected 10 / 300 / 3 % / 400 were a test file's that is no longer in testdata
+        check(tapped && ad == "1 ms" && dd == "583 ms" && sd == "80 %" && rd == "77 ms",
               "a preset loaded shows its envelope: A " + ad + " D " + dd + " S " + sd + " R " + rd);
         double t0 = tail(v);
         char u[32];

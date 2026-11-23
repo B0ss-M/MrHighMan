@@ -83,12 +83,35 @@ std::string find_beside(Volume &vol, const std::string &file, IsFolder is, std::
 const std::vector<FormatReader> &formats() { return storage(); }
 size_t reader_probe_bytes() { return 4096; }
 
+// OMNI_PUBLIC (2.3.0, user 2026-11-24): the public build reads 1.8.1's formats + serum, vital, heatup, purity,
+// kurzweil_k2000, roland_jv880, ableton, alesis_drum, bliss, decent_sampler, directwave, ensoniq_kt, ensoniq_mr, tracker,
+// rom_map, drum_rom. The others are guarded below and their files are not in the public source.
+#ifndef OMNI_PUBLIC
+#define OMNI_PUBLIC 0
+#endif
+#if OMNI_PUBLIC
+// the public build has no Omnisphere or UJAM readers (their files are left out): the browser's Omnisphere note and the
+// ARP's UJAM phrases find nothing (the code that asks for them stays, for a later public version)
+std::string omnisphere_note(VolumePtr, const std::string &) { return ""; }
+std::vector<UjamMidi> ujam_midi_files(VolumePtr, const std::string &) { return {}; }
+#endif
 void register_all() {
     static std::once_flag once;
     std::call_once(once, [] {
         // Order matters where extensions overlap: content probes decide, first match wins.
         register_sfz();
         register_sf2();
+        register_decent_sampler();   // 2.4.30: .dspreset (extension + "<DecentSampler" probe)
+        register_directwave();   // extension-only matches (.dwp / .adv .adg / .prt_omn .mlt_omn .zmap): ahead of the
+        register_ableton();      // probe-only ROM readers, which could otherwise take a file of a ROM's size
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_omnisphere();
+#endif
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_omnisphere_factory_db();   // 2.4.14: .db (content probe "<FileSystem>"): the banks were invisible in the browser
+#endif
+        register_vital();   // 2.4.11
+        register_serum();   // 2.4.32: .serumpreset + "XferJson" probe
         register_akai();
         register_emu();
         register_ni();
@@ -101,8 +124,79 @@ void register_all() {
         register_korg_m1();
         register_korg_ws();
         register_ensoniq_sd1();
+        register_drum_rom();
+        register_alesis_drum();
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_korg_dw8000();
+#endif
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_roland_d70();
+#endif
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_roland_d110();
+#endif
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_roland_d50();
+#endif
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_roland_mt32();
+#endif
+        register_tracker();
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_roland_sc55();
+#endif
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_roland_sc88();
+#endif
+        register_roland_jv880();
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_roland_jd800();
+#endif
+        register_ensoniq_kt();
+        register_ensoniq_mr();
+        register_kurzweil_k2000();
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_augmented_strings();   // 2.4.21
+#endif
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_augmented_synth();     // 2.4.22
+#endif
         register_yamaha();
         register_logic();
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_maize();
+#endif
+        register_bliss();
+        register_heatup();
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_nxs_klp();
+#endif
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_nxs();
+#endif
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_srx_world();
+#endif
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_ujam_blob();
+#endif
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_ujam_patch();   // 2.4.28: UJAM .patch presets (SE CHOIR)
+#endif
+        register_purity();
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_kawai_k1();
+#endif
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_kawai_k5();
+#endif
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_kawai_k5000();
+#endif
+#if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)
+        register_dx7();   // 2.4.14: after every other .syx reader (content probes: theirs decide first)
+#endif
+        register_rom_map();
         register_omni_native();
         register_wav_folder();
         register_images();
@@ -114,12 +208,21 @@ const FormatReader *find_reader(Volume &vol, const std::string &path) {
     std::vector<uint8_t> head;
     uint64_t size = 0;
     bool have_head = false;
+    size_t read_limit = 0;
     for (auto &f : formats()) {
         bool ext_ok = has_ext(f.exts, ext);
         if (!ext_ok && f.exts[0]) continue;
         if (!f.probe) { if (ext_ok) return &f; continue; }
-        if (!have_head) {
-            try { BlobPtr b = vol.open(path); head = b->head(reader_probe_bytes()); size = b->size(); } catch (const std::exception &) { return nullptr; }
+        const size_t needed = f.probe_bytes ? f.probe_bytes : reader_probe_bytes();
+        // (a reader's larger probe is read only when the whole file fits in it: MT-32 control ROMs are 64 / 128 KB; any
+        // bigger file keeps the shared head, so browsing a folder costs no more than before)
+        if (!have_head || (needed > read_limit && size <= needed)) {
+            try {
+                BlobPtr b = vol.open(path);
+                size = b->size();
+                const size_t want = f.probe_bytes && size > f.probe_bytes ? reader_probe_bytes() : needed;
+                if (!have_head || want > read_limit) { head = b->head(want); read_limit = want; }
+            } catch (const std::exception &) { return nullptr; }
             have_head = true;
         }
         if (f.probe(ln, head.data(), head.size(), size)) return &f;
@@ -128,6 +231,27 @@ const FormatReader *find_reader(Volume &vol, const std::string &path) {
 }
 
 double velocity_to_db(int value) { return value <= 0 ? -96.0 : 40.0 * std::log10(value / 127.0); }
+
+Loop chip_loop(int64_t start, double length, int64_t last) {
+    Loop l;
+    l.start = start;
+    l.end = std::min(last, start + std::max<int64_t>(2, std::llround(length)) - 1);
+    if (length > 0 && l.end > l.start) l.tune = 12.0 * std::log2(double(l.end - l.start + 1) / length);
+    if (std::fabs(l.tune) < 1e-9) l.tune = 0;
+    return l;
+}
+
+int16_t la32_sample(uint8_t hi, uint8_t lo) {
+    static const std::vector<int16_t> amp = [] {
+        std::vector<int16_t> t(32768);
+        for (int m = 0; m < 32768; m++) t[size_t(m)] = int16_t(std::lround(32767.0 * std::exp2((m - 32787) / 2048.0)));
+        return t;
+    }();
+    // Magnitude bits, top down: lo bit 6, hi bits 6..0, lo bits 5..0, lo bit 7 (always 0 on the ROMs)
+    const int m = (lo & 0x40) << 8 | (hi & 0x7F) << 7 | (lo & 0x3F) << 1 | (lo & 0x80) >> 7;
+    const int16_t a = amp[size_t(m)];
+    return (hi & 0x80) ? int16_t(-a) : a;
+}
 
 void finish_instrument(Instrument &inst) {
     std::vector<Zone> kept;

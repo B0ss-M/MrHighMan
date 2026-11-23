@@ -1,6 +1,7 @@
 // Omni Sampler: disk image file systems. Each mounts an image Blob as a Volume (see core/vfs.hpp).
 #pragma once
 #include <functional>
+#include <future>
 #include <map>
 #include <mutex>
 #include <string>
@@ -23,20 +24,36 @@ public:
     // building
     void add_dir(const std::string &path);
     void add_file(const std::string &path, BlobPtr blob);   // creates parent folders; renames duplicates
-    void add_lazy(const std::string &path, uint64_t size, std::function<BlobPtr()> make);
+    // cache = false (2.4.10): open() calls make() every time and keeps nothing (an inflated ZIP entry must not stay in
+    // memory for the volume's life; make() shares a live copy itself)
+    void add_lazy(const std::string &path, uint64_t size, std::function<BlobPtr()> make, bool cache = true);
     size_t file_count() const { return files_.size(); }
 
 private:
-    struct File { BlobPtr blob; uint64_t size = 0; std::function<BlobPtr()> make; };
+    struct Inflight {
+        std::promise<BlobPtr> promise;
+        std::shared_future<BlobPtr> future = promise.get_future().share();
+    };
+    struct File {
+        BlobPtr blob;
+        uint64_t size = 0;
+        std::function<BlobPtr()> make;
+        bool cache = true;
+        std::shared_ptr<Inflight> inflight;
+    };
     std::string kind_;
     std::map<std::string, std::vector<std::string>> dirs_{{"", {}}};   // dir -> child names (in order)
     std::map<std::string, File> files_;
+    std::map<std::string, int> dup_next_;   // 2.4.11: a duplicate name's next "(n)"
     std::mutex mutex_;
 };
 
 void register_akai_images();
 void register_roland_images();
 void register_iso9660();
+void register_omnisphere_pkg();   // 2.4.9: Spectrasonics .omnisphere library packages
+// 2.4.10: ZIP archive volumes use the same file tree as other mounted images.
+void register_zip();
 void register_cue();                 // .cue + its .bin files (data tracks as their file system, audio tracks as WAV)
 void register_fat();
 void register_emu_images();

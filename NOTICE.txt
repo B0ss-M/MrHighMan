@@ -1,8 +1,28 @@
-Omni Sampler by MR HighMan - LGPL-3.0-or-later.
-Source: https://github.com/B0ss-M/MrHighMan
+Omni Sampler 2.3 by MR HighMan - notices
+=========================================
 
-The format readers are C++ translations of ConvertWithMoss by Juergen Mossgraber
-(https://github.com/git-moss/ConvertWithMoss, LGPL-3.0). See LGPL-3.0.txt and GPL-3.0.txt.
+Copyright (c) 2025-2026 MR HighMan. All rights reserved. The Software is licensed under LICENSE.txt, except for the
+Open Components below, which are licensed under their own licences (included in the licenses folder).
 
-Bundled libraries: dr_flac (public domain / MIT-0), stb_vorbis (public domain / MIT),
-tinf by Joergen Ibsen (zlib, tinf-LICENSE.txt). Details: VENDORED.md.
+Open Components
+---------------
+1. Format readers translated from ConvertWithMoss by Jürgen Moßgraber (https://github.com/git-moss/ConvertWithMoss),
+   licensed under the GNU Lesser General Public Licence 3.0 (LGPL-3.0.txt, GPL-3.0.txt):
+   src/formats/ableton.cpp src/formats/akai_akp.cpp src/formats/akai_mpc.cpp src/formats/akai_s.cpp src/formats/directwave.cpp src/formats/emu_e1.cpp src/formats/emu_e2.cpp src/formats/emu_e3.cpp src/formats/emu_e4.cpp src/formats/emu_emax.cpp src/formats/emu_ex.cpp src/formats/kurzweil_k2000.cpp src/formats/logic_exs.cpp src/formats/ni_common.hpp src/formats/ni_container.cpp src/formats/ni_kontakt.cpp src/formats/ni_maschine.cpp src/formats/omni_native.cpp src/formats/reason_sxt.cpp src/formats/roland.cpp src/formats/sf2.cpp src/formats/sfz.cpp src/formats/yamaha.cpp 
+   Source code of these files is available from MR HighMan on request, as LGPL-3.0 requires.
+2. dr_flac by David Reid (https://github.com/mackron/dr_libs): public domain (Unlicense) or MIT-0.
+3. stb_vorbis by Sean Barrett (https://github.com/nothings/stb): public domain or MIT.
+4. tinf by Jørgen Ibsen (https://github.com/jibsen/tinf): zlib licence (tinf-LICENSE.txt).
+5. Zstandard 1.5.5 decompression (https://github.com/facebook/zstd), Copyright (c) Meta Platforms, Inc. and
+   affiliates: BSD licence (zstd-LICENSE.txt).
+
+Reimplemented (no code copied): the Bliss .zbp / .zbb reading and the HQ SINC interpolation follow discoDSP's
+SFZero v3.0.0 (https://github.com/reales/retromulator, MIT licence, Copyright (C) 2024-2026 discoDSP; Steve Folta's
+original SFZero, MIT).
+
+Trademarks
+----------
+"Omni Sampler", "Omni Sampler 2", "Ω2", "ΩS2" and "Ω Sampler 2" are trademarks of MR HighMan. Akai Professional
+and MPC are trademarks of inMusic Brands. All other product names (Serum, Vital, Kontakt, Logic, Reason, Roland,
+Korg, Kurzweil, E-mu, Ensoniq, Yamaha and others) are trademarks of their owners, used only to name the file
+formats Omni Sampler reads. Omni Sampler is not affiliated with or endorsed by any of them.

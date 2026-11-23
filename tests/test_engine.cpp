@@ -25,6 +25,11 @@ int main(int argc, char **argv) {
     const mpc_engine_t *e = mpc_engine();
     void *inst = e->create("/tmp/omni-sampler-test");
     std::string state = std::string("omni-sampler 1\npath=") + argv[1] + "\npreset=" + (argc > 2 ? argv[2] : "0") + "\n";
+    // OMNI_AUTO_LOOP: load with SETUP's Auto Loop on; "switch": load with it off, then switch it on (the preset reloads)
+    const char *auto_loop = std::getenv("OMNI_AUTO_LOOP");
+    bool auto_loop_switch = auto_loop && !std::strcmp(auto_loop, "switch");
+    if (auto_loop && !auto_loop_switch) state += "auto_loop=1\n";
+    if (std::getenv("OMNI_SINC")) state += "sinc=1\n";   // 2.1.1: play with HQ SINC
     e->set_param(inst, "state", state.c_str());
     std::vector<int16_t> buf(256);
     // the audio thread swaps the program in, so keep rendering while waiting
@@ -42,6 +47,19 @@ int main(int argc, char **argv) {
     std::printf("%s\n", get(e, inst, "prog_format").c_str());
     std::printf("loaded in %.2fs: %s | %s | %s\n", secs, get(e, inst, "prog_name").c_str(), get(e, inst, "prog_info").c_str(),
                 get(e, inst, "status").c_str());
+    if (auto_loop_switch) {
+        std::string before = get(e, inst, "prog_info");
+        e->set_param(inst, "auto_loop", "1");
+        auto t1 = std::chrono::steady_clock::now();
+        while (get(e, inst, "status").compare(0, 10, "Auto Loop:") != 0) {
+            e->render(inst, buf.data(), 128);
+            if (std::chrono::steady_clock::now() - t1 > std::chrono::seconds(60)) { std::printf("FAIL Auto Loop switched on: no reload\n"); return 1; }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        std::string after = get(e, inst, "prog_info");
+        std::printf("Auto Loop switched on: %s | %s\n", get(e, inst, "status").c_str(), after == before ? "same preset" : after.c_str());
+        if (after != before) { std::printf("FAIL Auto Loop reload changed the preset\n"); return 1; }
+    }
     std::vector<int> notes;
     for (int i = 3; i < argc; i++) notes.push_back(std::atoi(argv[i]));
     if (notes.empty()) notes = {36, 48, 60, 72};
@@ -129,7 +147,7 @@ int main(int argc, char **argv) {
     std::string saved = get(e, inst, "state");
     void *inst2 = e->create("/tmp/omni-sampler-test");
     e->set_param(inst2, "state", saved.c_str());
-    for (int i = 0; i < 2000 && get(e, inst2, "prog_info").find("zones") == std::string::npos; i++) {
+    for (int i = 0; i < 30000 && get(e, inst2, "prog_info").find("zones") == std::string::npos; i++) {   // 2.4.9: 60 s (a big project takes 5 s+)
         e->render(inst2, buf.data(), 128);
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }

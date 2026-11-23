@@ -13,19 +13,23 @@ namespace omni {
 // inflate
 
 namespace {
+// 2.4.14 (user: "a gzip bomb that could overload the MPC"): never more than MAX_INFLATE in memory. The buffer grew x4 from
+// the size a file claims until past 1 GiB (up to 4 GiB allocated) for data that would not fit: one damaged or crafted
+// file could take the MPC's memory (a Live II has about 1 GB free while MPC runs). Now refused before it is allocated.
+constexpr size_t MAX_INFLATE = size_t(128) << 20;   // (2.4.14: 128, within the user's 1 GB ceiling for Omni)
 template <typename F>
 std::vector<uint8_t> grow_until_fits(size_t expected, size_t n, F fn) {
     size_t cap = expected ? expected : std::max<size_t>(n * 4, 4096);
-    for (int tries = 0; tries < 12; tries++) {
+    for (;;) {
+        if (cap > MAX_INFLATE) throw ParseError("compressed data too large (over 128 MB unpacked)");
         std::vector<uint8_t> out(cap);
         unsigned int len = unsigned(cap);
         int r = fn(out.data(), &len);
         if (r == TINF_OK) { out.resize(len); return out; }
         if (r != TINF_BUF_ERROR) throw ParseError("corrupt compressed data");
-        if (cap > (size_t(1) << 30)) break;
-        cap *= 4;
+        if (cap == MAX_INFLATE) throw ParseError("compressed data too large (over 128 MB unpacked)");
+        cap = std::min(cap * 4, MAX_INFLATE);   // grows x4, one last try at the ceiling
     }
-    throw ParseError("compressed data too large");
 }
 }  // namespace
 
