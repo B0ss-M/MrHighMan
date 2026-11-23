@@ -2,6 +2,7 @@
 // samples within a memory budget, merges the loaded slots into one Program and hands it to the Sampler. Only the
 // newest request per slot matters; an older one still decoding for that slot is abandoned.
 #pragma once
+#include <memory>
 #include <atomic>
 #include <condition_variable>
 #include <deque>
@@ -20,6 +21,9 @@ namespace omni {
 constexpr int SLOTS = 4;
 constexpr int WAVE_BINS = 48;
 
+int64_t bake_loop_crossfades(Instrument &inst, std::vector<PcmPtr> &pcm,
+                             int64_t max_added_bytes, int *skipped = nullptr);
+
 struct ZoneBrief {
     std::string name;
     int root = 60, key_lo = 0, key_hi = 127, vel_lo = 0, vel_hi = 127, slot = 0;
@@ -32,6 +36,7 @@ struct LoadedInfo {
     int preset = 0;
     std::vector<PresetInfo> presets;   // of that file
     std::string name, format;
+    std::string reader;                // 2.4.35: the reader that read it (for a reference .omni: its source's)
     int zones = 0, samples = 0, loops_added = 0;
     int64_t bytes = 0;
     std::vector<std::string> warnings;
@@ -65,6 +70,9 @@ public:
     void set_target(int slot) { target_.store(slot < 0 || slot >= SLOTS ? 0 : slot); }
     int target() const { return target_.load(); }
     void set_auto_loop(bool on) { auto_loop_.store(on); }
+    // Load every slot's preset again (after a setting the loader applies, such as Auto Loop, changed). A slot with a
+    // load queued is left to it; one loading now starts that load over.
+    void reload();
     // Extraction: mode 0 off, 1 = presets loaded from inside a disk image are written to dir (an .omni each) and the
     // slot then refers to that file (what a project saves). save() writes the target slot now, with the settings.
     void set_extract(int mode, const std::string &dir) { extract_mode_.store(mode); std::lock_guard<std::mutex> l(mutex_); extract_dir_ = dir; }
@@ -88,14 +96,25 @@ public:
     // Snapshots for the UI (copies under lock)
     LoadedInfo info();                 // the target slot
     LoadedInfo slot_info(int slot);
+    // 2.4.9: a slot whose last load failed and that holds nothing: what it was asked for (a project's instrument on a
+    // drive not there yet, a moved file). A project saves it again (it is never forgotten), and it is asked for again
+    // when its file appears. Cleared by a load that works or by clearing the slot. path "" = none
+    // 2.4.14: there = its file was there when the load failed (unreadable, ROMs missing): not retried until it goes and
+    // comes back; a file that was not there is retried once it appears (plugin.cpp retry_missing)
+    struct Missing { std::string path; int preset = 0; std::string error; bool there = false; };
+    Missing missing(int slot);
     MergedInfo merged();
+    // 2.4.11 (audit H6): the same, shared and read-only: no copy of thousands of zone / preset names per screen poll
+    std::shared_ptr<const LoadedInfo> slot_ref(int slot);
+    std::shared_ptr<const LoadedInfo> info_ref() { return slot_ref(target_.load()); }
+    std::shared_ptr<const MergedInfo> merged_ref();
     std::string status();              // "" when idle
     int progress() const { return progress_.load(); }   // 0..100 while loading, -1 idle
     std::atomic<uint32_t> revision{0}; // bumps whenever info(), merged() or status() changes
     bool busy() const { return busy_.load(); }
 
 private:
-    struct Request { std::string path; int preset; int slot; bool use_settings; };
+    struct Request { std::string path; int preset; int slot; bool use_settings; bool reload = false; };   // reload: no loaded()
     struct Slot {
         Instrument inst;
         std::vector<PcmPtr> pcm;
@@ -109,6 +128,7 @@ private:
     std::condition_variable cv_;
     std::atomic<bool> quit_{false};
     std::deque<Request> queue_;
+    Request loading_{"", 0, -1, false};   // the request being loaded (slot -1: none); mutex_
     std::atomic<uint32_t> slot_serial_[SLOTS]{};
     std::atomic<int> budget_mb_{512};
     std::atomic<int> progress_{-1};
@@ -118,7 +138,9 @@ private:
     std::atomic<bool> busy_{false};
     std::atomic<int> program_req_{-1};
     LoadedInfo info_[SLOTS];
-    MergedInfo merged_;
+    std::shared_ptr<const LoadedInfo> snap_[SLOTS];   // 2.4.11: info_[s] shared (mutex_); reset when info_[s] changes
+    Missing missing_[SLOTS];   // 2.4.9 (mutex_)
+    std::shared_ptr<const MergedInfo> merged_ = std::make_shared<MergedInfo>();   // 2.4.11: replaced whole, never edited
     std::string status_;
     std::map<std::string, std::weak_ptr<const Pcm>> cache_;
     std::atomic<int> extract_mode_{1};

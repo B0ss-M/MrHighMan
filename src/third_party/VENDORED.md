@@ -13,9 +13,17 @@ Copied in unchanged unless noted. Re-vendoring = replace the files and diff agai
 The format readers are C++ translations of the file-format knowledge in
 [ConvertWithMoss](https://github.com/git-moss/ConvertWithMoss) by Jürgen Moßgraber (LGPL-3.0), checked against
 commit 31b0f8ab603aa1dd7a369e7ba141b8688fd4c3d2: Akai S1000/S3000/S900/AKP/MPC, E-mu EOS/Emulator III/Emax/
-Emulator I and II/Emulator X, NI Kontakt (all generations, NI container, FastLZ, NCW) and Maschine, SF2 and SFZ.
-They are LGPL-3.0, like the rest of this port (see the README). Corrections made against the Java original are
+Emulator I and II/Emulator X, NI Kontakt (all generations, NI container, FastLZ, NCW) and Maschine, SF2 and SFZ
+(the full file list is in NOTICE.txt).
+They are LGPL-3.0 (see NOTICE.txt); the rest of Omni Sampler 2.3 is MR HighMan's own code under LICENSE.txt. Corrections made against the Java original are
 listed in the source comments where they apply (e.g. S3000 header size, keygroup stride, NCW block handling).
 
 The Akai S3000 sample/program layouts were also checked against Takashi Ohsaki's published S3000 format notes
 (documentation only, no code).
+
+## zstd 1.5.5 (decompression only) - 2.4.32
+- From: the zstd copy in MAME 0.289's 3rdparty/zstd (upstream facebook/zstd v1.5.5), lib/zstd.h, lib/zstd_errors.h,
+  lib/common (the decoder's files) and lib/decompress (no amd64 .S).
+- Licence: BSD (src/third_party/zstd/LICENSE), shipped in build/licenses.
+- Built as one file: src/third_party/zstd/zstddeclib.c (ZSTD_DISABLE_ASM, no legacy, no threads). Used by
+  src/formats/serum.cpp (Serum 2 .SerumPreset payloads).

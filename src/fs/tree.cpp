@@ -22,16 +22,40 @@ std::vector<DirEntry> TreeVolume::list(const std::string &dir) {
 
 BlobPtr TreeVolume::open(const std::string &path) {
     std::function<BlobPtr()> make;
+    bool cache = true;
+    std::shared_ptr<Inflight> inflight;
+    bool leader = false;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         auto f = files_.find(path);
         if (f == files_.end()) throw ParseError("not found in image: " + path);
         if (f->second.blob) return f->second.blob;
         make = f->second.make;
+        if (!f->second.cache) cache = false;
+        inflight = f->second.inflight;
+        if (!inflight) {
+            inflight = std::make_shared<Inflight>();
+            f->second.inflight = inflight;
+            leader = true;
+        }
     }
-    BlobPtr b = make();
+    if (!leader) return inflight->future.get();
+    BlobPtr b;
+    try {
+        b = make();
+    } catch (...) {
+        std::exception_ptr error = std::current_exception();
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            files_[path].inflight.reset();
+        }
+        inflight->promise.set_exception(error);
+        throw;
+    }
     std::lock_guard<std::mutex> lock(mutex_);
-    files_[path].blob = b;
+    if (cache) files_[path].blob = b;
+    inflight->promise.set_value(b);
+    files_[path].inflight.reset();
     return b;
 }
 
@@ -63,20 +87,29 @@ void TreeVolume::add_file(const std::string &path, BlobPtr blob) {
     add_lazy(path, size, [blob] { return blob; });
 }
 
-void TreeVolume::add_lazy(const std::string &path, uint64_t size, std::function<BlobPtr()> make) {
+void TreeVolume::add_lazy(const std::string &path, uint64_t size, std::function<BlobPtr()> make, bool cache) {
     std::string dir = path_dir(path), name = path_name(path);
     if (dir == "/") dir.clear();
     add_dir(dir);
     std::lock_guard<std::mutex> lock(mutex_);
     std::string full = path_join(dir, name);
     // duplicate names (Akai volumes allow them): "NAME (2).P"
-    for (int n = 2; files_.count(full) || dirs_.count(full); n++) {
-        std::string stem = path_stem(name), ext = name.substr(stem.size());
-        full = path_join(dir, stem + " (" + std::to_string(n) + ")" + ext);
+    // 2.4.11 (audit): the next number is remembered per name: a hostile archive of 100,000 files of one name took
+    // ~5e9 compares (minutes) counting up from 2 every time
+    if (files_.count(full) || dirs_.count(full)) {
+        const std::string orig = full, stem = path_stem(name), ext = name.substr(stem.size());
+        int &next = dup_next_[orig];
+        if (next < 2) next = 2;
+        for (;; next++) {
+            full = path_join(dir, stem + " (" + std::to_string(next) + ")" + ext);
+            if (!files_.count(full) && !dirs_.count(full)) break;
+        }
+        next++;
     }
     File f;
     f.size = size;
     f.make = std::move(make);
+    f.cache = cache;
     files_[full] = f;
     dirs_[dir].push_back(path_name(full));
 }

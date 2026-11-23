@@ -1,6 +1,7 @@
 // Omni Sampler: its own instrument format, written when a preset is extracted from a disk image (or on EXTRACT):
 // <name>.omni (JSON: every field of the instrument model, lossless) next to "<name> Samples/" (16-bit WAVs, as the
 // engine plays them). A project that used a preset from a disk image then loads just this, not the image.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -285,6 +286,177 @@ Settings_list omni_settings_of(const std::string &host_path) {
     return out;
 }
 
+// ---- 2.4.6: the same instrument as an MPC keygroup program (.xpm), written beside its WAVs (MPC finds a program's
+// samples next to it), so MPC's own browser loads it without the plugin. Layout as ConvertWithMoss's
+// MPCKeygroupCreator (LGPL-3.0) writes it, which MPC 2.x / 3.x read; akai_mpc.cpp reads it back.
+// Not carried over (no place for them in a keygroup): the plugin's synth, effects, ARP, LFOs; crossfades; >1 loop.
+namespace {
+// 2.4.10: preserve valid UTF-8, transcode stray Latin-1 bytes, and escape all XML text metacharacters.
+std::string xml_esc(const std::string &s) {
+    std::string o;
+    for (size_t i = 0; i < s.size();) {
+        const uint8_t c = uint8_t(s[i]);
+        if (c < 0x80) {
+            if (c == '&') o += "&amp;";
+            else if (c == '<') o += "&lt;";
+            else if (c == '>') o += "&gt;";
+            else if (c == '"') o += "&quot;";
+            else if (c == '\'') o += "&apos;";
+            else if (c < 32) o += ' ';
+            else o += char(c);
+            i++;
+            continue;
+        }
+        size_t length = 0;
+        if (c >= 0xC2 && c <= 0xDF && i + 1 < s.size() &&
+            (uint8_t(s[i + 1]) & 0xC0) == 0x80) length = 2;
+        else if (c >= 0xE0 && c <= 0xEF && i + 2 < s.size() &&
+                 (uint8_t(s[i + 1]) & 0xC0) == 0x80 && (uint8_t(s[i + 2]) & 0xC0) == 0x80 &&
+                 !(c == 0xE0 && uint8_t(s[i + 1]) < 0xA0) && !(c == 0xED && uint8_t(s[i + 1]) >= 0xA0))
+            length = 3;
+        else if (c >= 0xF0 && c <= 0xF4 && i + 3 < s.size() &&
+                 (uint8_t(s[i + 1]) & 0xC0) == 0x80 && (uint8_t(s[i + 2]) & 0xC0) == 0x80 &&
+                 (uint8_t(s[i + 3]) & 0xC0) == 0x80 &&
+                 !(c == 0xF0 && uint8_t(s[i + 1]) < 0x90) && !(c == 0xF4 && uint8_t(s[i + 1]) >= 0x90))
+            length = 4;
+        if (length) {
+            o.append(s, i, length);
+            i += length;
+        } else {
+            o.push_back(char(0xC0 | (c >> 6)));
+            o.push_back(char(0x80 | (c & 0x3F)));
+            i++;
+        }
+    }
+    return o;
+}
+std::string f6(double v) {   // '.' whatever LC_NUMERIC the host set (MPC reads only '.')
+    char b[32];
+    std::snprintf(b, sizeof b, "%.6f", std::isfinite(v) ? v : 0.0);
+    for (char *c = b; *c; c++) if (*c == ',') *c = '.';
+    return b;
+}
+double xpm_time(double s) { return std::log(std::max(0.001, std::min(100.0, s)) / 0.001) / std::log(100.0 / 0.001); }   // log 1 ms .. 100 s
+double xpm_curve(double slope) { return std::max(0.0, std::min(1.0, (slope + 1) / 2)); }
+double xpm_gain(double db) { return std::max(0.0, std::min(1.0, 0.353 + (1.0 - 0.353) * (12 + std::min(6.0, db)) / 18.0)); }
+double xpm_cutoff(double hz) { return std::max(0.0, std::min(1.0, (12.0 * std::log2(std::max(32.7, hz) / 880.0) + 57.0) / 140.0)); }
+int xpm_filter_type(const Filter &f) {
+    auto at = [](int poles, int one, int two, int four, int six, int eight) {
+        return poles <= 1 ? one : poles <= 2 ? two : poles <= 4 ? four : poles <= 6 ? six : eight; };
+    switch (f.type) {
+    case FilterType::LowPass: return at(f.poles, 1, 2, 3, 4, 5);
+    case FilterType::HighPass: return at(f.poles, 6, 7, 8, 9, 10);
+    case FilterType::BandPass: return at(f.poles, 11, 11, 12, 13, 14);
+    case FilterType::BandReject: return at(f.poles, 15, 15, 16, 17, 18);
+    default: return 0;
+    }
+}
+void xpm_env(std::string &x, const char *pre, const Envelope &e) {
+    x += std::string("<") + pre + "Attack>" + f6(xpm_time(e.attack)) + "</" + pre + "Attack>";
+    x += std::string("<") + pre + "Hold>" + f6(xpm_time(e.hold)) + "</" + pre + "Hold>";
+    x += std::string("<") + pre + "Decay>" + f6(xpm_time(e.decay)) + "</" + pre + "Decay>";
+    x += std::string("<") + pre + "Sustain>" + f6(std::max(0.0, std::min(1.0, e.sustain))) + "</" + pre + "Sustain>";
+    x += std::string("<") + pre + "Release>" + f6(xpm_time(e.release)) + "</" + pre + "Release>";
+    x += std::string("<") + pre + "AttackCurve>" + f6(xpm_curve(e.attack_slope)) + "</" + pre + "AttackCurve>";
+    x += std::string("<") + pre + "DecayCurve>" + f6(xpm_curve(e.decay_slope)) + "</" + pre + "DecayCurve>";
+    x += std::string("<") + pre + "ReleaseCurve>" + f6(xpm_curve(e.release_slope)) + "</" + pre + "ReleaseCurve>\n";
+}
+
+// zone_wav[i]: zone i's WAV in `dir` (its stem is the XPM's SampleName), "" = none; frames[i]: its length
+void write_xpm(const Instrument &inst, const std::vector<std::string> &zone_wav, const std::vector<int64_t> &frames,
+               const std::string &dir, const std::string &name) {
+    constexpr int LAYERS = 4, MAX_KG = 128;   // MPC: 4 layers a keygroup, 128 keygroups
+    struct Kg { const Zone *first; bool seq; std::vector<size_t> zones; };
+    std::vector<Kg> kgs;
+    size_t dropped = 0;
+    for (size_t i = 0; i < inst.zones.size(); i++) {
+        if (zone_wav[i].empty()) continue;
+        const Zone &z = inst.zones[i];
+        const bool seq = z.play_logic != PlayLogic::Always;
+        Kg *k = nullptr;
+        for (auto &g : kgs) {   // the same key range (and, for round robin / random, the same velocity range) with room
+            if (g.first->key_lo != z.key_lo || g.first->key_hi != z.key_hi || g.seq != seq) continue;
+            if (seq && (g.first->vel_lo != z.vel_lo || g.first->vel_hi != z.vel_hi)) continue;
+            if (g.first->trigger != z.trigger) continue;
+            if (g.zones.size() < LAYERS) { k = &g; break; }
+        }
+        // round robin over more than 4 samples: a second keygroup would play along with the first (CWM drops these too)
+        if (!k && seq && std::any_of(kgs.begin(), kgs.end(), [&](const Kg &g) {
+                return g.seq && g.first->key_lo == z.key_lo && g.first->key_hi == z.key_hi && g.first->vel_lo == z.vel_lo &&
+                       g.first->vel_hi == z.vel_hi && g.first->trigger == z.trigger; })) { dropped++; continue; }
+        if (!k) {
+            if (kgs.size() >= MAX_KG) { dropped++; continue; }
+            kgs.push_back(Kg{&z, seq, {}});
+            k = &kgs.back();
+        }
+        k->zones.push_back(i);
+    }
+    if (kgs.empty()) return;
+    const Zone &z0 = *kgs[0].first;
+    std::string x = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<MPCVObject>\n"
+                    "<Version><File_Version>2.1</File_Version><Platform>Linux</Platform></Version>\n"
+                    "<Program type=\"Keygroup\">\n<ProgramName>" + xml_esc(inst.name) + "</ProgramName>\n<ProgramPads-v2.11.6.6/>\n"
+                    "<KeygroupPitchBendRange>" + f6(z0.bend_up > 0 ? z0.bend_up / 1200.0 : 0.16) + "</KeygroupPitchBendRange>\n"
+                    "<KeygroupWheelToLfo>1.000000</KeygroupWheelToLfo>\n<Instruments>\n";
+    for (size_t n = 0; n < kgs.size(); n++) {
+        const Kg &g = kgs[n];
+        const Zone &z = *g.first;
+        x += "<Instrument number=\"" + std::to_string(n + 1) + "\">\n";
+        if (int ft = xpm_filter_type(z.filter)) {
+            x += "<FilterType>" + std::to_string(ft) + "</FilterType><Cutoff>" + f6(xpm_cutoff(z.filter.cutoff)) + "</Cutoff><Resonance>" +
+                 f6(std::max(0.0, std::min(1.0, z.filter.resonance))) + "</Resonance><FilterKeytrack>" + f6(z.filter.key_tracking) + "</FilterKeytrack>\n";
+            if (z.filter.env_depth > 0) { x += "<FilterEnvAmt>" + f6(std::min(1.0, z.filter.env_depth)) + "</FilterEnvAmt>"; xpm_env(x, "Filter", z.filter.env); }
+            if (z.filter.vel_depth > 0) x += "<VelocityToFilter>" + f6(std::min(1.0, z.filter.vel_depth)) + "</VelocityToFilter>\n";
+        } else
+            x += "<FilterType>0</FilterType>\n";
+        x += "<LowNote>" + std::to_string(z.key_lo) + "</LowNote><HighNote>" + std::to_string(z.key_hi) + "</HighNote><IgnoreBaseNote>" +
+             (z.key_tracking == 0 ? "True" : "False") + "</IgnoreBaseNote>\n";
+        x += "<VelocitySensitivity>" + f6(std::max(0.0, std::min(1.0, z.amp_vel_depth))) + "</VelocitySensitivity>\n";
+        Envelope ae = z.amp_env;
+        if (!ae.set) { ae = Envelope(); ae.release = 0.02; }
+        xpm_env(x, "Volume", ae);
+        if (z.pitch_env_depth > 0) { x += "<PitchEnvAmount>" + f6(std::min(1.0, z.pitch_env_depth / 2 + 0.5)) + "</PitchEnvAmount>"; xpm_env(x, "Pitch", z.pitch_env); }
+        x += "<ZonePlay>" + std::string(z.play_logic == PlayLogic::RoundRobin ? "0" : z.play_logic == PlayLogic::Random ? "2" : "1") + "</ZonePlay>";
+        const int tm = z.trigger == Trigger::Release ? 1 : z.one_shot ? 0 : 2;   // 0 one shot, 1 note off, 2 note on
+        x += "<TriggerMode>" + std::to_string(tm) + "</TriggerMode>\n";
+        x += "<LFO LfoNum=\"0\"><Type>Sine</Type><Rate>0.700000</Rate><LfoPitch>0.044000</LfoPitch></LFO>\n<Layers>\n";
+        for (size_t li = 0; li < g.zones.size(); li++) {
+            const size_t zi = g.zones[li];
+            const Zone &l = inst.zones[zi];
+            const double db = l.gain_db + inst.gain_db, tune = l.tune;
+            const int coarse = int(std::lround(tune));
+            const int64_t len = std::max<int64_t>(1, frames[zi]);
+            const int64_t start = std::max<int64_t>(0, std::min(len - 1, l.start));
+            int64_t end = l.stop > start ? std::min(len, l.stop) : len;
+            std::string stem = zone_wav[zi].substr(0, zone_wav[zi].size() - 4);
+            x += "<Layer number=\"" + std::to_string(li + 1) + "\"><Active>True</Active><Volume>" + f6(xpm_gain(db)) + "</Volume><Pan>" +
+                 f6((std::max(-1.0, std::min(1.0, l.pan)) + 1) / 2) + "</Pan><Pitch>" + f6(tune) + "</Pitch><TuneCoarse>" + std::to_string(coarse) +
+                 "</TuneCoarse><TuneFine>" + std::to_string(int(std::lround((tune - coarse) * 100))) + "</TuneFine><VelStart>" +
+                 std::to_string(std::max(0, l.vel_lo)) + "</VelStart><VelEnd>" + std::to_string(std::min(127, l.vel_hi)) + "</VelEnd>"
+                 "<SampleStart>0</SampleStart><SampleEnd>0</SampleEnd><LoopStart>0</LoopStart><LoopEnd>0</LoopEnd><LoopCrossfadeLength>0</LoopCrossfadeLength>"
+                 "<LoopTune>0</LoopTune><RootNote>" + std::to_string(std::max(0, std::min(127, l.root)) + 1) + "</RootNote><KeyTrack>" +
+                 (l.key_tracking == 0 ? "False" : "True") + "</KeyTrack><SampleName>" + xml_esc(stem) + "</SampleName>"
+                 "<PitchRandom>0.000000</PitchRandom><VolumeRandom>0.000000</VolumeRandom><PanRandom>0.000000</PanRandom><OffsetRandom>0.000000</OffsetRandom>"
+                 "<SampleFile></SampleFile><SliceIndex>129</SliceIndex><Direction>0</Direction><Offset>0</Offset><SliceStart>" + std::to_string(start) + "</SliceStart>";
+            const Loop *lp = nullptr;
+            for (auto &lo : l.loops) if (lo.end > lo.start && lo.start >= start && lo.start < len) { lp = &lo; break; }
+            if (lp && !l.one_shot) {
+                end = std::min(len - 1, lp->end);   // inclusive: the loop's last frame (CWM writes it so; akai_mpc.cpp reads it so)
+                x += "<SliceLoopStart>" + std::to_string(lp->start) + "</SliceLoopStart><SliceEnd>" + std::to_string(end) + "</SliceEnd><SliceLoop>" +
+                     (l.reverse ? "3" : "1") + "</SliceLoop><SliceLoopCrossFadeLength>" + std::to_string(std::max<int64_t>(0, lp->crossfade)) +
+                     "</SliceLoopCrossFadeLength><SliceTailPosition>0.500000</SliceTailPosition><SliceTailLength>0.000000</SliceTailLength>";
+            } else
+                x += "<SliceEnd>" + std::to_string(end) + "</SliceEnd><SliceLoop>0</SliceLoop>";
+            x += "</Layer>\n";
+        }
+        x += "</Layers>\n</Instrument>\n";
+    }
+    x += "</Instruments>\n<KeygroupNumKeygroups>" + std::to_string(kgs.size()) + "</KeygroupNumKeygroups>\n</Program>\n</MPCVObject>\n";
+    (void)dropped;   // (more than 128 keygroups: the rest are left out; MPC has no room for them)
+    write_file(path_join(dir, name + ".xpm"), x);
+}
+}  // namespace
+
 std::string write_omni(const Instrument &inst, const std::vector<PcmPtr> &zone_pcm, const std::string &dir_in,
                        const std::string &source, int source_preset, const std::string &settings, const std::string &force_path) {
     std::string dir = force_path.empty() ? dir_in : path_dir(force_path);
@@ -309,6 +481,8 @@ std::string write_omni(const Instrument &inst, const std::vector<PcmPtr> &zone_p
     // one WAV per distinct sample
     std::vector<std::string> sample_files;
     std::vector<int> zone_sample(inst.zones.size(), -1);
+    std::vector<std::string> zone_wav(inst.zones.size());   // 2.4.6: for the .xpm (file names inside sdir)
+    std::vector<int64_t> zone_frames(inst.zones.size(), 0);
     std::map<const Pcm *, int> by_pcm;
     std::set<std::string> used;
     for (size_t i = 0; i < inst.zones.size(); i++) {
@@ -331,6 +505,8 @@ std::string write_omni(const Instrument &inst, const std::vector<PcmPtr> &zone_p
             sample_files.push_back(sdir_name + "/" + fn);
         }
         zone_sample[i] = it->second;
+        zone_wav[i] = sample_files[size_t(it->second)].substr(sdir_name.size() + 1);
+        zone_frames[i] = pcm->frames();
     }
     std::string zones = "[";
     for (size_t i = 0; i < inst.zones.size(); i++) {
@@ -373,7 +549,45 @@ std::string write_omni(const Instrument &inst, const std::vector<PcmPtr> &zone_p
                       ",\n\"groups\":" + groups + ",\n\"samples\":" + samples + ",\n\"zones\":" + zones + "}\n";
     std::string out = path_join(out_dir, name + ".omni");
     write_file(out, doc);
+    // 2.4.6: an MPC keygroup program beside the WAVs (a failure here never fails the .omni)
+    try { write_xpm(inst, zone_wav, zone_frames, sdir, name); } catch (const std::exception &) {}
     return out;
+}
+
+std::string write_omni_reference(const std::string &name_in, const std::string &format, const std::string &dir_in,
+                                 const std::string &source, int source_preset, const std::string &settings, const std::string &force_path) {
+    if (source.empty()) throw ParseError("nothing to refer to");
+    std::string dir = force_path.empty() ? dir_in : path_dir(force_path);
+    mkdirs(dir);
+    std::string base = file_safe(name_in), name = base, key = source + "\n" + std::to_string(source_preset);
+    if (!force_path.empty()) name = path_stem(force_path);
+    else
+        for (int k = 2;; k++) {   // the same source before: reuse it (rewritten with new settings); another of that name: number it
+            std::string p = path_join(dir, name + ".omni");
+            if (!exists(p)) break;
+            if (omni_source_of(p) == key) {
+                if (settings.empty()) return p;
+                break;
+            }
+            name = base + " (" + std::to_string(k) + ")";
+        }
+    // header keys first (omni_source_of reads them from the start), then "reference":1 (omni_is_reference)
+    std::string doc = "{\"omni\":" + std::to_string(OMNI_VERSION) + ",\"source\":" + jstr(source) + ",\"source_preset\":" +
+                      std::to_string(source_preset) + ",\"reference\":1,\"name\":" + jstr(name_in) + ",\"format\":" + jstr(format) +
+                      (settings.empty() ? std::string() : ",\n\"settings\":" + settings) + ",\n\"groups\":[],\n\"samples\":[],\n\"zones\":[]}\n";
+    std::string out = path_join(dir, name + ".omni");
+    write_file(out, doc);
+    return out;
+}
+
+bool omni_is_reference(const std::string &host_path) {
+    FILE *f = std::fopen(host_path.c_str(), "rb");
+    if (!f) return false;
+    char buf[4096];
+    size_t n = std::fread(buf, 1, sizeof buf - 1, f);
+    std::fclose(f);
+    buf[n] = 0;
+    return std::strstr(buf, ",\"reference\":1,") != nullptr;
 }
 
 std::string omni_file_safe(const std::string &name) { return file_safe(name); }

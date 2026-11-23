@@ -1,0 +1,66 @@
+OMNI SAMPLER 2.3 - LICENCE
+
+Copyright (c) 2025-2026 MR HighMan. All rights reserved.
+
+This licence covers Omni Sampler version 2.3.0 and later public versions ("the Software"), as distributed by
+MR HighMan. Earlier versions (up to and including 1.8.x) were published under the GNU Lesser General Public
+Licence 3.0 or later; copies of those earlier versions remain under that licence. This licence does not change
+the rights anyone already has in those earlier versions.
+
+1. TWO KINDS OF CODE IN THE SOFTWARE
+
+1.1 Proprietary Components. All code, designs and data written by MR HighMan for Omni Sampler that are not listed
+    as Open Components in NOTICE.txt, including but not limited to: the synthesis engine (oscillators, filters,
+    envelopes, LFOs, modulation matrix, macros), the effects and FX BANK, the arpeggiator and grid, the sample
+    playback engine, the user interface and skin, the browser, the patch and preset formats (.omni, .omnipatch,
+    .omnirom), the format readers written by MR HighMan, and all functions, algorithms and translations of synth
+    patches written by MR HighMan.
+
+1.2 Open Components. The parts listed in NOTICE.txt as covered by another licence (for example the format readers
+    translated from ConvertWithMoss under the LGPL-3.0, and the bundled libraries dr_flac, stb_vorbis, tinf and
+    zstd). Each Open Component is licensed to you under its own licence, which is included with the Software.
+    Nothing in this licence limits any right those licences give you.
+
+2. WHAT YOU MAY DO
+
+2.1 Install and use the Software on Akai Professional MPC hardware that you own or control, running MPC OS or a
+    compatible MPC firmware (for example Hakai).
+2.2 Customise your own installation for your own use (settings, skins, presets, your own library).
+2.3 Make one backup copy of the files you downloaded.
+
+3. WHAT YOU MAY NOT DO WITHOUT MR HIGHMAN'S PRIOR WRITTEN APPROVAL
+
+3.1 Copy, redistribute, sell, rent, lend, sublicense or transfer the Software or any Proprietary Component.
+3.2 Reuse any Proprietary Component, in whole or in part, in any other software, product or service.
+3.3 Port, adapt or run the Software or any Proprietary Component on any platform other than MPC hardware
+    (including computers, other hardware instruments, mobile devices or plug-in formats for other hosts).
+3.4 Use the Software, any Proprietary Component, or any part of its source code, binaries, documentation or
+    outputs to train, fine-tune, evaluate or otherwise improve any artificial-intelligence or machine-learning
+    model or agent, or provide them to such a model or agent for that purpose.
+3.5 Publish a modified version of the Software, or of any Proprietary Component.
+3.6 Remove or change any copyright, licence or trademark notice.
+
+Where applicable law gives you a right that cannot be limited by contract (for example certain rights of
+interoperability or decompilation), this licence does not limit it. For the Open Components, the rights in their
+own licences always apply, including the right under LGPL-3.0 section 4 to replace or modify an LGPL component
+and use it with the Software; the means to do that are available from MR HighMan on request.
+
+4. NAMES AND MARKS
+
+"Omni Sampler", "Omni Sampler 2", "Omni Sampler2", "Ω2", "ΩS2", "Ω Sampler 2" and the Omni Sampler logos are
+trademarks of MR HighMan. This licence does not grant any right to use them, except to refer truthfully to the
+Software.
+
+5. NO WARRANTY
+
+The Software is provided "as is", without warranty of any kind, express or implied, including fitness for a
+particular purpose. MR HighMan is not liable for any damage, loss of data or loss of work arising from its use,
+to the extent permitted by law. Back up your projects before installing.
+
+6. ENDING THIS LICENCE
+
+This licence ends automatically if you break its terms. You must then stop using the Software and delete it.
+
+7. CONTACT
+
+Permission requests and questions: mrhighmanproductions@gmail.com

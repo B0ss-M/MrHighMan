@@ -20,6 +20,15 @@ std::string write_omni(const Instrument &inst, const std::vector<PcmPtr> &zone_p
 using Settings_list = std::vector<std::pair<std::string, float>>;
 // The sound settings stored in an .omni file on the host (empty if none).
 Settings_list omni_settings_of(const std::string &host_path);
+// 2.3 public / 2.4.35: a REFERENCE .omni (no samples): the preset's name, format and settings and where its sounds come
+// from (source + source_preset: a ROM, a synth's preset, a Kontakt / EXS / NN-XT file, a Decent Sampler library). Loading
+// it loads the source again. The same source in out_dir: that file is reused (rewritten when there are settings).
+// force_path: rewrite this reference. Returns the .omni path. Throws ParseError.
+std::string write_omni_reference(const std::string &name, const std::string &format, const std::string &out_dir,
+                                 const std::string &source, int source_preset, const std::string &settings = "",
+                                 const std::string &force_path = "");
+// True for a reference .omni on the host (written by write_omni_reference).
+bool omni_is_reference(const std::string &host_path);
 // "<source>\n<preset>" recorded in an .omni file on the host, "" if none.
 std::string omni_source_of(const std::string &host_path);
 // True for an .omni written by an older version whose source format has since been read better: reload it from the

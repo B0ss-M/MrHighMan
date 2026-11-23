@@ -1,7 +1,11 @@
 // Omni Sampler: Korg Wavestation / EX / A/D / SR SysEx banks (.syx): performances and patches, played with the waves of
 // the Wavestation EX expansion ROM, from its four EPROM dumps (ws3p7.bin, ws3p8.bin, ws3p9.bin, ws4p0.bin, 512 KB each;
-// MAME's korgwsex set). The Wavestation's own 365 waves (the SR's wave chips 814-817) are not read yet: a sound that
-// uses them says so.
+// MAME's korgwsex set), and the Wavestation's own 365 waves, from the user's dumps of its four mask ROMs IC6-IC9 (512 KB
+// each, named ic6.bin ... or starting so). Either set may be missing: a sound that uses it says so.
+// The Wavestation's own ROM (dumped 2026-10-24 by the user) is laid out as the EX's: "KORG", type 0x1E, at 0 of ic7 / ic6
+// interleaved (ic7 the even bytes), whose header gives the tables (365 waves, 685 zones, 685 samples, the same records
+// as the EX's) near the end of that interleave; the audio is ic9, ic8, ic6, ic7 one after another (every loop's end
+// sample equals its start's in that order only), 234 single-cycle sets of 2427 samples first.
 // Decoded 2026-10-15, on the Wavestation Patch Archive's banks (factory, SR ROM, A/D, EX) and the EX chips:
 //   - Messages F0 42 3n 28 <fn> <bank> <data> <checksum> F7, the data in nibbles (low first). 4D: 50 performances x
 //     181 bytes, 4C: 35 patches x 426, 54: the wave sequences (32 x 16-byte headers, 501 x 16-byte steps, 32 x 8-byte
@@ -13,7 +17,7 @@
 //     part mode, low / high key, low / high velocity, transpose, detune (cents), ... Patch: name[16], the mix
 //     envelope (point 0 at X 76, Y 81), number of waves 86 (0: 1, 1: 2, 2: 4), hard sync, Bank_Exp 88 (bit n: wave n's
 //     sequence is in RAM3), then 4 x 84 bytes, one per oscillator: coarse, fine, wave bank, wave number (u16 BE), ...
-//     amp EG rates 34-37 and levels 38-41, level 73, wave number expansion 83. A wave number under 32 is a wave
+//     amp EG times 34-37 and levels 38-41, level 73, wave number expansion 83. A wave number under 32 is a wave
 //     sequence of that bank; else the wave is number + expansion - 32: 0-364 the Wavestation's, 365-483 the EX's.
 //   - Wave sequence step: next / previous / loop links, wave (u16 BE, bit 15 a flag; - 32 as in patches), coarse
 //     (48-96: an EX wave, coarse - 72), fine, crossfade, duration, level. Played here as its first step's wave.
@@ -27,6 +31,8 @@
 //     original key, 4 bytes. At 0xFEF32, 299 14-byte samples: u16, then start, loop start (flag 4: loops) and end, each
 //     a 24-bit LE byte address + a flag byte. The audio is 8-bit signed at 31250 Hz (the loops hold whole cycles of
 //     their zone's pitch at 31.25-32 kHz), its 2 MB laid out ws3p7, ws3p8, ws4p0, ws3p9 one after another.
+#include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -148,11 +154,12 @@ const Bank *bank_for(Volume &vol, const std::string &path, const std::vector<Ban
     return m.bank == want ? &m : nullptr;
 }
 
-// ---- the EX ROM ----
+// ---- the wave ROMs: the EX's, and the Wavestation's own ----
 
 constexpr uint32_t CHIP = 0x80000, TABLE_WAVES = 0xFDB44, TABLE_ZONES = 0xFE1C2, TABLE_SAMPLES = 0xFEF32;
 constexpr int EX_WAVES = 118, EX_SAMPLES = 299, VS_SET = 2427;
 const char *const CHIPS[4] = {"ws3p7.bin", "ws3p8.bin", "ws4p0.bin", "ws3p9.bin"};   // in address order
+const char *const BASE_CHIPS[4] = {"ic9", "ic8", "ic6", "ic7"};                      // in address order
 
 struct ExWave { std::string name; int first, count; bool zoned; int vs; };   // vs: its single-cycle set, -1 none
 struct ExZone { int sample, top, tune, orig; };
@@ -160,6 +167,7 @@ struct ExSample { uint32_t start, loop, end; bool looped; };
 
 struct Rom {
     std::string dir;
+    bool base = false;                                 // the Wavestation's own waves 0-364, else the EX's
     BlobPtr chip[4];
     std::vector<ExWave> waves;
     std::vector<ExZone> zones;
@@ -167,63 +175,122 @@ struct Rom {
 };
 using RomPtr = std::shared_ptr<const Rom>;
 
-std::vector<std::string> chip_files(const std::vector<DirEntry> &list) {
+// a chip of the Wavestation's own: ic6.bin ..., or the name starting so ("IC6_MB834000A-20P-G-5E6.bin")
+bool base_name(const std::string &name, const char *ic) {
+    if (name.size() < 4 || path_ext(name) != "bin") return false;
+    for (int i = 0; i < 3; i++) if (std::tolower(uint8_t(name[size_t(i)])) != ic[i]) return false;
+    return !std::isdigit(uint8_t(name[3]));
+}
+
+std::vector<std::string> chip_files(const std::vector<DirEntry> &list, bool base) {
     std::vector<std::string> out(4);
     for (const DirEntry &e : list)
         for (int k = 0; k < 4; k++)
-            if (!e.dir && e.size == CHIP && equals_ci(e.name, CHIPS[k])) out[size_t(k)] = e.name;
+            if (!e.dir && e.size == CHIP && (base ? base_name(e.name, BASE_CHIPS[k]) : equals_ci(e.name, CHIPS[k]))) out[size_t(k)] = e.name;
     for (const std::string &f : out) if (f.empty()) return {};
     return out;
 }
 
-bool is_rom(Volume &vol, const std::string &dir) {
-    try { return !chip_files(vol.list(dir)).empty(); } catch (const std::exception &) { return false; }
+bool is_ex(Volume &vol, const std::string &dir) {
+    try { return !chip_files(vol.list(dir), false).empty(); } catch (const std::exception &) { return false; }
+}
+
+// ic6-ic9 are common chip names: the header must say so too ("KORG", type 0x1E, at 0 of ic7 / ic6 interleaved)
+bool is_base(Volume &vol, const std::string &dir) {
+    try {
+        std::vector<std::string> f = chip_files(vol.list(dir), true);
+        if (f.empty()) return false;
+        std::vector<uint8_t> ev = vol.open(path_join(dir, f[3]))->bytes(0, 3), od = vol.open(path_join(dir, f[2]))->bytes(0, 3);
+        return ev.size() == 3 && od.size() == 3 && ev[0] == 'K' && od[0] == 'O' && ev[1] == 'R' && od[1] == 'G' && ev[2] == 0x1E;
+    } catch (const std::exception &) { return false; }
 }
 
 std::mutex roms_mutex;
-std::map<std::string, RomPtr> roms;   // parsed once per folder
-std::string cached_rom;
+std::map<std::string, RomPtr> roms;   // parsed once per folder and set
+std::string cached_ex, cached_base;
 
-RomPtr open_rom(Volume &vol, const std::string &dir) {
+RomPtr open_rom(Volume &vol, const std::string &dir, bool base) {
+    std::string id = (base ? "base:" : "ex:") + dir;
     {
         std::lock_guard<std::mutex> lock(roms_mutex);
-        auto it = roms.find(dir);
+        auto it = roms.find(id);
         if (it != roms.end()) return it->second;
     }
-    std::vector<std::string> f = chip_files(vol.list(dir));
-    if (f.empty()) throw ParseError("Wavestation EX ROM dumps missing in " + dir);
+    std::vector<std::string> f = chip_files(vol.list(dir), base);
+    if (f.empty()) throw ParseError(std::string(base ? "Wavestation ROM dumps (ic6-ic9)" : "Wavestation EX ROM dumps") + " missing in " + dir);
     auto rom = std::make_shared<Rom>();
     rom->dir = dir;
+    rom->base = base;
     for (int k = 0; k < 4; k++) rom->chip[k] = vol.open(path_join(dir, f[size_t(k)]));
-    // the tables: the last 16 KB of ws3p9 / ws4p0, interleaved
-    constexpr uint32_t from = 0xFC000;
+    // the tables: the last 64 KB of the last two chips (ws3p9 / ws4p0, ic7 / ic6), interleaved
+    constexpr uint32_t from = 0xF0000;
     std::vector<uint8_t> ev = rom->chip[3]->bytes(from / 2, (0x100000 - from) / 2), od = rom->chip[2]->bytes(from / 2, (0x100000 - from) / 2);
+    if (ev.size() != od.size() || ev.size() != (0x100000 - from) / 2) throw ParseError("Wavestation ROM dump too short in " + dir);
     std::vector<uint8_t> t(0x100000 - from);
     for (size_t i = 0; i < ev.size(); i++) { t[2 * i] = ev[i]; t[2 * i + 1] = od[i]; }
     auto at = [&](uint32_t a) { return &t[a - from]; };
-    if (std::memcmp(at(TABLE_WAVES), "MagicOrgan", 10)) throw ParseError("not the Wavestation EX ROM (no wave table in ws3p9.bin / ws4p0.bin)");
-    for (uint32_t a = TABLE_ZONES; a + 10 <= TABLE_SAMPLES; a += 10) {
-        const uint8_t *z = at(a);
+    // the header (at 0 of the same interleave): "KORG", type, ..., then each table's address (u32 LE, a word address:
+    // 0x100000 + half the offset) and count (u16 LE): waves at 0x10, zones at 0x20, samples at 0x28
+    std::vector<uint8_t> hev = rom->chip[3]->bytes(0, 24), hod = rom->chip[2]->bytes(0, 24), h(48);
+    for (size_t i = 0; i < 24 && i < hev.size() && i < hod.size(); i++) { h[2 * i] = hev[i]; h[2 * i + 1] = hod[i]; }
+    bool korg = !std::memcmp(h.data(), "KORG", 4);
+    uint32_t waves_at = TABLE_WAVES - 4, zones_at = TABLE_ZONES, samples_at = TABLE_SAMPLES;
+    int n_waves = EX_WAVES, n_zones = int(TABLE_SAMPLES - TABLE_ZONES) / 10, n_samples = EX_SAMPLES;
+    if (base) {
+        // the Wavestation's own (type 0x1E): 365 waves, 685 zones, 685 samples, all from the header
+        auto table = [&](size_t o, uint32_t &addr, int &n, uint32_t size) {
+            uint32_t a = uint32_t(h[o] | h[o + 1] << 8 | h[o + 2] << 16 | h[o + 3] << 24);
+            n = h[o + 4] | h[o + 5] << 8;
+            uint64_t off = (uint64_t(a) - 0x100000) * 2;
+            if (a < 0x100000 || off < from || off + uint64_t(n) * size > 0x100000) return false;
+            addr = uint32_t(off);
+            return true;
+        };
+        if (!korg || h[4] != 0x1E || !table(0x10, waves_at, n_waves, 14) || !table(0x20, zones_at, n_zones, 10) || !table(0x28, samples_at, n_samples, 14) ||
+            n_waves != N_BASE)
+            throw ParseError("not the Wavestation's wave ROM (no wave table in ic7 / ic6)");
+    } else {
+        if (std::memcmp(at(TABLE_WAVES), "MagicOrgan", 10)) throw ParseError("not the Wavestation EX ROM (no wave table in ws3p9.bin / ws4p0.bin)");
+        // the wave count at 0x14 (the SR's own copy of the table stops at 118)
+        if (korg) n_waves = clampi(h[0x14] | h[0x15] << 8, EX_WAVES, EX_WAVES + 8);
+    }
+    for (int k = 0; k < n_zones; k++) {
+        const uint8_t *z = at(zones_at + 10 * uint32_t(k));
         rom->zones.push_back({z[0] | z[1] << 8, z[2], sx(z[4]), z[5]});
     }
-    // the wave count, from the header (at 0 of the same interleave): "KORG", type 0x0F, ..., the wave table's u16 count at 0x14
-    std::vector<uint8_t> hev = rom->chip[3]->bytes(0, 12), hod = rom->chip[2]->bytes(0, 12);
-    int n_waves = EX_WAVES;
-    if (hev[0] == 'K' && hod[0] == 'O' && hev[1] == 'R' && hod[1] == 'G') n_waves = clampi(hev[10] | hod[10] << 8, EX_WAVES, EX_WAVES + 8);
     for (int k = 0, vs = 0; k < n_waves; k++) {
-        const uint8_t *e = at(TABLE_WAVES + 14 * uint32_t(k));
-        int first = e[-4] | e[-3] << 8, type = e[-2], count = e[-1];
+        const uint8_t *e = at(waves_at + 14 * uint32_t(k));
+        int first = e[0] | e[1] << 8, type = e[2], count = e[3];
         bool zoned = type == 0 && count >= 1 && first + count <= int(rom->zones.size());
-        rom->waves.push_back({name_of(e, 10), first, count, zoned, type == 1 ? vs++ : -1});
+        rom->waves.push_back({name_of(e + 4, 10), first, count, zoned, type == 1 ? vs++ : -1});
     }
-    for (int k = 0; k < EX_SAMPLES; k++) {
-        const uint8_t *s = at(TABLE_SAMPLES + 14 * uint32_t(k));
+    for (int k = 0; k < n_samples; k++) {
+        const uint8_t *s = at(samples_at + 14 * uint32_t(k));
         auto a24 = [](const uint8_t *p) { return uint32_t(p[0] | p[1] << 8 | p[2] << 16); };
         rom->samples.push_back({a24(s + 2), a24(s + 6), a24(s + 10), (s[9] & 4) != 0});
     }
     std::lock_guard<std::mutex> lock(roms_mutex);
-    roms[dir] = rom;
+    roms[id] = rom;
     return rom;
+}
+
+// find_beside for one set; a folder where it is missing is not searched again for a minute (most users have one set,
+// and the search walks the whole library: bank after bank would wait for it)
+std::map<std::string, std::chrono::steady_clock::time_point> missed;
+
+std::string find_set(Volume &vol, const std::string &path, IsFolder is, std::string &cache) {
+    std::string id = vol.kind() + (is == is_base ? ":base:" : ":ex:") + path_dir(path);
+    auto now = std::chrono::steady_clock::now();
+    {
+        std::lock_guard<std::mutex> lock(roms_mutex);
+        auto it = missed.find(id);
+        if (it != missed.end() && now - it->second < std::chrono::seconds(60)) return {};
+    }
+    std::string dir = find_beside(vol, path, is, cache);
+    std::lock_guard<std::mutex> lock(roms_mutex);
+    if (dir.empty()) missed[id] = now;
+    else missed.erase(id);
+    return dir;
 }
 
 // `frames` samples of the ROM's audio from byte address `start`
@@ -233,7 +300,7 @@ SampleRefPtr rom_pcm(const RomPtr &rom, uint32_t start, int64_t frames, const st
     r->rate = ROM_RATE;
     r->channels = 1;
     r->frames = frames;
-    r->key = "wsrom:" + rom->dir + ":" + std::to_string(start) + ":" + std::to_string(frames);
+    r->key = std::string(rom->base ? "wsbase:" : "wsrom:") + rom->dir + ":" + std::to_string(start) + ":" + std::to_string(frames);
     r->decode = [rom, start, frames]() -> PcmPtr {
         auto p = std::make_shared<Pcm>();
         p->rate = ROM_RATE;
@@ -254,14 +321,16 @@ SampleRefPtr rom_pcm(const RomPtr &rom, uint32_t start, int64_t frames, const st
 
 SampleRefPtr rom_sample(const RomPtr &rom, int n) {
     const ExSample &s = rom->samples[size_t(n)];
-    return rom_pcm(rom, s.start, int64_t(s.end) - s.start + 1, "EX " + std::to_string(n));
+    return rom_pcm(rom, s.start, int64_t(s.end) - s.start + 1, (rom->base ? "WS " : "EX ") + std::to_string(n));
 }
 
 // ---- patches ----
 
-double eg_time(int rate) { return 0.002 + 0.06 * (std::exp((99 - clampi(rate, 0, 99)) * 0.0577) - 1.0); }   // 99 fast, 0 ~18 s
+// the EG's values are times, not rates: 0 instant, 99 ~18 s (2026-10-24: most factory patches, organs and basses too,
+// have 0 for the attack, and pads have longer releases than plucks; read as rates, short releases took 9 s or more)
+double eg_time(int t) { return 0.002 + 0.06 * (std::exp(clampi(t, 0, 99) * 0.0577) - 1.0); }
 
-// the amp EG: start level 0, rate 1 to level 1, rate 2 to level 2, rate 3 to level 3 (sustain), rate 4 (release); as the
+// the amp EG: start level 0, time 1 to level 1, time 2 to level 2, time 3 to level 3 (sustain), time 4 (release); as the
 // sampler's ADSR: the attack up to the highest of levels 0-2 (none when the EG starts there), the decay on to level 3
 double apply_aeg(Zone &z, const uint8_t *o) {
     int r[4] = {o[34], o[35], o[36], o[37]};
@@ -281,23 +350,85 @@ double apply_aeg(Zone &z, const uint8_t *o) {
     return 20.0 * std::log10(peak / 99.0);
 }
 
+// ---- the ROM bank (bank 2), in the OS EPROMs (WSEX_319_U18 / U19, the A/D's 910205L / 910305R: 128 KB each) ----
+// Found 2026-10-24 by matching ROM.SYX (the ROM bank moved into RAM1) against EX 3.19 and A/D 1.25: one chip holds the
+// 35 patches, then the 32 wave sequence headers and their 32 names; the other the 50 performances, then the 501 steps.
+// The records are the SysEx ones byte for byte, except that they name bank 2 where the RAM copy says 0. Found here by
+// their names (16 bytes: 15 printable, then 0) at the record size, not at fixed addresses.
+constexpr uint32_t OS_CHIP = 0x20000;
+constexpr int ROM_BANK = 2;
+
+bool name_at(const std::vector<uint8_t> &f, size_t at) {
+    if (at + 16 > f.size() || f[at + 15] != 0) return false;
+    for (size_t i = 0; i < 15; i++) if (f[at + i] < 32 || f[at + i] > 127) return false;
+    return true;
+}
+
+// the first offset with `n` records of `size` bytes, each starting with a name; npos: none
+size_t find_run(const std::vector<uint8_t> &f, size_t size, size_t n) {
+    for (size_t a = 0; a + size * n <= f.size(); a++) {
+        size_t k = 0;
+        while (k < n && name_at(f, a + size * k)) k++;
+        if (k == n) return a;
+    }
+    return std::string::npos;
+}
+
+std::map<std::string, std::shared_ptr<const Bank>> rom_banks;   // per folder; null: none there
+
+std::shared_ptr<const Bank> rom_bank_in(Volume &vol, const std::string &dir) {
+    {
+        std::lock_guard<std::mutex> lock(roms_mutex);
+        auto it = rom_banks.find(dir);
+        if (it != rom_banks.end()) return it->second;
+    }
+    std::shared_ptr<Bank> out;
+    std::vector<uint8_t> pchip, fchip;
+    size_t pat = std::string::npos, perf = std::string::npos;
+    try {
+        for (const DirEntry &e : vol.list(dir)) {
+            if (e.dir || e.size != OS_CHIP || path_ext(e.name) != "bin") continue;
+            std::vector<uint8_t> f = vol.open(path_join(dir, e.name))->bytes(0, OS_CHIP);
+            size_t a;
+            if (pat == std::string::npos && (a = find_run(f, PATCH, N_PATCH)) != std::string::npos && a + N_PATCH * PATCH + 512 + 256 <= f.size()) { pat = a; pchip = std::move(f); }
+            else if (perf == std::string::npos && (a = find_run(f, PERF, N_PERF)) != std::string::npos && a + N_PERF * PERF + 501 * 16 <= f.size()) { perf = a; fchip = std::move(f); }
+        }
+    } catch (const std::exception &) {}
+    if (pat != std::string::npos && perf != std::string::npos) {
+        out = std::make_shared<Bank>();
+        out->bank = ROM_BANK;
+        for (size_t k = 0; k < N_PATCH; k++) out->patches.emplace_back(pchip.begin() + long(pat + k * PATCH), pchip.begin() + long(pat + (k + 1) * PATCH));
+        for (size_t k = 0; k < N_PERF; k++) out->perfs.emplace_back(fchip.begin() + long(perf + k * PERF), fchip.begin() + long(perf + (k + 1) * PERF));
+        size_t h = pat + N_PATCH * PATCH, s = perf + N_PERF * PERF;
+        out->seqs.assign(pchip.begin() + long(h), pchip.begin() + long(h + 512));                         // headers
+        out->seqs.insert(out->seqs.end(), fchip.begin() + long(s), fchip.begin() + long(s + 501 * 16));    // steps
+        out->seqs.insert(out->seqs.end(), pchip.begin() + long(h + 512), pchip.begin() + long(h + 512 + 256));   // names
+    }
+    std::lock_guard<std::mutex> lock(roms_mutex);
+    rom_banks[dir] = out;
+    return out;
+}
+
 struct Ctx {
     VolumePtr vol;
     std::string path;
     const std::vector<Bank> *own;
     std::map<int, Bank> others;
-    RomPtr rom;
-    const Bank *bank(int want) { return bank_for(*vol, path, *own, want, others); }
+    RomPtr ex, base;   // either may be missing
+    std::shared_ptr<const Bank> rom;   // the ROM bank, if the OS chips are beside the wave chips or the banks
+    const Bank *bank(int want) { return want == ROM_BANK ? rom.get() : bank_for(*vol, path, *own, want, others); }
 };
 
 void add_wave(Instrument &inst, Ctx &c, const std::string &label, int wave, double tune, double gain, const uint8_t *osc) {
-    if (wave < N_BASE) {
-        inst.warnings.push_back(label + " plays Wavestation wave " + std::to_string(wave) + ": its ROM is not available");
+    const RomPtr &rom = wave < N_BASE ? c.base : c.ex;
+    if (!rom) {
+        inst.warnings.push_back(label + " plays " + (wave < N_BASE ? "Wavestation" : "EX") + " wave " + std::to_string(wave) + ": its ROM is not available");
         return;
     }
-    int ex = wave - N_BASE;
-    if (ex >= int(c.rom->waves.size())) { inst.warnings.push_back(label + " plays wave " + std::to_string(wave) + ": unknown"); return; }
-    const ExWave &w = c.rom->waves[size_t(ex)];
+    int n = wave < N_BASE ? wave : wave - N_BASE;
+    if (n < 0 || n >= int(rom->waves.size())) { inst.warnings.push_back(label + " plays wave " + std::to_string(wave) + ": unknown"); return; }
+    const char *set = rom->base ? "WS " : "EX ";
+    const ExWave &w = rom->waves[size_t(n)];
     if (w.vs >= 0) {
         // a single cycle: the cycle with the most harmonics up to the note where its top one (40 ... 4) reaches ~20 kHz
         // (sounding notes: the keys move by the oscillator's transpose)
@@ -307,13 +438,13 @@ void add_wave(Instrument &inst, Ctx &c, const std::string &label, int wave, doub
             if (lo > 127) break;
             Zone out;
             out.name = label + " " + w.name + " " + std::to_string(v.len);
-            out.sample = rom_pcm(c.rom, uint32_t(w.vs * VS_SET + v.at), v.len, "EX " + w.name + " " + std::to_string(v.len));
+            out.sample = rom_pcm(rom, uint32_t(w.vs * VS_SET + v.at), v.len, set + w.name + " " + std::to_string(v.len));
             out.key_lo = lo;
             out.key_hi = clampi(v.top - shift, lo, 127);
             lo = out.key_hi + 1;
             double pitch = 69 + 12 * std::log2(double(ROM_RATE) / v.len / 440.0);   // the cycle played as is
             out.root = int(std::lround(pitch));
-            out.tune = pitch - out.root + tune;
+            out.tune = out.root - pitch + tune;
             Loop l;
             l.end = v.len - 1;
             out.loops.push_back(l);
@@ -322,15 +453,15 @@ void add_wave(Instrument &inst, Ctx &c, const std::string &label, int wave, doub
         }
         return;
     }
-    if (!w.zoned) { inst.warnings.push_back(label + " plays EX wave " + w.name + ": not read yet"); return; }
+    if (!w.zoned) { inst.warnings.push_back(label + " plays " + set + "wave " + w.name + ": not read yet"); return; }
     int lo = 0;
     for (int i = 0; i < w.count; i++) {
-        const ExZone &z = c.rom->zones[size_t(w.first + i)];
-        if (z.sample < 0 || z.sample >= int(c.rom->samples.size())) continue;
-        const ExSample &s = c.rom->samples[size_t(z.sample)];
+        const ExZone &z = rom->zones[size_t(w.first + i)];
+        if (z.sample < 0 || z.sample >= int(rom->samples.size())) continue;
+        const ExSample &s = rom->samples[size_t(z.sample)];
         Zone out;
         out.name = label + " " + w.name + " " + std::to_string(i + 1);
-        out.sample = rom_sample(c.rom, z.sample);
+        out.sample = rom_sample(rom, z.sample);
         out.key_lo = lo;
         out.key_hi = i + 1 == w.count ? 127 : z.top;
         lo = z.top + 1;
@@ -347,6 +478,52 @@ void add_wave(Instrument &inst, Ctx &c, const std::string &label, int wave, doub
     }
 }
 
+// A wave sequence, as one layer per step (Zone::seq_step): step i starts at the sum of the durations before it, fades
+// in over the previous step's crossfade, holds until the next starts and fades out over its own crossfade; the last
+// one played keeps the patch's sustain and release. Step: next (u16 BE, 0 the end), previous, loop target (u16 BE;
+// 0xFFFF / 0xFFFE none), wave, coarse, fine, crossfade (u16 BE), duration (u16 BE; 500 GATE: held), level (0-99).
+// The tick is taken as 1/48 s (24 ticks a beat at 120 BPM; estimated, not from the OS). Played once through, a loop
+// unrolled up to `max_steps` steps: a patch's sequences share STEP_BUDGET layers (each holds a voice from note-on, of
+// the engine's 64).
+constexpr int STEP_BUDGET = 16, GATE = 500;
+constexpr double TICK = 1.0 / 48;
+
+void add_sequence(Instrument &inst, Ctx &c, const std::string &label, const std::vector<uint8_t> &s, int step, const std::string &name,
+                  double tune, double gain, const uint8_t *osc, int max_steps) {
+    double t = 0, fade_in = -1;   // -1: the first step, which keeps the patch's attack
+    int played = 0;
+    for (int k = step; k > 0 && k < 501 && played < max_steps; played++) {
+        const uint8_t *st = &s[SEQ_STEPS + 16 * size_t(k)];
+        int wave = (be16(st + 6) & 0x7FFF) - 32, coarse = sx(st[8]);
+        if (coarse >= 48 && coarse <= 96) { coarse -= 72; wave += N_BASE; }
+        int next = be16(st), loop = be16(st + 4), xf = be16(st + 10), dur = be16(st + 12), level = clampi(st[14], 0, 99);
+        if ((next <= 0 || next >= 501) && loop > 0 && loop < 501) next = loop;   // the end of a loop: back to its start
+        bool last = dur >= GATE || next <= 0 || next >= 501 || played + 1 == max_steps;
+        size_t z0 = inst.zones.size();
+        add_wave(inst, c, label, wave, tune + coarse + sx(st[9]) / 100.0, gain + 20.0 * std::log10(std::max(1, level) / 99.0), osc);
+        double out = std::max(0.002, xf * TICK);
+        for (size_t i = z0; i < inst.zones.size(); i++) {
+            Envelope &e = inst.zones[i].amp_env;
+            e.delay = t;
+            if (fade_in >= 0) { e.attack = fade_in; e.start_level = 0; }
+            if (!last) {
+                e.hold = std::max(0.0, dur * TICK - (fade_in > 0 ? fade_in : 0) - (fade_in < 0 ? e.attack : 0));
+                e.decay = out;
+                e.sustain = 0;
+            }
+            inst.zones[i].seq_step = played > 0 || !last;
+        }
+        if (last) {
+            if (played + 1 == max_steps && dur < GATE && next > 0 && next < 501)
+                inst.warnings.push_back(label + " plays wave sequence " + name + ": its first " + std::to_string(max_steps) + " steps");
+            break;
+        }
+        t += dur * TICK;
+        fade_in = out;
+        k = next;
+    }
+}
+
 Instrument load_patch(Ctx &c, const Bank &b, int n) {
     const std::vector<uint8_t> &p = b.patches[size_t(n)];
     Instrument inst;
@@ -358,6 +535,8 @@ Instrument load_patch(Ctx &c, const Bank &b, int n) {
     double weight[4] = {1, 0, 0, 0};
     if (oscs == 2) { weight[0] = 1 - x; weight[1] = x; }
     if (oscs == 4) { weight[0] = (1 - x) / 2; weight[2] = x / 2; weight[1] = (1 - y) / 2; weight[3] = y / 2; }
+    int n_seqs = 0;   // the oscillators playing a wave sequence, which share the step budget
+    for (int o = 0; o < oscs; o++) n_seqs += weight[o] >= 0.02 && be16(&p[90 + 84 * size_t(o) + 3]) < 32;
     for (int o = 0; o < oscs; o++) {
         const uint8_t *osc = &p[90 + 84 * size_t(o)];
         std::string label(1, char('A' + o));
@@ -368,7 +547,7 @@ Instrument load_patch(Ctx &c, const Bank &b, int n) {
         if (num >= 32) { add_wave(inst, c, label, num + sx(osc[83]) - 32, tune, gain, osc); continue; }
         // a wave sequence: its first step
         int want = (p[88] >> o & 1) ? RAM3 : osc[2];
-        const Bank *sb = want == 0 || want == 1 || want == RAM3 ? c.bank(want) : nullptr;
+        const Bank *sb = want == 0 || want == 1 || want == ROM_BANK || want == RAM3 ? c.bank(want) : nullptr;
         if (!sb || sb->seqs.empty()) {
             inst.warnings.push_back(label + " plays a wave sequence of bank " + std::string(want == 2 ? "ROM" : want == 3 ? "card" : want == RAM3 ? "RAM3" : want ? "RAM2" : "RAM1") + ": not in this folder");
             continue;
@@ -376,11 +555,8 @@ Instrument load_patch(Ctx &c, const Bank &b, int n) {
         const std::vector<uint8_t> &s = sb->seqs;
         int step = be16(&s[16 * size_t(num)]);
         if (step <= 0 || step >= 501) { inst.warnings.push_back(label + " plays an empty wave sequence"); continue; }
-        const uint8_t *st = &s[SEQ_STEPS + 16 * size_t(step)];
-        int wave = (be16(st + 6) & 0x7FFF) - 32, coarse = sx(st[8]);
-        if (coarse >= 48 && coarse <= 96) { coarse -= 72; wave += N_BASE; }
-        inst.warnings.push_back(label + " plays wave sequence " + name_of(&s[SEQ_NAMES + 8 * size_t(num)], 8) + ": its first wave only");
-        add_wave(inst, c, label, wave, tune + coarse + sx(st[9]) / 100.0, gain, osc);
+        add_sequence(inst, c, label, s, step, name_of(&s[SEQ_NAMES + 8 * size_t(num)], 8), tune, gain, osc,
+                     std::max(4, STEP_BUDGET / std::max(1, n_seqs)));
     }
     return inst;
 }
@@ -396,7 +572,7 @@ Instrument load_perf(Ctx &c, const Bank &b, int n) {
         if (patch < 0 || patch >= int(N_PATCH) || level == 0 || bank < 0) continue;
         int want = (q[4] >> 6 & 1) ? RAM3 : bank;
         std::string part = "P" + std::to_string(t + 1);
-        const Bank *pb = want == 0 || want == 1 || want == RAM3 ? c.bank(want) : nullptr;
+        const Bank *pb = want == 0 || want == 1 || want == ROM_BANK || want == RAM3 ? c.bank(want) : nullptr;
         if (!pb || pb->patches.empty()) {
             inst.warnings.push_back(part + " plays " + std::string(want == 2 ? "ROM" : want == 3 ? "card" : want == RAM3 ? "RAM3" : want ? "RAM2" : "RAM1") +
                                     " patch " + std::to_string(patch) + ": not in this folder");
@@ -460,11 +636,14 @@ Instrument load_syx(VolumePtr vol, const std::string &path, int index) {
     c.vol = vol;
     c.path = path;
     c.own = &banks;
-    std::string dir = find_beside(*vol, path, is_rom, cached_rom);
-    if (dir.empty())
-        throw ParseError("Wavestation waves not found: put the Wavestation EX ROM dumps (ws3p7.bin, ws3p8.bin, ws3p9.bin, "
-                         "ws4p0.bin) beside the .syx files or in the Plugin Library");
-    c.rom = open_rom(*vol, dir);
+    std::string ex = find_set(*vol, path, is_ex, cached_ex), base = find_set(*vol, path, is_base, cached_base);
+    if (ex.empty() && base.empty())
+        throw ParseError("Wavestation waves not found: put the Wavestation's wave ROM dumps (ic6-ic9 .bin) and / or the EX ROM "
+                         "dumps (ws3p7.bin, ws3p8.bin, ws3p9.bin, ws4p0.bin) beside the .syx files or in the Plugin Library");
+    if (!ex.empty()) c.ex = open_rom(*vol, ex, false);
+    if (!base.empty()) c.base = open_rom(*vol, base, true);
+    for (const std::string &d : {path_dir(path), base, ex})
+        if (!c.rom && !d.empty()) c.rom = rom_bank_in(*vol, d);
     Instrument inst;
     bool patch = index >= 1000;
     int k = patch ? index - 1000 : index;

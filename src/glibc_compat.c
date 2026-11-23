@@ -20,3 +20,11 @@ HIDDEN int __isoc23_sscanf(const char *s, const char *fmt, ...) {
     va_end(ap);
     return r;
 }
+
+/* 2.3.6: glibc 2.38 gave aarch64 a new fmod (fmod@GLIBC_2.38); the link maps fmod to __wrap_fmod (build_aarch64.sh:
+ * -Wl,--wrap=fmod), which calls the original aarch64 one, fmod@GLIBC_2.17, that every 64-bit MPC has. */
+#if defined(__aarch64__)
+double omni_fmod_glibc217(double, double);
+__asm__(".symver omni_fmod_glibc217, fmod@GLIBC_2.17");
+HIDDEN double __wrap_fmod(double x, double y) { return omni_fmod_glibc217(x, y); }
+#endif

@@ -205,7 +205,7 @@ void program_to_zones(const S1kProgram &prog, const SampleFinder &find, Instrume
             } else {
                 const S1kSample &s = src.hdr;
                 z.root = s.root;
-                sample_tune = int16_t(s.tune_semis << 8 | s.tune_cents) / 256.0;
+                sample_tune = int16_t(uint16_t(s.tune_semis) << 8 | s.tune_cents) / 256.0;
                 z.start = s.start;
                 z.stop = s.end > s.start ? int64_t(s.end) + 1 : -1;
                 loop_mode = kz.loop_mode == 0 ? s.loop_mode : kz.loop_mode - 1;
@@ -305,7 +305,7 @@ Instrument load_s1000_sample(VolumePtr vol, const std::string &path, int) {
     z.name = inst.name;
     z.sample = raw_sample_ref(b, s.data_offset, s.frames, 1, Enc::S16LE, s.rate, s.name);
     z.root = s.root;
-    z.tune = int16_t(s.tune_semis << 8 | s.tune_cents) / 256.0;
+    z.tune = int16_t(uint16_t(s.tune_semis) << 8 | s.tune_cents) / 256.0;
     z.start = s.start;
     if (s.end > s.start) z.stop = int64_t(s.end) + 1;
     if (s.active_loops > 0 && s.loop_mode < 2 && s.first_loop < 8) {
@@ -538,8 +538,13 @@ Instrument load_s900_program(VolumePtr vol, const std::string &path, int) {
             z.name = l.sample;
             z.sample = ref;
             z.key_lo = k.key_lo; z.key_hi = k.key_hi;
-            if (layer == 0) { z.vel_lo = 0; z.vel_hi = std::min(k.vel_switch, 127); if (!(k.flags & 2)) z.vel_xfade_hi = 127 - k.vel_switch; }
-            else { z.vel_lo = std::min(k.vel_switch + 1, 127); z.vel_hi = 127; if (!(k.flags & 2)) z.vel_xfade_lo = k.vel_switch; }
+            // 2.4.27 (velocity audit #6): a crossfade (flags bit 1 clear) overlaps the layers symmetrically around the switch
+            // velocity, each fading across the overlap: equal power at the switch (was: adjacent ranges, each fading towards
+            // the switch, so both were near silent there: about -18 dB at 64 / 65)
+            const int vs = std::max(0, std::min(k.vel_switch, 127));
+            const int x = (k.flags & 2) ? 0 : std::min(vs, 127 - vs);
+            if (layer == 0) { z.vel_lo = 0; z.vel_hi = x ? vs + x : std::min(k.vel_switch, 127); if (x) z.vel_xfade_hi = 2 * x; }
+            else { z.vel_lo = x ? vs - x : std::min(k.vel_switch + 1, 127); z.vel_hi = 127; if (x) z.vel_xfade_lo = 2 * x; }
             z.reverse = s.direction == 'R';
             z.one_shot = (k.flags & 8) != 0;
             double nominal = s.pitch / 16.0;

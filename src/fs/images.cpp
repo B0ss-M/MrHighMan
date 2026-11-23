@@ -11,6 +11,9 @@ void register_images() {
     register_emu_images();
     register_ensoniq_images();
     register_iso9660();
+    register_omnisphere_pkg();   // 2.4.9
+    // 2.4.10: ZIP archives are mountable folders.
+    register_zip();
     register_fat();
     register_akai_images();
 }

@@ -228,7 +228,7 @@
    "key": "mem_limit",
    "name": "Memory Limit",
    "min": 64,
-   "max": 1536,
+   "max": 2048,
    "default": 512,
    "unit": "MB",
    "display": "int"
@@ -3035,6 +3035,9746 @@
    "default": 1,
    "live": true,
    "refresh_display": true
+  },
+  {
+   "key": "slot1_play",
+   "name": "Slot A Playback",
+   "options": [
+    "Fwd",
+    "Rev",
+    "Ping-Pong",
+    "PP Inv"
+   ],
+   "default": 0
+  },
+  {
+   "key": "slot2_play",
+   "name": "Slot B Playback",
+   "options": [
+    "Fwd",
+    "Rev",
+    "Ping-Pong",
+    "PP Inv"
+   ],
+   "default": 0
+  },
+  {
+   "key": "slot3_play",
+   "name": "Slot C Playback",
+   "options": [
+    "Fwd",
+    "Rev",
+    "Ping-Pong",
+    "PP Inv"
+   ],
+   "default": 0
+  },
+  {
+   "key": "slot4_play",
+   "name": "Slot D Playback",
+   "options": [
+    "Fwd",
+    "Rev",
+    "Ping-Pong",
+    "PP Inv"
+   ],
+   "default": 0
+  },
+  {
+   "key": "slot1_inv",
+   "name": "Slot A Polarity",
+   "options": [
+    "Normal",
+    "Invert"
+   ],
+   "default": 0
+  },
+  {
+   "key": "slot2_inv",
+   "name": "Slot B Polarity",
+   "options": [
+    "Normal",
+    "Invert"
+   ],
+   "default": 0
+  },
+  {
+   "key": "slot3_inv",
+   "name": "Slot C Polarity",
+   "options": [
+    "Normal",
+    "Invert"
+   ],
+   "default": 0
+  },
+  {
+   "key": "slot4_inv",
+   "name": "Slot D Polarity",
+   "options": [
+    "Normal",
+    "Invert"
+   ],
+   "default": 0
+  },
+  {
+   "key": "lock_note",
+   "name": "Lock Note",
+   "min": 0,
+   "max": 127,
+   "default": 60,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "lock_mode",
+   "name": "Lock Playback",
+   "options": [
+    "Slot",
+    "Fwd",
+    "Rev",
+    "Ping-Pong",
+    "PP Inv"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "lock_inv",
+   "name": "Lock Polarity",
+   "options": [
+    "Slot",
+    "Normal",
+    "Invert"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "lock_tune",
+   "name": "Lock Tune",
+   "min": -24,
+   "max": 24,
+   "default": 0,
+   "unit": "st",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "lock_fine",
+   "name": "Lock Fine",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "ct",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "lock_start",
+   "name": "Lock Start",
+   "min": 0,
+   "max": 95,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "lock_cut",
+   "name": "Lock Cutoff",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "lock_level",
+   "name": "Lock Level",
+   "min": -24,
+   "max": 12,
+   "default": 0,
+   "unit": "dB",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "lock_pan",
+   "name": "Lock Pan",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "lock_vel",
+   "name": "Lock Velocity",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "lock_clear",
+   "name": "Clear Lock",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "lock_info",
+   "name": "Lock",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "pad_follow",
+   "name": "Pad Follow",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 1
+  },
+  {
+   "key": "plock_1",
+   "name": "Pad 1 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_2",
+   "name": "Pad 2 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_3",
+   "name": "Pad 3 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_4",
+   "name": "Pad 4 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_5",
+   "name": "Pad 5 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_6",
+   "name": "Pad 6 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_7",
+   "name": "Pad 7 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_8",
+   "name": "Pad 8 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_9",
+   "name": "Pad 9 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_10",
+   "name": "Pad 10 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_11",
+   "name": "Pad 11 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_12",
+   "name": "Pad 12 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_13",
+   "name": "Pad 13 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_14",
+   "name": "Pad 14 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_15",
+   "name": "Pad 15 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "plock_16",
+   "name": "Pad 16 Lock",
+   "min": 0,
+   "max": 3,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "phs_mix",
+   "name": "Phaser Mix",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "phs_rate",
+   "name": "Phaser Rate",
+   "min": 0,
+   "max": 100,
+   "default": 30,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "phs_depth",
+   "name": "Phaser Depth",
+   "min": 0,
+   "max": 100,
+   "default": 60,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "phs_fb",
+   "name": "Phaser Feedback",
+   "min": 0,
+   "max": 90,
+   "default": 40,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "flg_mix",
+   "name": "Flanger Mix",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "flg_rate",
+   "name": "Flanger Rate",
+   "min": 0,
+   "max": 100,
+   "default": 20,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "flg_depth",
+   "name": "Flanger Depth",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "flg_fb",
+   "name": "Flanger Feedback",
+   "min": 0,
+   "max": 90,
+   "default": 50,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "trm_depth",
+   "name": "Tremolo Depth",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "trm_rate",
+   "name": "Tremolo Rate",
+   "min": 0,
+   "max": 100,
+   "default": 60,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "trm_sync",
+   "name": "Tremolo Sync",
+   "options": [
+    "Free",
+    "4 Bars",
+    "2 Bars",
+    "1 Bar",
+    "1/2",
+    "1/4",
+    "1/8",
+    "1/16",
+    "1/32",
+    "1/4 T",
+    "1/8 T",
+    "1/16 T",
+    "1/4 .",
+    "1/8 .",
+    "1/16 ."
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "trm_mode",
+   "name": "Tremolo Mode",
+   "options": [
+    "Tremolo",
+    "Auto-Pan"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "trm_shape",
+   "name": "Tremolo Shape",
+   "options": [
+    "Sine",
+    "Square"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "lofi_mix",
+   "name": "Lo-Fi Mix",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "lofi_bits",
+   "name": "Lo-Fi Bits",
+   "min": 2,
+   "max": 16,
+   "default": 8,
+   "unit": "bit",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "lofi_rate",
+   "name": "Lo-Fi Rate",
+   "min": 0,
+   "max": 100,
+   "default": 40,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "led_busy",
+   "name": "Loading LED",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "led_notes",
+   "name": "Notes LED",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "skin",
+   "name": "Skin",
+   "options": [
+    "Studio",
+    "-"
+   ],
+   "default": 0
+  },
+  {
+   "key": "sinc",
+   "name": "HQ Sinc",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "br_folders",
+   "name": "Sample Folders",
+   "options": [
+    "Hide",
+    "Show"
+   ],
+   "default": 0
+  },
+  {
+   "key": "logo_fx",
+   "name": "Logo Spark",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "rev_mode",
+   "name": "Rev Mode",
+   "options": [
+    "Full",
+    "Gated"
+   ],
+   "default": 0
+  },
+  {
+   "key": "reset_all",
+   "name": "Reset Omni",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "reset_info",
+   "name": "Reset",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "rev_type",
+   "name": "Reverb Type",
+   "options": [
+    "Off",
+    "Classic",
+    "Plate",
+    "Hall",
+    "Room"
+   ],
+   "default": 0
+  },
+  {
+   "key": "rev_predelay",
+   "name": "Reverb Pre-Delay",
+   "min": 0,
+   "max": 250,
+   "default": 10,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "drive_type",
+   "name": "Drive Type",
+   "options": [
+    "Off",
+    "Classic",
+    "Tape",
+    "Tube",
+    "Fold"
+   ],
+   "default": 0
+  },
+  {
+   "key": "dly_type",
+   "name": "Delay Type",
+   "options": [
+    "Off",
+    "Classic",
+    "Tape",
+    "Analog"
+   ],
+   "default": 0
+  },
+  {
+   "key": "cho_type",
+   "name": "Chorus Type",
+   "options": [
+    "Off",
+    "Classic",
+    "Ens I",
+    "Ens II",
+    "Ens I+II"
+   ],
+   "default": 0
+  },
+  {
+   "key": "comp_type",
+   "name": "Compressor Type",
+   "options": [
+    "Off",
+    "Classic",
+    "Glue",
+    "Punch"
+   ],
+   "default": 0
+  },
+  {
+   "key": "limiter",
+   "name": "Limiter",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "gr_meter",
+   "name": "Gain Reduction",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_on",
+   "name": "Synth",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_level",
+   "name": "Synth Level",
+   "min": -24,
+   "max": 6,
+   "default": 0,
+   "unit": "dB",
+   "display": "int"
+  },
+  {
+   "key": "syn_poly",
+   "name": "Synth Voices",
+   "min": 1,
+   "max": 12,
+   "default": 8,
+   "display": "int"
+  },
+  {
+   "key": "syn_attack",
+   "name": "Synth Attack",
+   "min": 0,
+   "max": 10000,
+   "default": 2,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "syn_decay",
+   "name": "Synth Decay",
+   "min": 1,
+   "max": 10000,
+   "default": 300,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "syn_sustain",
+   "name": "Synth Sustain",
+   "min": 0,
+   "max": 100,
+   "default": 100,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_release",
+   "name": "Synth Release",
+   "min": 1,
+   "max": 10000,
+   "default": 300,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "sa_on",
+   "name": "Osc A",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 1
+  },
+  {
+   "key": "sa_type",
+   "name": "Osc A Type",
+   "options": [
+    "Classic",
+    "Wavetable",
+    "Sample",
+    "Macro"
+   ],
+   "default": 1
+  },
+  {
+   "key": "sa_table",
+   "name": "Osc A Table",
+   "min": 0,
+   "max": 4095,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "sa_pos",
+   "name": "Osc A Position",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "",
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "sa_detune",
+   "name": "Osc A Detune",
+   "min": 0,
+   "max": 100,
+   "default": 20,
+   "unit": "ct",
+   "display": "int"
+  },
+  {
+   "key": "sa_spread",
+   "name": "Osc A Spread",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "sa_warp",
+   "name": "Osc A Warp",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "sa_pan",
+   "name": "Osc A Pan",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "sa_level",
+   "name": "Osc A Level",
+   "min": 0,
+   "max": 100,
+   "default": 80,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "sa_oct",
+   "name": "Osc A Octave",
+   "min": -4,
+   "max": 4,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "sa_semi",
+   "name": "Osc A Semi",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "sa_fine",
+   "name": "Osc A Fine",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "ct",
+   "display": "int"
+  },
+  {
+   "key": "sa_phase",
+   "name": "Osc A Phase",
+   "min": 0,
+   "max": 360,
+   "default": 0,
+   "unit": "deg",
+   "display": "int"
+  },
+  {
+   "key": "sa_rand",
+   "name": "Osc A Random",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "sa_unison",
+   "name": "Osc A Unison",
+   "min": 1,
+   "max": 8,
+   "default": 1,
+   "display": "int"
+  },
+  {
+   "key": "sa_pmode",
+   "name": "Osc A Phase Mode",
+   "options": [
+    "Reset",
+    "Free",
+    "Random",
+    "Spread"
+   ],
+   "default": 0
+  },
+  {
+   "key": "sa_wmode",
+   "name": "Osc A Warp Mode",
+   "options": [
+    "Off",
+    "Bend",
+    "PWM",
+    "Mirror",
+    "Sync",
+    "FM"
+   ],
+   "default": 0
+  },
+  {
+   "key": "sa_prev",
+   "name": "Osc A Previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "sa_next",
+   "name": "Osc A Next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "sa_load",
+   "name": "Osc A Load",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "sa_name",
+   "name": "Osc A Name",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "sa_info",
+   "name": "Osc A Info",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "sa_w1",
+   "name": "Osc A Bar 1",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w2",
+   "name": "Osc A Bar 2",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w3",
+   "name": "Osc A Bar 3",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w4",
+   "name": "Osc A Bar 4",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w5",
+   "name": "Osc A Bar 5",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w6",
+   "name": "Osc A Bar 6",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w7",
+   "name": "Osc A Bar 7",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w8",
+   "name": "Osc A Bar 8",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w9",
+   "name": "Osc A Bar 9",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w10",
+   "name": "Osc A Bar 10",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w11",
+   "name": "Osc A Bar 11",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w12",
+   "name": "Osc A Bar 12",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w13",
+   "name": "Osc A Bar 13",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w14",
+   "name": "Osc A Bar 14",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w15",
+   "name": "Osc A Bar 15",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w16",
+   "name": "Osc A Bar 16",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w17",
+   "name": "Osc A Bar 17",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w18",
+   "name": "Osc A Bar 18",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w19",
+   "name": "Osc A Bar 19",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w20",
+   "name": "Osc A Bar 20",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w21",
+   "name": "Osc A Bar 21",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w22",
+   "name": "Osc A Bar 22",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w23",
+   "name": "Osc A Bar 23",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w24",
+   "name": "Osc A Bar 24",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w25",
+   "name": "Osc A Bar 25",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w26",
+   "name": "Osc A Bar 26",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w27",
+   "name": "Osc A Bar 27",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w28",
+   "name": "Osc A Bar 28",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w29",
+   "name": "Osc A Bar 29",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w30",
+   "name": "Osc A Bar 30",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w31",
+   "name": "Osc A Bar 31",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sa_w32",
+   "name": "Osc A Bar 32",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_on",
+   "name": "Osc B",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "sb_type",
+   "name": "Osc B Type",
+   "options": [
+    "Classic",
+    "Wavetable",
+    "Sample",
+    "Macro"
+   ],
+   "default": 0
+  },
+  {
+   "key": "sb_table",
+   "name": "Osc B Table",
+   "min": 0,
+   "max": 4095,
+   "default": 2,
+   "display": "int"
+  },
+  {
+   "key": "sb_pos",
+   "name": "Osc B Position",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "",
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "sb_detune",
+   "name": "Osc B Detune",
+   "min": 0,
+   "max": 100,
+   "default": 20,
+   "unit": "ct",
+   "display": "int"
+  },
+  {
+   "key": "sb_spread",
+   "name": "Osc B Spread",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "sb_warp",
+   "name": "Osc B Warp",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "sb_pan",
+   "name": "Osc B Pan",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "sb_level",
+   "name": "Osc B Level",
+   "min": 0,
+   "max": 100,
+   "default": 80,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "sb_oct",
+   "name": "Osc B Octave",
+   "min": -4,
+   "max": 4,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "sb_semi",
+   "name": "Osc B Semi",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "sb_fine",
+   "name": "Osc B Fine",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "ct",
+   "display": "int"
+  },
+  {
+   "key": "sb_phase",
+   "name": "Osc B Phase",
+   "min": 0,
+   "max": 360,
+   "default": 0,
+   "unit": "deg",
+   "display": "int"
+  },
+  {
+   "key": "sb_rand",
+   "name": "Osc B Random",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "sb_unison",
+   "name": "Osc B Unison",
+   "min": 1,
+   "max": 8,
+   "default": 1,
+   "display": "int"
+  },
+  {
+   "key": "sb_pmode",
+   "name": "Osc B Phase Mode",
+   "options": [
+    "Reset",
+    "Free",
+    "Random",
+    "Spread"
+   ],
+   "default": 0
+  },
+  {
+   "key": "sb_wmode",
+   "name": "Osc B Warp Mode",
+   "options": [
+    "Off",
+    "Bend",
+    "PWM",
+    "Mirror",
+    "Sync",
+    "FM"
+   ],
+   "default": 0
+  },
+  {
+   "key": "sb_prev",
+   "name": "Osc B Previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "sb_next",
+   "name": "Osc B Next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "sb_load",
+   "name": "Osc B Load",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "sb_name",
+   "name": "Osc B Name",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "sb_info",
+   "name": "Osc B Info",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "sb_w1",
+   "name": "Osc B Bar 1",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w2",
+   "name": "Osc B Bar 2",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w3",
+   "name": "Osc B Bar 3",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w4",
+   "name": "Osc B Bar 4",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w5",
+   "name": "Osc B Bar 5",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w6",
+   "name": "Osc B Bar 6",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w7",
+   "name": "Osc B Bar 7",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w8",
+   "name": "Osc B Bar 8",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w9",
+   "name": "Osc B Bar 9",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w10",
+   "name": "Osc B Bar 10",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w11",
+   "name": "Osc B Bar 11",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w12",
+   "name": "Osc B Bar 12",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w13",
+   "name": "Osc B Bar 13",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w14",
+   "name": "Osc B Bar 14",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w15",
+   "name": "Osc B Bar 15",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w16",
+   "name": "Osc B Bar 16",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w17",
+   "name": "Osc B Bar 17",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w18",
+   "name": "Osc B Bar 18",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w19",
+   "name": "Osc B Bar 19",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w20",
+   "name": "Osc B Bar 20",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w21",
+   "name": "Osc B Bar 21",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w22",
+   "name": "Osc B Bar 22",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w23",
+   "name": "Osc B Bar 23",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w24",
+   "name": "Osc B Bar 24",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w25",
+   "name": "Osc B Bar 25",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w26",
+   "name": "Osc B Bar 26",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w27",
+   "name": "Osc B Bar 27",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w28",
+   "name": "Osc B Bar 28",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w29",
+   "name": "Osc B Bar 29",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w30",
+   "name": "Osc B Bar 30",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w31",
+   "name": "Osc B Bar 31",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "sb_w32",
+   "name": "Osc B Bar 32",
+   "min": 0,
+   "max": 127,
+   "default": 64,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_sub_on",
+   "name": "Sub",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_sub_shape",
+   "name": "Sub Shape",
+   "options": [
+    "Sine",
+    "Tri",
+    "Square"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_sub_oct",
+   "name": "Sub Octave",
+   "options": [
+    "-1 Oct",
+    "-2 Oct"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_sub_level",
+   "name": "Sub Level",
+   "min": 0,
+   "max": 100,
+   "default": 60,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_sub_pan",
+   "name": "Sub Pan",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_noise_on",
+   "name": "Noise",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_noise_color",
+   "name": "Noise Colour",
+   "options": [
+    "White",
+    "Pink",
+    "Crackle"
+   ],
+   "default": 1
+  },
+  {
+   "key": "syn_noise_key",
+   "name": "Noise Pitch",
+   "options": [
+    "Free",
+    "Follow Key"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_noise_level",
+   "name": "Noise Level",
+   "min": 0,
+   "max": 100,
+   "default": 30,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_noise_pan",
+   "name": "Noise Pan",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_noise_tone",
+   "name": "Noise Tone",
+   "min": 0,
+   "max": 100,
+   "default": 70,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_fm",
+   "name": "FM B to A",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_feedback",
+   "name": "Feedback",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_ring",
+   "name": "Ring",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_balance",
+   "name": "Balance",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_sync",
+   "name": "Sync B to A",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_flt_on",
+   "name": "Synth Filter",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_flt_type",
+   "name": "Synth Filter Type",
+   "options": [
+    "LP 12",
+    "LP 24",
+    "Ladder",
+    "BP",
+    "HP",
+    "Notch",
+    "Comb"
+   ],
+   "default": 1
+  },
+  {
+   "key": "syn_cutoff",
+   "name": "Synth Cutoff",
+   "min": 0,
+   "max": 100,
+   "default": 75,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "syn_res",
+   "name": "Synth Resonance",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_drive",
+   "name": "Synth Drive",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_keytrack",
+   "name": "Key Track",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_fenv",
+   "name": "Filter Env Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_fvel",
+   "name": "Filter Velocity",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_fat",
+   "name": "Fat",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_fmix",
+   "name": "Filter Mix",
+   "min": 0,
+   "max": 100,
+   "default": 100,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_fr_a",
+   "name": "Osc A to Filter",
+   "options": [
+    "Out",
+    "In"
+   ],
+   "default": 1
+  },
+  {
+   "key": "syn_fr_b",
+   "name": "Osc B to Filter",
+   "options": [
+    "Out",
+    "In"
+   ],
+   "default": 1
+  },
+  {
+   "key": "syn_fr_sub",
+   "name": "Sub to Filter",
+   "options": [
+    "Out",
+    "In"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_fr_noise",
+   "name": "Noise to Filter",
+   "options": [
+    "Out",
+    "In"
+   ],
+   "default": 1
+  },
+  {
+   "key": "syn_pan",
+   "name": "Synth Pan",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_fe_attack",
+   "name": "Filter Env Attack",
+   "min": 0,
+   "max": 10000,
+   "default": 1,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "syn_fe_decay",
+   "name": "Filter Env Decay",
+   "min": 1,
+   "max": 10000,
+   "default": 450,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "syn_fe_sustain",
+   "name": "Filter Env Sustain",
+   "min": 0,
+   "max": 100,
+   "default": 20,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_fe_release",
+   "name": "Filter Env Release",
+   "min": 1,
+   "max": 10000,
+   "default": 300,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "sa_folder",
+   "name": "Osc A Folder",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "sb_folder",
+   "name": "Osc B Folder",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_me_on",
+   "name": "Mod Env",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_me_attack",
+   "name": "Mod Env Attack",
+   "min": 0,
+   "max": 10000,
+   "default": 400,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "syn_me_decay",
+   "name": "Mod Env Decay",
+   "min": 1,
+   "max": 10000,
+   "default": 500,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "syn_me_sustain",
+   "name": "Mod Env Sustain",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_me_release",
+   "name": "Mod Env Release",
+   "min": 1,
+   "max": 10000,
+   "default": 500,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "syn_me_dest",
+   "name": "Mod Env Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_me_amt",
+   "name": "Mod Env Amount",
+   "min": -100,
+   "max": 100,
+   "default": 50,
+   "display": "int"
+  },
+  {
+   "key": "syn_lfo1_shape",
+   "name": "Synth LFO 1 Shape",
+   "options": [
+    "Sine",
+    "Tri",
+    "Saw",
+    "Square",
+    "S&H",
+    "Random",
+    "Custom"
+   ],
+   "default": 1
+  },
+  {
+   "key": "syn_lfo1_rate",
+   "name": "Synth LFO 1 Rate",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "syn_lfo1_sync",
+   "name": "Synth LFO 1 Sync",
+   "options": [
+    "Free",
+    "4 Bars",
+    "2 Bars",
+    "1 Bar",
+    "1/2",
+    "1/4",
+    "1/8",
+    "1/16",
+    "1/32",
+    "1/4 T",
+    "1/8 T",
+    "1/16 T",
+    "1/4 .",
+    "1/8 .",
+    "1/16 ."
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_lfo1_trig",
+   "name": "Synth LFO 1 Trigger",
+   "options": [
+    "Free Run",
+    "Retrig",
+    "One-Shot"
+   ],
+   "default": 1
+  },
+  {
+   "key": "syn_lfo1_dest",
+   "name": "Synth LFO 1 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_lfo1_depth",
+   "name": "Synth LFO 1 Depth",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_lfo2_shape",
+   "name": "Synth LFO 2 Shape",
+   "options": [
+    "Sine",
+    "Tri",
+    "Saw",
+    "Square",
+    "S&H",
+    "Random",
+    "Custom"
+   ],
+   "default": 4
+  },
+  {
+   "key": "syn_lfo2_rate",
+   "name": "Synth LFO 2 Rate",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "syn_lfo2_sync",
+   "name": "Synth LFO 2 Sync",
+   "options": [
+    "Free",
+    "4 Bars",
+    "2 Bars",
+    "1 Bar",
+    "1/2",
+    "1/4",
+    "1/8",
+    "1/16",
+    "1/32",
+    "1/4 T",
+    "1/8 T",
+    "1/16 T",
+    "1/4 .",
+    "1/8 .",
+    "1/16 ."
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_lfo2_trig",
+   "name": "Synth LFO 2 Trigger",
+   "options": [
+    "Free Run",
+    "Retrig",
+    "One-Shot"
+   ],
+   "default": 1
+  },
+  {
+   "key": "syn_lfo2_dest",
+   "name": "Synth LFO 2 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_lfo2_depth",
+   "name": "Synth LFO 2 Depth",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_macro1",
+   "name": "Macro 1",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_macro2",
+   "name": "Macro 2",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_macro3",
+   "name": "Macro 3",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_macro4",
+   "name": "Macro 4",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_macro1_dest",
+   "name": "Macro 1 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_macro2_dest",
+   "name": "Macro 2 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_macro3_dest",
+   "name": "Macro 3 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_macro4_dest",
+   "name": "Macro 4 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_ae_b1",
+   "name": "Env A Bar 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b2",
+   "name": "Env A Bar 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b3",
+   "name": "Env A Bar 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b4",
+   "name": "Env A Bar 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b5",
+   "name": "Env A Bar 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b6",
+   "name": "Env A Bar 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b7",
+   "name": "Env A Bar 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b8",
+   "name": "Env A Bar 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b9",
+   "name": "Env A Bar 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b10",
+   "name": "Env A Bar 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b11",
+   "name": "Env A Bar 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b12",
+   "name": "Env A Bar 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b13",
+   "name": "Env A Bar 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b14",
+   "name": "Env A Bar 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b15",
+   "name": "Env A Bar 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b16",
+   "name": "Env A Bar 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b17",
+   "name": "Env A Bar 17",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b18",
+   "name": "Env A Bar 18",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b19",
+   "name": "Env A Bar 19",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b20",
+   "name": "Env A Bar 20",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b21",
+   "name": "Env A Bar 21",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b22",
+   "name": "Env A Bar 22",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b23",
+   "name": "Env A Bar 23",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ae_b24",
+   "name": "Env A Bar 24",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b1",
+   "name": "Env F Bar 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b2",
+   "name": "Env F Bar 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b3",
+   "name": "Env F Bar 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b4",
+   "name": "Env F Bar 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b5",
+   "name": "Env F Bar 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b6",
+   "name": "Env F Bar 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b7",
+   "name": "Env F Bar 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b8",
+   "name": "Env F Bar 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b9",
+   "name": "Env F Bar 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b10",
+   "name": "Env F Bar 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b11",
+   "name": "Env F Bar 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b12",
+   "name": "Env F Bar 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b13",
+   "name": "Env F Bar 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b14",
+   "name": "Env F Bar 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b15",
+   "name": "Env F Bar 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b16",
+   "name": "Env F Bar 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b17",
+   "name": "Env F Bar 17",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b18",
+   "name": "Env F Bar 18",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b19",
+   "name": "Env F Bar 19",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b20",
+   "name": "Env F Bar 20",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b21",
+   "name": "Env F Bar 21",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b22",
+   "name": "Env F Bar 22",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b23",
+   "name": "Env F Bar 23",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_fe_b24",
+   "name": "Env F Bar 24",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b1",
+   "name": "Env M Bar 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b2",
+   "name": "Env M Bar 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b3",
+   "name": "Env M Bar 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b4",
+   "name": "Env M Bar 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b5",
+   "name": "Env M Bar 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b6",
+   "name": "Env M Bar 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b7",
+   "name": "Env M Bar 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b8",
+   "name": "Env M Bar 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b9",
+   "name": "Env M Bar 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b10",
+   "name": "Env M Bar 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b11",
+   "name": "Env M Bar 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b12",
+   "name": "Env M Bar 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b13",
+   "name": "Env M Bar 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b14",
+   "name": "Env M Bar 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b15",
+   "name": "Env M Bar 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b16",
+   "name": "Env M Bar 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b17",
+   "name": "Env M Bar 17",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b18",
+   "name": "Env M Bar 18",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b19",
+   "name": "Env M Bar 19",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b20",
+   "name": "Env M Bar 20",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b21",
+   "name": "Env M Bar 21",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b22",
+   "name": "Env M Bar 22",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b23",
+   "name": "Env M Bar 23",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_me_b24",
+   "name": "Env M Bar 24",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_vmode",
+   "name": "Synth Voice Mode",
+   "options": [
+    "Poly",
+    "Mono",
+    "Legato"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_glide",
+   "name": "Synth Glide",
+   "min": 0,
+   "max": 2000,
+   "default": 0,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "syn_glide_mode",
+   "name": "Synth Glide Mode",
+   "options": [
+    "Always",
+    "Legato"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_bend",
+   "name": "Synth Bend Range",
+   "min": 0,
+   "max": 24,
+   "default": 2,
+   "display": "int"
+  },
+  {
+   "key": "syn_vel",
+   "name": "Synth Velocity",
+   "min": 0,
+   "max": 100,
+   "default": 100,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_key_lo",
+   "name": "Synth Low Key",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "syn_key_hi",
+   "name": "Synth High Key",
+   "min": 0,
+   "max": 127,
+   "default": 127,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "syn_transpose",
+   "name": "Synth Transpose",
+   "min": -24,
+   "max": 24,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_drift",
+   "name": "Synth Drift",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_mx1_src",
+   "name": "Route 1 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx1_dst",
+   "name": "Route 1 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx1_amt",
+   "name": "Route 1 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx2_src",
+   "name": "Route 2 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx2_dst",
+   "name": "Route 2 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx2_amt",
+   "name": "Route 2 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx3_src",
+   "name": "Route 3 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx3_dst",
+   "name": "Route 3 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx3_amt",
+   "name": "Route 3 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx4_src",
+   "name": "Route 4 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx4_dst",
+   "name": "Route 4 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx4_amt",
+   "name": "Route 4 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx5_src",
+   "name": "Route 5 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx5_dst",
+   "name": "Route 5 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx5_amt",
+   "name": "Route 5 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx6_src",
+   "name": "Route 6 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx6_dst",
+   "name": "Route 6 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx6_amt",
+   "name": "Route 6 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx7_src",
+   "name": "Route 7 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx7_dst",
+   "name": "Route 7 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx7_amt",
+   "name": "Route 7 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx8_src",
+   "name": "Route 8 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx8_dst",
+   "name": "Route 8 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx8_amt",
+   "name": "Route 8 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx1_src_prev",
+   "name": "syn_mx1_src previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx1_src_next",
+   "name": "syn_mx1_src next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx1_dst_prev",
+   "name": "syn_mx1_dst previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx1_dst_next",
+   "name": "syn_mx1_dst next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx2_src_prev",
+   "name": "syn_mx2_src previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx2_src_next",
+   "name": "syn_mx2_src next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx2_dst_prev",
+   "name": "syn_mx2_dst previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx2_dst_next",
+   "name": "syn_mx2_dst next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx3_src_prev",
+   "name": "syn_mx3_src previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx3_src_next",
+   "name": "syn_mx3_src next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx3_dst_prev",
+   "name": "syn_mx3_dst previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx3_dst_next",
+   "name": "syn_mx3_dst next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx4_src_prev",
+   "name": "syn_mx4_src previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx4_src_next",
+   "name": "syn_mx4_src next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx4_dst_prev",
+   "name": "syn_mx4_dst previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx4_dst_next",
+   "name": "syn_mx4_dst next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx5_src_prev",
+   "name": "syn_mx5_src previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx5_src_next",
+   "name": "syn_mx5_src next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx5_dst_prev",
+   "name": "syn_mx5_dst previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx5_dst_next",
+   "name": "syn_mx5_dst next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx6_src_prev",
+   "name": "syn_mx6_src previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx6_src_next",
+   "name": "syn_mx6_src next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx6_dst_prev",
+   "name": "syn_mx6_dst previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx6_dst_next",
+   "name": "syn_mx6_dst next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx7_src_prev",
+   "name": "syn_mx7_src previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx7_src_next",
+   "name": "syn_mx7_src next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx7_dst_prev",
+   "name": "syn_mx7_dst previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx7_dst_next",
+   "name": "syn_mx7_dst next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx8_src_prev",
+   "name": "syn_mx8_src previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx8_src_next",
+   "name": "syn_mx8_src next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx8_dst_prev",
+   "name": "syn_mx8_dst previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_mx8_dst_next",
+   "name": "syn_mx8_dst next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo1_dest_prev",
+   "name": "syn_lfo1_dest previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo1_dest_next",
+   "name": "syn_lfo1_dest next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo2_dest_prev",
+   "name": "syn_lfo2_dest previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo2_dest_next",
+   "name": "syn_lfo2_dest next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo1_sync_prev",
+   "name": "syn_lfo1_sync previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo1_sync_next",
+   "name": "syn_lfo1_sync next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo2_sync_prev",
+   "name": "syn_lfo2_sync previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo2_sync_next",
+   "name": "syn_lfo2_sync next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_me_dest_prev",
+   "name": "syn_me_dest previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_me_dest_next",
+   "name": "syn_me_dest next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_preset",
+   "name": "Synth Preset",
+   "min": 0,
+   "max": 255,
+   "default": 0,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "syn_preset_prev",
+   "name": "Synth Preset previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_preset_next",
+   "name": "Synth Preset next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo1_route",
+   "name": "Synth LFO 1 Route",
+   "options": [
+    "Off",
+    "Amp",
+    "Filter",
+    "Mod"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_lfo2_route",
+   "name": "Synth LFO 2 Route",
+   "options": [
+    "Off",
+    "Amp",
+    "Filter",
+    "Mod"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_on",
+   "name": "Arp",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_mode",
+   "name": "Arp Mode",
+   "options": [
+    "Seq",
+    "Arp"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_rate",
+   "name": "Arp Rate",
+   "options": [
+    "1/4",
+    "1/8",
+    "1/16",
+    "1/32",
+    "1/8 T",
+    "1/16 T",
+    "1/32 T"
+   ],
+   "default": 2
+  },
+  {
+   "key": "arp_length",
+   "name": "Arp Length",
+   "min": 1,
+   "max": 64,
+   "default": 16,
+   "display": "int"
+  },
+  {
+   "key": "arp_swing",
+   "name": "Arp Swing",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "arp_gate",
+   "name": "Arp Gate",
+   "min": 5,
+   "max": 100,
+   "default": 60,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "arp_latch",
+   "name": "Arp Latch",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_scale",
+   "name": "Arp Scale",
+   "options": [
+    "Chromatic",
+    "Major",
+    "Minor",
+    "Dorian",
+    "Phrygian",
+    "Lydian",
+    "Mixolydian",
+    "Locrian",
+    "Harm Minor",
+    "Mel Minor",
+    "Major Pent",
+    "Minor Pent",
+    "Blues",
+    "Whole Tone",
+    "Hirajoshi",
+    "Phryg Dom"
+   ],
+   "default": 1
+  },
+  {
+   "key": "arp_root",
+   "name": "Arp Root",
+   "options": [
+    "C",
+    "C#",
+    "D",
+    "D#",
+    "E",
+    "F",
+    "F#",
+    "G",
+    "G#",
+    "A",
+    "A#",
+    "B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_page",
+   "name": "Arp Page",
+   "options": [
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_prev",
+   "name": "Arp MIDI File previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_next",
+   "name": "Arp MIDI File next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_load",
+   "name": "Arp Load MIDI File",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_clear",
+   "name": "Arp Clear Page",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_name",
+   "name": "Arp MIDI File",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_info",
+   "name": "Arp Info",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row1",
+   "name": "Arp Row 1",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row2",
+   "name": "Arp Row 2",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row3",
+   "name": "Arp Row 3",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row4",
+   "name": "Arp Row 4",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row5",
+   "name": "Arp Row 5",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row6",
+   "name": "Arp Row 6",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row7",
+   "name": "Arp Row 7",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row8",
+   "name": "Arp Row 8",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row9",
+   "name": "Arp Row 9",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row10",
+   "name": "Arp Row 10",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row11",
+   "name": "Arp Row 11",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row12",
+   "name": "Arp Row 12",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row13",
+   "name": "Arp Row 13",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row14",
+   "name": "Arp Row 14",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row15",
+   "name": "Arp Row 15",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_row16",
+   "name": "Arp Row 16",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_led1",
+   "name": "Arp Step 1 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led2",
+   "name": "Arp Step 2 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led3",
+   "name": "Arp Step 3 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led4",
+   "name": "Arp Step 4 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led5",
+   "name": "Arp Step 5 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led6",
+   "name": "Arp Step 6 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led7",
+   "name": "Arp Step 7 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led8",
+   "name": "Arp Step 8 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led9",
+   "name": "Arp Step 9 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led10",
+   "name": "Arp Step 10 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led11",
+   "name": "Arp Step 11 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led12",
+   "name": "Arp Step 12 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led13",
+   "name": "Arp Step 13 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led14",
+   "name": "Arp Step 14 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led15",
+   "name": "Arp Step 15 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_led16",
+   "name": "Arp Step 16 Light",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_1",
+   "name": "Arp Row 1 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_2",
+   "name": "Arp Row 1 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_3",
+   "name": "Arp Row 1 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_4",
+   "name": "Arp Row 1 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_5",
+   "name": "Arp Row 1 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_6",
+   "name": "Arp Row 1 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_7",
+   "name": "Arp Row 1 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_8",
+   "name": "Arp Row 1 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_9",
+   "name": "Arp Row 1 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_10",
+   "name": "Arp Row 1 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_11",
+   "name": "Arp Row 1 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_12",
+   "name": "Arp Row 1 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_13",
+   "name": "Arp Row 1 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_14",
+   "name": "Arp Row 1 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_15",
+   "name": "Arp Row 1 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c1_16",
+   "name": "Arp Row 1 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_1",
+   "name": "Arp Row 2 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_2",
+   "name": "Arp Row 2 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_3",
+   "name": "Arp Row 2 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_4",
+   "name": "Arp Row 2 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_5",
+   "name": "Arp Row 2 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_6",
+   "name": "Arp Row 2 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_7",
+   "name": "Arp Row 2 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_8",
+   "name": "Arp Row 2 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_9",
+   "name": "Arp Row 2 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_10",
+   "name": "Arp Row 2 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_11",
+   "name": "Arp Row 2 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_12",
+   "name": "Arp Row 2 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_13",
+   "name": "Arp Row 2 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_14",
+   "name": "Arp Row 2 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_15",
+   "name": "Arp Row 2 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c2_16",
+   "name": "Arp Row 2 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_1",
+   "name": "Arp Row 3 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_2",
+   "name": "Arp Row 3 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_3",
+   "name": "Arp Row 3 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_4",
+   "name": "Arp Row 3 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_5",
+   "name": "Arp Row 3 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_6",
+   "name": "Arp Row 3 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_7",
+   "name": "Arp Row 3 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_8",
+   "name": "Arp Row 3 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_9",
+   "name": "Arp Row 3 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_10",
+   "name": "Arp Row 3 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_11",
+   "name": "Arp Row 3 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_12",
+   "name": "Arp Row 3 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_13",
+   "name": "Arp Row 3 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_14",
+   "name": "Arp Row 3 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_15",
+   "name": "Arp Row 3 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c3_16",
+   "name": "Arp Row 3 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_1",
+   "name": "Arp Row 4 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_2",
+   "name": "Arp Row 4 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_3",
+   "name": "Arp Row 4 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_4",
+   "name": "Arp Row 4 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_5",
+   "name": "Arp Row 4 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_6",
+   "name": "Arp Row 4 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_7",
+   "name": "Arp Row 4 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_8",
+   "name": "Arp Row 4 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_9",
+   "name": "Arp Row 4 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_10",
+   "name": "Arp Row 4 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_11",
+   "name": "Arp Row 4 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_12",
+   "name": "Arp Row 4 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_13",
+   "name": "Arp Row 4 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_14",
+   "name": "Arp Row 4 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_15",
+   "name": "Arp Row 4 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c4_16",
+   "name": "Arp Row 4 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_1",
+   "name": "Arp Row 5 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_2",
+   "name": "Arp Row 5 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_3",
+   "name": "Arp Row 5 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_4",
+   "name": "Arp Row 5 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_5",
+   "name": "Arp Row 5 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_6",
+   "name": "Arp Row 5 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_7",
+   "name": "Arp Row 5 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_8",
+   "name": "Arp Row 5 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_9",
+   "name": "Arp Row 5 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_10",
+   "name": "Arp Row 5 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_11",
+   "name": "Arp Row 5 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_12",
+   "name": "Arp Row 5 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_13",
+   "name": "Arp Row 5 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_14",
+   "name": "Arp Row 5 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_15",
+   "name": "Arp Row 5 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c5_16",
+   "name": "Arp Row 5 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_1",
+   "name": "Arp Row 6 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_2",
+   "name": "Arp Row 6 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_3",
+   "name": "Arp Row 6 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_4",
+   "name": "Arp Row 6 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_5",
+   "name": "Arp Row 6 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_6",
+   "name": "Arp Row 6 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_7",
+   "name": "Arp Row 6 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_8",
+   "name": "Arp Row 6 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_9",
+   "name": "Arp Row 6 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_10",
+   "name": "Arp Row 6 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_11",
+   "name": "Arp Row 6 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_12",
+   "name": "Arp Row 6 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_13",
+   "name": "Arp Row 6 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_14",
+   "name": "Arp Row 6 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_15",
+   "name": "Arp Row 6 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c6_16",
+   "name": "Arp Row 6 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_1",
+   "name": "Arp Row 7 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_2",
+   "name": "Arp Row 7 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_3",
+   "name": "Arp Row 7 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_4",
+   "name": "Arp Row 7 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_5",
+   "name": "Arp Row 7 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_6",
+   "name": "Arp Row 7 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_7",
+   "name": "Arp Row 7 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_8",
+   "name": "Arp Row 7 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_9",
+   "name": "Arp Row 7 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_10",
+   "name": "Arp Row 7 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_11",
+   "name": "Arp Row 7 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_12",
+   "name": "Arp Row 7 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_13",
+   "name": "Arp Row 7 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_14",
+   "name": "Arp Row 7 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_15",
+   "name": "Arp Row 7 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c7_16",
+   "name": "Arp Row 7 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_1",
+   "name": "Arp Row 8 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_2",
+   "name": "Arp Row 8 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_3",
+   "name": "Arp Row 8 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_4",
+   "name": "Arp Row 8 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_5",
+   "name": "Arp Row 8 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_6",
+   "name": "Arp Row 8 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_7",
+   "name": "Arp Row 8 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_8",
+   "name": "Arp Row 8 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_9",
+   "name": "Arp Row 8 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_10",
+   "name": "Arp Row 8 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_11",
+   "name": "Arp Row 8 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_12",
+   "name": "Arp Row 8 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_13",
+   "name": "Arp Row 8 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_14",
+   "name": "Arp Row 8 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_15",
+   "name": "Arp Row 8 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c8_16",
+   "name": "Arp Row 8 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_1",
+   "name": "Arp Row 9 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_2",
+   "name": "Arp Row 9 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_3",
+   "name": "Arp Row 9 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_4",
+   "name": "Arp Row 9 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_5",
+   "name": "Arp Row 9 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_6",
+   "name": "Arp Row 9 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_7",
+   "name": "Arp Row 9 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_8",
+   "name": "Arp Row 9 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_9",
+   "name": "Arp Row 9 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_10",
+   "name": "Arp Row 9 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_11",
+   "name": "Arp Row 9 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_12",
+   "name": "Arp Row 9 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_13",
+   "name": "Arp Row 9 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_14",
+   "name": "Arp Row 9 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_15",
+   "name": "Arp Row 9 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c9_16",
+   "name": "Arp Row 9 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_1",
+   "name": "Arp Row 10 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_2",
+   "name": "Arp Row 10 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_3",
+   "name": "Arp Row 10 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_4",
+   "name": "Arp Row 10 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_5",
+   "name": "Arp Row 10 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_6",
+   "name": "Arp Row 10 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_7",
+   "name": "Arp Row 10 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_8",
+   "name": "Arp Row 10 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_9",
+   "name": "Arp Row 10 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_10",
+   "name": "Arp Row 10 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_11",
+   "name": "Arp Row 10 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_12",
+   "name": "Arp Row 10 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_13",
+   "name": "Arp Row 10 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_14",
+   "name": "Arp Row 10 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_15",
+   "name": "Arp Row 10 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c10_16",
+   "name": "Arp Row 10 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_1",
+   "name": "Arp Row 11 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_2",
+   "name": "Arp Row 11 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_3",
+   "name": "Arp Row 11 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_4",
+   "name": "Arp Row 11 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_5",
+   "name": "Arp Row 11 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_6",
+   "name": "Arp Row 11 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_7",
+   "name": "Arp Row 11 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_8",
+   "name": "Arp Row 11 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_9",
+   "name": "Arp Row 11 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_10",
+   "name": "Arp Row 11 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_11",
+   "name": "Arp Row 11 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_12",
+   "name": "Arp Row 11 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_13",
+   "name": "Arp Row 11 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_14",
+   "name": "Arp Row 11 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_15",
+   "name": "Arp Row 11 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c11_16",
+   "name": "Arp Row 11 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_1",
+   "name": "Arp Row 12 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_2",
+   "name": "Arp Row 12 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_3",
+   "name": "Arp Row 12 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_4",
+   "name": "Arp Row 12 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_5",
+   "name": "Arp Row 12 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_6",
+   "name": "Arp Row 12 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_7",
+   "name": "Arp Row 12 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_8",
+   "name": "Arp Row 12 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_9",
+   "name": "Arp Row 12 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_10",
+   "name": "Arp Row 12 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_11",
+   "name": "Arp Row 12 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_12",
+   "name": "Arp Row 12 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_13",
+   "name": "Arp Row 12 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_14",
+   "name": "Arp Row 12 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_15",
+   "name": "Arp Row 12 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c12_16",
+   "name": "Arp Row 12 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_1",
+   "name": "Arp Row 13 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_2",
+   "name": "Arp Row 13 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_3",
+   "name": "Arp Row 13 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_4",
+   "name": "Arp Row 13 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_5",
+   "name": "Arp Row 13 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_6",
+   "name": "Arp Row 13 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_7",
+   "name": "Arp Row 13 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_8",
+   "name": "Arp Row 13 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_9",
+   "name": "Arp Row 13 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_10",
+   "name": "Arp Row 13 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_11",
+   "name": "Arp Row 13 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_12",
+   "name": "Arp Row 13 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_13",
+   "name": "Arp Row 13 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_14",
+   "name": "Arp Row 13 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_15",
+   "name": "Arp Row 13 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c13_16",
+   "name": "Arp Row 13 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_1",
+   "name": "Arp Row 14 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_2",
+   "name": "Arp Row 14 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_3",
+   "name": "Arp Row 14 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_4",
+   "name": "Arp Row 14 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_5",
+   "name": "Arp Row 14 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_6",
+   "name": "Arp Row 14 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_7",
+   "name": "Arp Row 14 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_8",
+   "name": "Arp Row 14 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_9",
+   "name": "Arp Row 14 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_10",
+   "name": "Arp Row 14 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_11",
+   "name": "Arp Row 14 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_12",
+   "name": "Arp Row 14 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_13",
+   "name": "Arp Row 14 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_14",
+   "name": "Arp Row 14 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_15",
+   "name": "Arp Row 14 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c14_16",
+   "name": "Arp Row 14 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_1",
+   "name": "Arp Row 15 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_2",
+   "name": "Arp Row 15 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_3",
+   "name": "Arp Row 15 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_4",
+   "name": "Arp Row 15 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_5",
+   "name": "Arp Row 15 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_6",
+   "name": "Arp Row 15 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_7",
+   "name": "Arp Row 15 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_8",
+   "name": "Arp Row 15 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_9",
+   "name": "Arp Row 15 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_10",
+   "name": "Arp Row 15 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_11",
+   "name": "Arp Row 15 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_12",
+   "name": "Arp Row 15 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_13",
+   "name": "Arp Row 15 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_14",
+   "name": "Arp Row 15 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_15",
+   "name": "Arp Row 15 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c15_16",
+   "name": "Arp Row 15 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_1",
+   "name": "Arp Row 16 Step 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_2",
+   "name": "Arp Row 16 Step 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_3",
+   "name": "Arp Row 16 Step 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_4",
+   "name": "Arp Row 16 Step 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_5",
+   "name": "Arp Row 16 Step 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_6",
+   "name": "Arp Row 16 Step 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_7",
+   "name": "Arp Row 16 Step 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_8",
+   "name": "Arp Row 16 Step 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_9",
+   "name": "Arp Row 16 Step 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_10",
+   "name": "Arp Row 16 Step 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_11",
+   "name": "Arp Row 16 Step 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_12",
+   "name": "Arp Row 16 Step 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_13",
+   "name": "Arp Row 16 Step 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_14",
+   "name": "Arp Row 16 Step 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_15",
+   "name": "Arp Row 16 Step 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_c16_16",
+   "name": "Arp Row 16 Step 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "arp_order",
+   "name": "Arp Order",
+   "options": [
+    "Pattern",
+    "Up",
+    "Down",
+    "Up/Down",
+    "Down/Up",
+    "Random",
+    "As Played",
+    "Chord"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_oct",
+   "name": "Arp Octaves",
+   "options": [
+    "1 Oct",
+    "2 Oct",
+    "3 Oct",
+    "4 Oct"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_snap",
+   "name": "Arp MIDI Snap",
+   "options": [
+    "Auto",
+    "1/32",
+    "1/16",
+    "1/8",
+    "1/4",
+    "1 Bar"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_tie",
+   "name": "Arp Tie",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_strum",
+   "name": "Arp Strum",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "arp_strum_dir",
+   "name": "Arp Strum Direction",
+   "options": [
+    "Up",
+    "Down",
+    "Alt"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_draw",
+   "name": "Arp Grid Touch",
+   "options": [
+    "Tap",
+    "Draw"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_follow",
+   "name": "Arp Page Follow",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 1
+  },
+  {
+   "key": "arp_shift_l",
+   "name": "Arp Shift Left",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_shift_r",
+   "name": "Arp Shift Right",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_status",
+   "name": "Arp Status",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_xy_x",
+   "name": "Arp Draw X",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "arp_xy_y",
+   "name": "Arp Draw Y",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "arp_octave",
+   "name": "Arp Octave",
+   "min": -3,
+   "max": 3,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "arp_note_gate",
+   "name": "Arp Note Gate",
+   "min": 5,
+   "max": 100,
+   "default": 60,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_lfo1_rk_amp",
+   "name": "Synth LFO 1 Route Amp",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "syn_lfo1_rk_flt",
+   "name": "Synth LFO 1 Route Filter",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "syn_lfo1_rk_mod",
+   "name": "Synth LFO 1 Route Mod",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "syn_lfo2_rk_amp",
+   "name": "Synth LFO 2 Route Amp",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "syn_lfo2_rk_flt",
+   "name": "Synth LFO 2 Route Filter",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "syn_lfo2_rk_mod",
+   "name": "Synth LFO 2 Route Mod",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "arp_n_vel",
+   "name": "Arp Note Velocity",
+   "min": 1,
+   "max": 200,
+   "default": 100,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "arp_n_chance",
+   "name": "Arp Note Chance",
+   "min": 0,
+   "max": 100,
+   "default": 100,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "arp_n_ratchet",
+   "name": "Arp Note Ratchet",
+   "min": 1,
+   "max": 4,
+   "default": 1,
+   "display": "int"
+  },
+  {
+   "key": "arp_n_oct",
+   "name": "Arp Note Octave",
+   "min": -2,
+   "max": 2,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "arp_n_slide",
+   "name": "Arp Note Slide",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_sel",
+   "name": "Arp Note Selected",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "arp_dir",
+   "name": "Arp Direction",
+   "options": [
+    "Forward",
+    "Back",
+    "Ping-Pong",
+    "Random"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_h_time",
+   "name": "Arp Humanize Time",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "arp_h_vel",
+   "name": "Arp Humanize Velocity",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "arp_chain1",
+   "name": "Arp Chain 1",
+   "options": [
+    "-",
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_chain2",
+   "name": "Arp Chain 2",
+   "options": [
+    "-",
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_chain3",
+   "name": "Arp Chain 3",
+   "options": [
+    "-",
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_chain4",
+   "name": "Arp Chain 4",
+   "options": [
+    "-",
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_e_hits",
+   "name": "Arp Euclid Hits",
+   "min": 0,
+   "max": 64,
+   "default": 5,
+   "display": "int"
+  },
+  {
+   "key": "arp_e_rotate",
+   "name": "Arp Euclid Rotate",
+   "min": 0,
+   "max": 63,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "arp_g_contour",
+   "name": "Arp Gen Contour",
+   "options": [
+    "Rise",
+    "Fall",
+    "Arch",
+    "Valley",
+    "Wave",
+    "Random",
+    "Ostinato",
+    "Orch Riff",
+    "High to Low",
+    "Low to High",
+    "Call + Answer",
+    "Pedal",
+    "Arpeggio"
+   ],
+   "default": 2
+  },
+  {
+   "key": "arp_g_density",
+   "name": "Arp Gen Density",
+   "min": 5,
+   "max": 100,
+   "default": 55,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "arp_g_range",
+   "name": "Arp Gen Range",
+   "min": 2,
+   "max": 16,
+   "default": 8,
+   "display": "int"
+  },
+  {
+   "key": "arp_g_sync",
+   "name": "Arp Gen Syncopation",
+   "min": 0,
+   "max": 100,
+   "default": 25,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "arp_g_mutate",
+   "name": "Arp Gen Mutate",
+   "min": 0,
+   "max": 100,
+   "default": 30,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "arp_g_generate",
+   "name": "Arp Generate",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_g_invert",
+   "name": "Arp Invert",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_g_reverse",
+   "name": "Arp Reverse",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_g_double",
+   "name": "Arp Double",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_g_half",
+   "name": "Arp Half",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_g_mutate_go",
+   "name": "Arp Mutate",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_g_fill",
+   "name": "Arp Fill",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_g_undo",
+   "name": "Arp Undo",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_e_apply",
+   "name": "Arp Euclid Apply",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "vel_curve",
+   "name": "Velocity Curve",
+   "options": [
+    "Soft",
+    "Linear",
+    "Hard",
+    "Fixed"
+   ],
+   "default": 1
+  },
+  {
+   "key": "arp_shift_u",
+   "name": "Arp Shift Up",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_shift_d",
+   "name": "Arp Shift Down",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "sa_fprev",
+   "name": "Osc A Prev Folder",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "sa_rnd",
+   "name": "Osc A Random",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "sa_rndall",
+   "name": "Osc A Random All",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "sb_fprev",
+   "name": "Osc B Prev Folder",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "sb_rnd",
+   "name": "Osc B Random",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "sb_rndall",
+   "name": "Osc B Random All",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_g_artic",
+   "name": "Arp Gen Articulation",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "arp_g_expr",
+   "name": "Arp Gen Expression",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "arp_g_ghost",
+   "name": "Arp Gen Ghosts",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "mut_amount",
+   "name": "Mutate Amount",
+   "options": [
+    "Subtle",
+    "Medium",
+    "Wild"
+   ],
+   "default": 1
+  },
+  {
+   "key": "mut_store_a",
+   "name": "Store A",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "mut_store_b",
+   "name": "Store B",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "mut_breed",
+   "name": "Breed",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "mut_go",
+   "name": "Mutate",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "mut_undo",
+   "name": "Undo",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_b_store_a",
+   "name": "Arp Breed Store A",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_b_store_b",
+   "name": "Arp Breed Store B",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_b_breed",
+   "name": "Arp Breed Breed",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo1_file",
+   "name": "Synth LFO 1 Custom Shape",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "syn_lfo1_file_prev",
+   "name": "Synth LFO 1 Shape previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo1_file_next",
+   "name": "Synth LFO 1 Shape next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo2_file",
+   "name": "Synth LFO 2 Custom Shape",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "syn_lfo2_file_prev",
+   "name": "Synth LFO 2 Shape previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo2_file_next",
+   "name": "Synth LFO 2 Shape next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "arp_chord",
+   "name": "Arp Chord",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "arp_v_mode",
+   "name": "Arp Voicing",
+   "options": [
+    "Invert Up",
+    "Invert Down",
+    "Drop 2",
+    "Drop 3",
+    "Open",
+    "Close"
+   ],
+   "default": 0
+  },
+  {
+   "key": "arp_v_span",
+   "name": "Arp Voicing Span",
+   "min": 12,
+   "max": 48,
+   "default": 24,
+   "unit": "st",
+   "display": "int"
+  },
+  {
+   "key": "arp_v_go",
+   "name": "Arp Voicing Apply",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_me2_on",
+   "name": "Mod Env 2",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_me2_attack",
+   "name": "Mod Env 2 Attack",
+   "min": 0,
+   "max": 10000,
+   "default": 400,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "syn_me2_decay",
+   "name": "Mod Env 2 Decay",
+   "min": 1,
+   "max": 10000,
+   "default": 500,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "syn_me2_sustain",
+   "name": "Mod Env 2 Sustain",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_me2_release",
+   "name": "Mod Env 2 Release",
+   "min": 1,
+   "max": 10000,
+   "default": 500,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "syn_me2_dest",
+   "name": "Mod Env 2 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_me2_amt",
+   "name": "Mod Env 2 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 50,
+   "display": "int"
+  },
+  {
+   "key": "syn_me2_dest_prev",
+   "name": "syn_me2_dest previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_me2_dest_next",
+   "name": "syn_me2_dest next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_me3_on",
+   "name": "Mod Env 3",
+   "options": [
+    "Off",
+    "On"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_me3_attack",
+   "name": "Mod Env 3 Attack",
+   "min": 0,
+   "max": 10000,
+   "default": 400,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "syn_me3_decay",
+   "name": "Mod Env 3 Decay",
+   "min": 1,
+   "max": 10000,
+   "default": 500,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "syn_me3_sustain",
+   "name": "Mod Env 3 Sustain",
+   "min": 0,
+   "max": 100,
+   "default": 0,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_me3_release",
+   "name": "Mod Env 3 Release",
+   "min": 1,
+   "max": 10000,
+   "default": 500,
+   "unit": "ms",
+   "display": "int"
+  },
+  {
+   "key": "syn_me3_dest",
+   "name": "Mod Env 3 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_me3_amt",
+   "name": "Mod Env 3 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 50,
+   "display": "int"
+  },
+  {
+   "key": "syn_me3_dest_prev",
+   "name": "syn_me3_dest previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_me3_dest_next",
+   "name": "syn_me3_dest next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo3_shape",
+   "name": "Synth LFO 3 Shape",
+   "options": [
+    "Sine",
+    "Tri",
+    "Saw",
+    "Square",
+    "S&H",
+    "Random",
+    "Custom"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_lfo3_rate",
+   "name": "Synth LFO 3 Rate",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "syn_lfo3_sync",
+   "name": "Synth LFO 3 Sync",
+   "options": [
+    "Free",
+    "4 Bars",
+    "2 Bars",
+    "1 Bar",
+    "1/2",
+    "1/4",
+    "1/8",
+    "1/16",
+    "1/32",
+    "1/4 T",
+    "1/8 T",
+    "1/16 T",
+    "1/4 .",
+    "1/8 .",
+    "1/16 ."
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_lfo3_trig",
+   "name": "Synth LFO 3 Trigger",
+   "options": [
+    "Free Run",
+    "Retrig",
+    "One-Shot"
+   ],
+   "default": 1
+  },
+  {
+   "key": "syn_lfo3_depth",
+   "name": "Synth LFO 3 Depth",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_lfo3_route",
+   "name": "Synth LFO 3 Route",
+   "options": [
+    "Off",
+    "Amp",
+    "Filter",
+    "Mod"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_lfo3_rk_amp",
+   "name": "Synth LFO 3 Route Amp",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "syn_lfo3_rk_flt",
+   "name": "Synth LFO 3 Route Filter",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "syn_lfo3_rk_mod",
+   "name": "Synth LFO 3 Route Mod",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "syn_lfo3_file",
+   "name": "Synth LFO 3 Custom Shape",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "syn_lfo3_file_prev",
+   "name": "Synth LFO 3 Shape previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo3_file_next",
+   "name": "Synth LFO 3 Shape next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo4_shape",
+   "name": "Synth LFO 4 Shape",
+   "options": [
+    "Sine",
+    "Tri",
+    "Saw",
+    "Square",
+    "S&H",
+    "Random",
+    "Custom"
+   ],
+   "default": 2
+  },
+  {
+   "key": "syn_lfo4_rate",
+   "name": "Synth LFO 4 Rate",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "display": "int",
+   "dynamic_display": true
+  },
+  {
+   "key": "syn_lfo4_sync",
+   "name": "Synth LFO 4 Sync",
+   "options": [
+    "Free",
+    "4 Bars",
+    "2 Bars",
+    "1 Bar",
+    "1/2",
+    "1/4",
+    "1/8",
+    "1/16",
+    "1/32",
+    "1/4 T",
+    "1/8 T",
+    "1/16 T",
+    "1/4 .",
+    "1/8 .",
+    "1/16 ."
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_lfo4_trig",
+   "name": "Synth LFO 4 Trigger",
+   "options": [
+    "Free Run",
+    "Retrig",
+    "One-Shot"
+   ],
+   "default": 1
+  },
+  {
+   "key": "syn_lfo4_depth",
+   "name": "Synth LFO 4 Depth",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "unit": "%",
+   "display": "int"
+  },
+  {
+   "key": "syn_lfo4_route",
+   "name": "Synth LFO 4 Route",
+   "options": [
+    "Off",
+    "Amp",
+    "Filter",
+    "Mod"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_lfo4_rk_amp",
+   "name": "Synth LFO 4 Route Amp",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "syn_lfo4_rk_flt",
+   "name": "Synth LFO 4 Route Filter",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "syn_lfo4_rk_mod",
+   "name": "Synth LFO 4 Route Mod",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "syn_lfo4_file",
+   "name": "Synth LFO 4 Custom Shape",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "syn_lfo4_file_prev",
+   "name": "Synth LFO 4 Shape previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_lfo4_file_next",
+   "name": "Synth LFO 4 Shape next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "syn_ne_b1",
+   "name": "Env N Bar 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b2",
+   "name": "Env N Bar 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b3",
+   "name": "Env N Bar 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b4",
+   "name": "Env N Bar 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b5",
+   "name": "Env N Bar 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b6",
+   "name": "Env N Bar 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b7",
+   "name": "Env N Bar 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b8",
+   "name": "Env N Bar 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b9",
+   "name": "Env N Bar 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b10",
+   "name": "Env N Bar 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b11",
+   "name": "Env N Bar 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b12",
+   "name": "Env N Bar 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b13",
+   "name": "Env N Bar 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b14",
+   "name": "Env N Bar 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b15",
+   "name": "Env N Bar 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b16",
+   "name": "Env N Bar 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b17",
+   "name": "Env N Bar 17",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b18",
+   "name": "Env N Bar 18",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b19",
+   "name": "Env N Bar 19",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b20",
+   "name": "Env N Bar 20",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b21",
+   "name": "Env N Bar 21",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b22",
+   "name": "Env N Bar 22",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b23",
+   "name": "Env N Bar 23",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_ne_b24",
+   "name": "Env N Bar 24",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b1",
+   "name": "Env O Bar 1",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b2",
+   "name": "Env O Bar 2",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b3",
+   "name": "Env O Bar 3",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b4",
+   "name": "Env O Bar 4",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b5",
+   "name": "Env O Bar 5",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b6",
+   "name": "Env O Bar 6",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b7",
+   "name": "Env O Bar 7",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b8",
+   "name": "Env O Bar 8",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b9",
+   "name": "Env O Bar 9",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b10",
+   "name": "Env O Bar 10",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b11",
+   "name": "Env O Bar 11",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b12",
+   "name": "Env O Bar 12",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b13",
+   "name": "Env O Bar 13",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b14",
+   "name": "Env O Bar 14",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b15",
+   "name": "Env O Bar 15",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b16",
+   "name": "Env O Bar 16",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b17",
+   "name": "Env O Bar 17",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b18",
+   "name": "Env O Bar 18",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b19",
+   "name": "Env O Bar 19",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b20",
+   "name": "Env O Bar 20",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b21",
+   "name": "Env O Bar 21",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b22",
+   "name": "Env O Bar 22",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b23",
+   "name": "Env O Bar 23",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_oe_b24",
+   "name": "Env O Bar 24",
+   "min": 0,
+   "max": 127,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "syn_mx9_src",
+   "name": "Route 9 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx9_dst",
+   "name": "Route 9 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx9_amt",
+   "name": "Route 9 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx10_src",
+   "name": "Route 10 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx10_dst",
+   "name": "Route 10 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx10_amt",
+   "name": "Route 10 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx11_src",
+   "name": "Route 11 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx11_dst",
+   "name": "Route 11 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx11_amt",
+   "name": "Route 11 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx12_src",
+   "name": "Route 12 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx12_dst",
+   "name": "Route 12 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx12_amt",
+   "name": "Route 12 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx13_src",
+   "name": "Route 13 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx13_dst",
+   "name": "Route 13 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx13_amt",
+   "name": "Route 13 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx14_src",
+   "name": "Route 14 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx14_dst",
+   "name": "Route 14 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx14_amt",
+   "name": "Route 14 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx15_src",
+   "name": "Route 15 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx15_dst",
+   "name": "Route 15 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx15_amt",
+   "name": "Route 15 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "syn_mx16_src",
+   "name": "Route 16 Source",
+   "options": [
+    "Off",
+    "LFO 1",
+    "LFO 2",
+    "Mod Env",
+    "Amp Env",
+    "Filter Env",
+    "Velocity",
+    "Note",
+    "Mod Wheel",
+    "Aftertouch",
+    "Macro 1",
+    "Macro 2",
+    "Macro 3",
+    "Macro 4",
+    "Random",
+    "LFO 3",
+    "LFO 4",
+    "Mod Env 2",
+    "Mod Env 3"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx16_dst",
+   "name": "Route 16 Destination",
+   "options": [
+    "Off",
+    "Pitch",
+    "Cutoff",
+    "Resonance",
+    "Position A",
+    "Position B",
+    "Warp A",
+    "Warp B",
+    "Level",
+    "Pan",
+    "FM",
+    "Balance",
+    "LFO 1 Rate",
+    "LFO 2 Rate",
+    "Detune A",
+    "Detune B",
+    "Sub Level",
+    "Noise Level",
+    "Drive",
+    "Spread A",
+    "Spread B",
+    "Ring",
+    "Feedback",
+    "Noise Tone",
+    "Sub Pan",
+    "Glide",
+    "LFO 3 Rate",
+    "LFO 4 Rate",
+    "Level A",
+    "Level B"
+   ],
+   "default": 0
+  },
+  {
+   "key": "syn_mx16_amt",
+   "name": "Route 16 Amount",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "display": "int"
+  },
+  {
+   "key": "fxb_prog",
+   "name": "FX Bank Program",
+   "options": [
+    "Off",
+    "REV HALL 1",
+    "REV HALL 2",
+    "REV ROOM 1",
+    "REV ROOM 2",
+    "REV ROOM 3",
+    "REV STAGE 1",
+    "REV STAGE 2",
+    "REV PLATE",
+    "REV WHITE ROOM",
+    "REV TUNNEL",
+    "REV CANYON",
+    "REV BASEMENT",
+    "MOD CHORUS 1",
+    "MOD CHORUS 2",
+    "MOD CHORUS 3",
+    "MOD CHORUS 4",
+    "MOD CELESTE 1",
+    "MOD CELESTE 2",
+    "MOD CELESTE 3",
+    "MOD CELESTE 4",
+    "MOD FLANGER 1",
+    "MOD FLANGER 2",
+    "MOD FLANGER 3",
+    "VAR HALL 1",
+    "VAR HALL 2",
+    "VAR ROOM 1",
+    "VAR ROOM 2",
+    "VAR ROOM 3",
+    "VAR STAGE 1",
+    "VAR STAGE 2",
+    "VAR PLATE",
+    "VAR DELAY LCR",
+    "VAR DELAY L,R",
+    "VAR ECHO",
+    "VAR CROSSDELAY",
+    "VAR ER1",
+    "VAR ER2",
+    "VAR GATE REV",
+    "VAR REVRS GATE",
+    "VAR KARAOKE 1",
+    "VAR KARAOKE 2",
+    "VAR KARAOKE 3",
+    "VAR CHORUS 1",
+    "VAR CHORUS 2",
+    "VAR CHORUS 3",
+    "VAR CHORUS 4",
+    "VAR CELESTE 1",
+    "VAR CELESTE 2",
+    "VAR CELESTE 3",
+    "VAR CELESTE 4",
+    "VAR FLANGER 1",
+    "VAR FLANGER 2",
+    "VAR FLANGER 3",
+    "VAR SYMPHONIC",
+    "VAR ROTARY SP",
+    "VAR TREMOLO",
+    "VAR AUTO PAN",
+    "VAR PHASER 1",
+    "VAR PHASER 2",
+    "VAR DISTORTION",
+    "VAR OVERDRIVE",
+    "VAR AMP SIM",
+    "VAR 3-BAND EQ",
+    "VAR 2-BAND EQ",
+    "VAR AUTO WAH",
+    "MULTI CHORUS MONO",
+    "MULTI CHORUS STEREO",
+    "MULTI CHORUS XOVER",
+    "MULTI FLANGER MONO",
+    "MULTI FLANGER STEREO",
+    "MULTI FLANGER PAN",
+    "MULTI FLANGER XOVER",
+    "MULTI PHASER MONO",
+    "MULTI PHASER STEREO",
+    "MULTI PHASER PAN",
+    "MULTI PHASER XOVER",
+    "MULTI DELAY MONO",
+    "MULTI DELAY STEREO",
+    "MULTI DELAY PAN",
+    "MULTI DELAY XOVER",
+    "MULTI DELAY PING PONG",
+    "MULTI DELAY MULTI TAP",
+    "MULTI PAN AUTO PAN",
+    "MULTI PAN TRIGGER PAN",
+    "MULTI COMPRESSOR/LIMITER",
+    "MULTI DISTORTION",
+    "MULTI ENHANCER",
+    "MULTI EXPANDER",
+    "MULTI TAPE ECHO",
+    "MULTI DIGITAL EQ",
+    "MULTI ROTARY SPEAKER",
+    "MULTI CHORUS+DELAY",
+    "MULTI FLANGER+DELAY",
+    "MULTI PHASER+DELAY",
+    "MULTI NOISE GATE",
+    "MULTI PITCH CORRECTOR",
+    "MULTI PITCH SHIFTER",
+    "MULTI WAH AUTO WAH",
+    "MULTI WAH TOUCH WAH",
+    "MULTI REVERB SMALL ROOM",
+    "MULTI REVERB BIG ROOM",
+    "MULTI REVERB SMALL HALL",
+    "MULTI REVERB BIG HALL",
+    "MULTI REVERB LIVE HOUSE",
+    "MULTI REVERB STUDIO",
+    "MULTI REVERB BRIGHT HALL",
+    "MULTI REVERB MEDIUM HALL",
+    "MULTI REVERB AUDITORIUM",
+    "MULTI REVERB PLATE 1",
+    "MULTI REVERB PLATE 2",
+    "MULTI REVERB DRUM BOOTH",
+    "MULTI REVERB MEDIUM ROOM",
+    "MULTI REVERB THEATER",
+    "MULTI REVERB WAREHOUSE",
+    "MULTI REVERB VOCAL PLATE",
+    "MULTI REVERB NON LINEAR",
+    "MULTI REVERB REVERSE"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "fxb_mix",
+   "name": "FX Bank Mix",
+   "min": 0,
+   "max": 100,
+   "default": 50,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_rate",
+   "name": "FX Bank Rate",
+   "min": 0,
+   "max": 100,
+   "default": 39,
+   "display": "int",
+   "dynamic_display": true,
+   "live": true
+  },
+  {
+   "key": "fxb_depth",
+   "name": "FX Bank Depth",
+   "min": 0,
+   "max": 100,
+   "default": 65,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_fb",
+   "name": "FX Bank Feedback",
+   "min": -94,
+   "max": 94,
+   "default": 35,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_time",
+   "name": "FX Bank Time",
+   "min": 1,
+   "max": 1600,
+   "default": 320,
+   "unit": "ms",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_tone",
+   "name": "FX Bank Tone",
+   "min": 0,
+   "max": 100,
+   "default": 55,
+   "unit": "%",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_drive",
+   "name": "FX Bank Drive",
+   "min": 0,
+   "max": 36,
+   "default": 12,
+   "unit": "dB",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_thr",
+   "name": "FX Bank Threshold",
+   "min": -80,
+   "max": 0,
+   "default": -24,
+   "unit": "dB",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_ratio",
+   "name": "FX Bank Ratio",
+   "min": 1,
+   "max": 40,
+   "default": 4,
+   "unit": ":1",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_pitch",
+   "name": "FX Bank Pitch",
+   "min": -24,
+   "max": 24,
+   "default": 7,
+   "unit": "st",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_low",
+   "name": "FX Bank Low",
+   "min": -24,
+   "max": 18,
+   "default": 0,
+   "unit": "dB",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_mid",
+   "name": "FX Bank Mid",
+   "min": -24,
+   "max": 18,
+   "default": 0,
+   "unit": "dB",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_high",
+   "name": "FX Bank High",
+   "min": -24,
+   "max": 18,
+   "default": 0,
+   "unit": "dB",
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_bypass",
+   "name": "FX Bank Bypass",
+   "options": [
+    "Active",
+    "Bypass"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "fxb_info",
+   "name": "FX Bank Card",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "fxb_prog_prev",
+   "name": "FX Bank Program previous",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_prog_next",
+   "name": "FX Bank Program next",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_pad",
+   "name": "FX Bank Keypad",
+   "options": [
+    "Closed",
+    "Open"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "fxb_num",
+   "name": "FX Bank Program Number",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
+  },
+  {
+   "key": "fxb_num_tap",
+   "name": "FX Bank Program Number tap",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_k0",
+   "name": "FX Bank Key 0",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_k1",
+   "name": "FX Bank Key 1",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_k2",
+   "name": "FX Bank Key 2",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_k3",
+   "name": "FX Bank Key 3",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_k4",
+   "name": "FX Bank Key 4",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_k5",
+   "name": "FX Bank Key 5",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_k6",
+   "name": "FX Bank Key 6",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_k7",
+   "name": "FX Bank Key 7",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_k8",
+   "name": "FX Bank Key 8",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_k9",
+   "name": "FX Bank Key 9",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_kclr",
+   "name": "FX Bank Key CLR",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_kenter",
+   "name": "FX Bank Key ENTER",
+   "min": 0,
+   "max": 1,
+   "default": 0,
+   "momentary": true,
+   "hold_ms": 250
+  },
+  {
+   "key": "fxb_slot",
+   "name": "FX Bank Slot",
+   "options": [
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "default": 0,
+   "live": true
+  },
+  {
+   "key": "fxb_prog_b",
+   "name": "FX Bank Slot B Program",
+   "min": 0,
+   "max": 999,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_prog_c",
+   "name": "FX Bank Slot C Program",
+   "min": 0,
+   "max": 999,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_prog_d",
+   "name": "FX Bank Slot D Program",
+   "min": 0,
+   "max": 999,
+   "default": 0,
+   "display": "int",
+   "live": true
+  },
+  {
+   "key": "fxb_pname",
+   "name": "FX Bank Program Name",
+   "min": 0,
+   "max": 0,
+   "default": 0,
+   "display": "string",
+   "type": "readout",
+   "live": true
   }
  ]
 }

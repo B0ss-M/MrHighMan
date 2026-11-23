@@ -203,15 +203,19 @@ bool s900_name_ok(const uint8_t *p, size_t n) {
 
 enum class Floppy { None, S900, S1000 };
 
-Floppy floppy_kind(const uint8_t *h, size_t n, uint64_t size) {
+// S1000/S3000 high-density floppies: 64 dummy S900 entries, the block table (1600 x u16) from 0x600, the volume label
+// at 0x1280, then the 512 file entries from block 5 (0x1400)
+constexpr size_t HD_DIR = 0x1400;
+
+Floppy floppy_kind(const uint8_t *h, size_t n, uint64_t size, size_t dir = 0) {
     if (size != 819200 && size != 1638400 && size != 1474560 && size != 737280) return Floppy::None;
-    if (n < 64 * 24) return Floppy::None;
+    if (n < dir + 64 * 24) return Floppy::None;
     int s900 = 0, s1000 = 0, bad = 0;
     for (int i = 0; i < 64; i++) {
-        const uint8_t *e = h + i * 24;
+        const uint8_t *e = h + dir + i * 24;
         bool empty = true;
         for (int k = 0; k < 24; k++) if (e[k]) { empty = false; break; }
-        if (empty) continue;
+        if (empty || e[16] == 0) continue;   // unused entries may be space-filled, with no type
         if ((e[16] == 'S' || e[16] == 'P') && s900_name_ok(e, 10) && le24(e + 17)) s900++;
         else if (akai_name_ok(e, 12) && (e[16] == 's' || e[16] == 'p' || e[16] == 's' + 128 || e[16] == 'p' + 128)) s1000++;
         else bad++;
@@ -221,15 +225,24 @@ Floppy floppy_kind(const uint8_t *h, size_t n, uint64_t size) {
     return Floppy::None;
 }
 
+// The directory's kind and offset: at the start, or (S1000 HD) after the block table
+Floppy floppy_dir(const uint8_t *h, size_t n, uint64_t size, size_t &dir) {
+    dir = 0;
+    Floppy k = floppy_kind(h, n, size);
+    if (k == Floppy::None && size == 1638400 && floppy_kind(h, n, size, HD_DIR) == Floppy::S1000) { dir = HD_DIR; k = Floppy::S1000; }
+    return k;
+}
+
 VolumePtr mount_akai_floppy(BlobPtr img) {
-    std::vector<uint8_t> h = img->head(512 * 24);
-    Floppy kind = floppy_kind(h.data(), h.size(), img->size());
+    std::vector<uint8_t> h = img->head(HD_DIR + 512 * 24);
+    size_t dir;
+    Floppy kind = floppy_dir(h.data(), h.size(), img->size(), dir);
     if (kind == Floppy::None) throw ParseError("not an Akai floppy image");
     auto vol = std::make_shared<TreeVolume>(kind == Floppy::S900 ? "Akai S900/S950 floppy" : "Akai S1000/S3000 floppy");
-    int entries = kind == Floppy::S900 ? 64 : (h.size() >= 512 * 24 ? 512 : 64);
+    int entries = kind == Floppy::S900 ? 64 : (h.size() >= dir + 512 * 24 ? 512 : 64);
     uint64_t size = img->size();
-    for (int i = 0; i < entries && size_t(i + 1) * 24 <= h.size(); i++) {
-        const uint8_t *e = h.data() + i * 24;
+    for (int i = 0; i < entries && dir + size_t(i + 1) * 24 <= h.size(); i++) {
+        const uint8_t *e = h.data() + dir + i * 24;
         uint64_t len = le24(e + 17);
         uint64_t start = uint64_t(le16(e + 20)) * 1024;
         if (!len || start + len > size) continue;
@@ -251,7 +264,8 @@ VolumePtr mount_akai_floppy(BlobPtr img) {
 }
 
 bool probe_akai_floppy(const std::string &, const uint8_t *h, size_t n, uint64_t size) {
-    return floppy_kind(h, n, size) != Floppy::None;
+    size_t dir;
+    return floppy_dir(h, n, size, dir) != Floppy::None;
 }
 
 }  // namespace

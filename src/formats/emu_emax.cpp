@@ -289,6 +289,7 @@ Instrument load_emax(VolumePtr vol, const std::string &path, int index) {
 bool probe_emax(const std::string &name, const uint8_t *h, size_t n, uint64_t size) {
     std::string ext = path_ext(name);
     if (ext != "img") return true;   // the Emax extensions: the bank search decides
+    if (n >= 12 && !std::memcmp(h + 4, "MV-30   ", 8)) return false;   // a Roland MV-30 system disk (no sounds)
     return size == 819200 || size == 1638400 || size == 737280 || size == 1474560;
 }
 

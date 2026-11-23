@@ -893,7 +893,7 @@ Instrument load_kontakt(VolumePtr vol, const std::string &path, int index) {
         z.reverse = g.reverse;
         z.exclusive_group = g.voice_group < 0 ? 0 : g.voice_group + 1;
         if (g.bend_cents >= 0) { z.bend_up = g.bend_cents; z.bend_down = -g.bend_cents; }
-        if (g.vel_amp >= 0) { z.amp_vel_depth = clampd(g.vel_amp, 0, 1); z.amp_vel_curve = 1; }
+        if (g.vel_amp >= 0) { z.amp_vel_depth = clampd(g.vel_amp, 0, 1); z.amp_vel_curve = 0.6309; }   // x^2 (2.4.6; was x^6)
         else if (!kz.from_xml) z.amp_vel_depth = 0;
         if (g.amp.set) z.amp_env = to_env(g.amp);
         if (g.pitch.set) { z.pitch_env = to_env(g.pitch); z.pitch_env_depth = g.pitch.depth; }

@@ -1,4 +1,7 @@
 // Omni Sampler: blobs, the host volume and image mounting (see vfs.hpp).
+// 2.4.14: 64-bit file offsets on the 32-bit MPCs: stat()/open() failed with EOVERFLOW for files of 2 GiB or more
+// (Human Voices 01.db, 2.9 GB, was missing from the browser and could not be opened). Must come before any include.
+#define _FILE_OFFSET_BITS 64
 #include "vfs.hpp"
 #include <algorithm>
 #include <cerrno>
@@ -272,19 +275,29 @@ void Vfs::forget() {
 }
 
 VolumePtr Vfs::mount_image(const std::string &full, VolumePtr parent, const std::string &inner) {
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto it = mounts_.find(full);
-        if (it != mounts_.end()) return it->second;
+    std::lock_guard<std::mutex> lock(mutex_);   // one in-flight mount per image/path
+    Mount now;
+    now.owner = parent.get();
+    if (parent.get() == host_.get()) {
+        struct stat st;
+        if (stat(("/" + inner).c_str(), &st) == 0) {
+            now.dev = uint64_t(st.st_dev); now.ino = uint64_t(st.st_ino); now.size = uint64_t(st.st_size);
+            now.sec = int64_t(st.st_mtim.tv_sec); now.nsec = int64_t(st.st_mtim.tv_nsec);
+        }
     }
+    auto it = mounts_.find(full);
+    if (it != mounts_.end() && it->second.owner == now.owner && it->second.dev == now.dev &&
+        it->second.ino == now.ino && it->second.size == now.size && it->second.sec == now.sec &&
+        it->second.nsec == now.nsec) return it->second.volume;
+    if (it != mounts_.end()) mounts_.erase(it);
     if (parent->is_dir(inner)) return nullptr;
     BlobPtr blob = parent->open(inner);
     const ImageType *t = probe_image(path_name(inner), *blob);
     if (!t) return nullptr;
     VolumePtr v = t->mount_at ? t->mount_at(parent, inner) : t->mount(blob);
-    std::lock_guard<std::mutex> lock(mutex_);
     if (mounts_.size() > 16) mounts_.clear();   // images hold their open file; keep the cache small
-    mounts_[full] = v;
+    now.volume = v;
+    mounts_[full] = now;
     return v;
 }
 

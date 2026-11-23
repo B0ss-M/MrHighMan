@@ -7,6 +7,7 @@
 #define DR_FLAC_IMPLEMENTATION
 #define DR_FLAC_NO_STDIO
 #define DR_FLAC_NO_OGG
+#include "arta.hpp"
 #include "../third_party/dr_flac.h"
 
 #define STB_VORBIS_NO_STDIO
@@ -650,7 +651,7 @@ PcmPtr decode_vawt(const Blob &blob, AudioInfo *info, bool header_only) {
 // dispatch
 
 namespace {
-enum class Kind { Wav, Aiff, Flac, Ogg, Ncw, Caf, Vawt, Unknown };
+enum class Kind { Wav, Aiff, Flac, Ogg, Ncw, Caf, Vawt, Arta, Unknown };
 Kind sniff(const Blob &blob) {
     std::vector<uint8_t> h = blob.head(12);
     if (h.size() >= 12 && (!std::memcmp(h.data(), "RIFF", 4) || !std::memcmp(h.data(), "RF64", 4) ||
@@ -659,6 +660,7 @@ Kind sniff(const Blob &blob) {
     if (h.size() >= 12 && !std::memcmp(h.data(), "FORM", 4) &&
         (!std::memcmp(h.data() + 8, "AIFF", 4) || !std::memcmp(h.data() + 8, "AIFC", 4))) return Kind::Aiff;
     if (h.size() >= 4 && !std::memcmp(h.data(), "fLaC", 4)) return Kind::Flac;
+    if (h.size() >= 6 && !std::memcmp(h.data(), "PLC2", 4) && h[4] == 1 && h[5] == 1) return Kind::Arta;   // 2.4.21 Arturia .arta
     if (h.size() >= 4 && !std::memcmp(h.data(), "caff", 4)) return Kind::Caf;
     if (h.size() >= 4 && !std::memcmp(h.data(), "OggS", 4)) return Kind::Ogg;
     if (h.size() >= 12 && !std::memcmp(h.data(), "vawt", 4)) return Kind::Vawt;
@@ -677,6 +679,7 @@ PcmPtr decode_audio(const Blob &blob, AudioInfo *info) {
     case Kind::Ncw: return decode_ncw(blob, info);
     case Kind::Caf: return decode_caf(blob, info, false);
     case Kind::Vawt: return decode_vawt(blob, info, false);
+    case Kind::Arta: return read_arta(blob, info, false);
     default: throw ParseError("unknown audio file format");
     }
 }
@@ -690,6 +693,7 @@ AudioInfo probe_audio(const Blob &blob) {
     case Kind::Ogg: decode_ogg(blob, &info, true); break;
     case Kind::Caf: decode_caf(blob, &info, true); break;
     case Kind::Vawt: decode_vawt(blob, &info, true); break;
+    case Kind::Arta: read_arta(blob, &info, true); break;
     case Kind::Ncw: {
         std::vector<uint8_t> h = blob.head(20);
         if (h.size() >= 20) { info.channels = le16(h.data() + 8); info.bits = le16(h.data() + 10);
@@ -703,7 +707,7 @@ AudioInfo probe_audio(const Blob &blob) {
 
 bool is_audio_ext(const std::string &ext) {
     return ext == "wav" || ext == "wave" || ext == "aif" || ext == "aiff" || ext == "aifc" || ext == "flac" ||
-           ext == "ogg" || ext == "ncw" || ext == "caf";
+           ext == "ogg" || ext == "ncw" || ext == "caf" || ext == "arta";
 }
 
 SampleRefPtr file_sample_ref(VolumePtr volume, const std::string &path) {

@@ -95,7 +95,13 @@ public:
 private:
     VolumePtr host_;
     std::mutex mutex_;
-    std::map<std::string, VolumePtr> mounts_;                    // full path of image -> its volume
+    struct Mount {
+        VolumePtr volume;
+        const Volume *owner = nullptr;
+        uint64_t dev = 0, ino = 0, size = 0;
+        int64_t sec = 0, nsec = 0;
+    };
+    std::map<std::string, Mount> mounts_;                        // full path and stable host identity -> volume
     VolumePtr mount_image(const std::string &full, VolumePtr parent, const std::string &inner);
 };
 

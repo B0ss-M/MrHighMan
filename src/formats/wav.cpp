@@ -219,8 +219,9 @@ Instrument load_audio(VolumePtr vol, const std::string &path, int) {
         z.sample->frames = ai.frames;
         z.root = ai.root >= 0 ? ai.root : 60;
         z.tune = ai.fine / 100.0;
-        if (ai.key_lo >= 0 && ai.key_hi >= ai.key_lo && !(ai.key_lo == 0 && ai.key_hi == 0)) { z.key_lo = ai.key_lo; z.key_hi = ai.key_hi; }
-        if (ai.vel_lo >= 1 && ai.vel_hi >= ai.vel_lo) { z.vel_lo = ai.vel_lo; z.vel_hi = ai.vel_hi; }
+        // 1.8.11: the whole keyboard and every velocity, not the file's inst key / velocity range: that is its place in
+        // the multisample it came from (Kontakt's "Arco Violins F3.wav": keys 60-62 only), and left the rest silent.
+        // A slot's key range splits the keyboard instead
         z.loops = ai.loops;
         z.gain_db = ai.gain_db;
         if (z.loops.empty() && ai.frames < ai.rate * 4) z.one_shot = false;

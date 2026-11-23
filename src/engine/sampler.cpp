@@ -19,11 +19,17 @@ void Program::index() {
 }
 
 Sampler::Sampler() {
+    arp_sink_.s = this;   // 2.4
     for (int i = 0; i < 4; i++) { settings.slot_hi[i].store(127); settings.slot_gain[i].store(1); }
     mixl_.assign(4096, 0);
     mixr_.assign(4096, 0);
     pvl_.assign(4096, 0);
     pvr_.assign(4096, 0);
+    fxb_.prepare(SR);   // 2.4.30: allocates here only
+    fxb_.select(0);
+    make_fx_expansions(fxx_);   // 2.4.33: the bay's expansion slots (empty ones stay nullptr); 2.4.35: B / C share a rack
+    for (int k = 0; k < 3; k++)
+        if (fxx_[k]) fxx_[k]->prepare(SR, int(mixl_.size()));
 }
 
 Sampler::~Sampler() {
@@ -52,29 +58,37 @@ void Sampler::midi(const uint8_t *m, int len) {
     int status = m[0] & 0xF0, chan = m[0] & 0x0F;
     int d1 = len > 1 ? m[1] & 0x7F : 0, d2 = len > 2 ? m[2] & 0x7F : 0;
     switch (status) {
-    case 0x90: if (d2) note_on(chan, d1, d2); else note_off(chan, d1); break;
-    case 0x80: note_off(chan, d1); break;
-    case 0xD0: at_ = d1 / 127.0f; break;
-    case 0xA0: at_ = d2 / 127.0f; break;
-    case 0xE0: bend_ = float((d2 << 7 | d1) - 8192) / 8192.0f; break;
+    case 0x90:
+        if (arp.settings.on.load()) { if (d2) arp.key_on(d1, curve_vel(d2), chan); else arp.key_off(d1, chan); break; }   // 2.4: the ARP takes the keys
+        if (d2) { d2 = curve_vel(d2); note_on(chan, d1, d2); synth.note_on(d1, d2); } else { note_off(chan, d1); synth.note_off(d1); }
+        break;
+    case 0x80:
+        if (arp.settings.on.load()) { arp.key_off(d1, chan); }
+        note_off(chan, d1); synth.note_off(d1);   // (also ends a note held from before the ARP was turned on)
+        break;
+    case 0xD0: at_ = d1 / 127.0f; synth.set_at(at_); break;   // 2.3.3: the synth's MATRIX reads them too
+    case 0xA0: at_ = d2 / 127.0f; synth.set_at(at_); break;
+    case 0xE0: bend_ = float((d2 << 7 | d1) - 8192) / 8192.0f; synth.set_bend(bend_); break;
     case 0xB0:
         cc_val_[d1 & 127] = uint8_t(d2 & 127);
         switch (d1) {
-        case 1: modwheel_ = d2 / 127.0f; break;
+        case 1: modwheel_ = d2 / 127.0f; synth.set_wheel(modwheel_); break;
         case 7: cc7_ = d2 / 127.0f; break;
         case 10: cc10_ = (d2 - 64) / 64.0f; break;
         case 11: cc11_ = d2 / 127.0f; break;
         case 64:
             sustain_ = d2 >= 64;
+            synth.sustain(sustain_);   // 2.3
             if (!sustain_)
                 for (auto &v : voices_)
                     if (v.on && v.held_by_pedal) { v.held_by_pedal = false; if (!v.one_shot) { v.released = true; v.amp.release(); v.fenv.release(); v.penv.release(); } }
             break;
-        case 120: all_off(true); break;
-        case 121: bend_ = 0; modwheel_ = 0; cc7_ = 1; cc10_ = 0; cc11_ = 1; break;
+        case 120: all_off(true); synth.all_off(true); arp.reset(arp_sink_); break;
+        case 121: bend_ = 0; modwheel_ = 0; at_ = 0; cc7_ = 1; cc10_ = 0; cc11_ = 1; synth.set_bend(0); synth.set_wheel(0); synth.set_at(0); break;   // 2.4.2: the synth's wheel / aftertouch too
         case 123: case 124: case 125: case 126: case 127:
             for (int c = 0; c < 16; c++) for (int n = 0; n < 128; n++) if (held_[c][n]) note_off(c, n);
             all_off(false);
+            synth.all_off(false);
             break;
         }
         break;
@@ -120,7 +134,9 @@ void Sampler::retire_preview() {   // audio thread: hand the finished preview ba
 
 // PANIC: every voice fades out at once (5 ms, no click), and nothing is left held: keys, pedal, mono state, wheels
 void Sampler::do_panic() {
+    arp.reset(arp_sink_);   // 2.4
     retire_preview();
+    synth.all_off(true);   // 2.3
     for (auto &v : voices_)
         if (v.on) { v.released = true; v.held_by_pedal = false; v.looping = false; v.fading = true; v.amp.fast_release(0.005f); }
     std::memset(held_, 0, sizeof held_);
@@ -130,6 +146,19 @@ void Sampler::do_panic() {
     std::memset(cc_val_, 0, sizeof cc_val_);
     last_mono_note_ = -1;
     bend_ = 0; modwheel_ = 0; at_ = 0;
+}
+
+// 2.4.32 (user bug: a pop, then the SYNTH / whole output silent until RESET; PANIC did nothing). A NaN or inf that reaches
+// the mix stays in every recursive state it passes (filters, FX lines, the EQ's biquads, which nothing cleared) and the
+// output is silence from then on. The block's sum is checked once (one add per sample); when it is not finite the block
+// is muted, every voice stops and every FX state is cleared, so the next note plays again
+void Sampler::heal_nonfinite() {
+    all_off(true);
+    synth.all_off(true);
+    eq_.clear(); comp_.clear(); bus_.clear(); limiter_.clear(); chorus_.clear(); ensemble_.clear(); delay_.clear();
+    reverb_.clear(); plate_.clear(); lofi_.clear(); phaser_.clear(); flanger_.clear(); drive_.clear(); fxb_.reset();
+    for (auto &x : fxx_) if (x) x->reset();   // 2.4.33
+    nonfinite_heals.fetch_add(1, std::memory_order_relaxed);
 }
 
 void Sampler::all_off(bool hard) {
@@ -142,7 +171,22 @@ void Sampler::all_off(bool hard) {
     std::memset(cc_val_, 0, sizeof cc_val_);
 }
 
+// 2.4.6: VELOCITY CURVE (SETUP): how hard a key must be struck. Soft: v^0.6 (velocity 40 plays as 63, light
+// keyboards / pads reach the loud layers); Hard: v^1.6; Fixed: every note at 127. Once per note-on, before the zones are
+// chosen (velocity layers follow it) and before the synth and the ARP get it
+int Sampler::curve_vel(int v) const {
+    const int c = settings.vel_curve.load(std::memory_order_relaxed);
+    if (c == 1 || v <= 0) return v;
+    if (c == 3) return 127;
+    const double e = c == 0 ? 0.6 : 1.6;
+    return std::max(1, std::min(127, int(std::lround(127.0 * std::pow(v / 127.0, e)))));
+}
+
 void Sampler::note_on(int chan, int note, int vel) {
+    {   // 2.4.35: the bay's expansion slot hears the note (the XV-3080 KEYSYNC FLANGER restarts)
+        const int slot = settings.fxb_slot.load();
+        if (slot >= 1 && slot <= 3 && fxx_[slot - 1]) fxx_[slot - 1]->note_on();
+    }
     for (int i = 0; i < 2; i++)
         if (settings.lfo_retrig[i].load() == 1) { lfo_phase_[i] = 0; gsrc_[MS_LFO1 + i] = 0; }
     last_note.store(note);
@@ -154,6 +198,9 @@ void Sampler::note_on(int chan, int note, int vel) {
         if (note >= ks && note < ks + 4) { active_slot.store(note - ks); return; }
     }
     if (!prog_ || swap_fade_) return;
+    // 1.8.2: a note lock's fixed velocity (before the zones are chosen: it picks the velocity layer too)
+    if (settings.lock[note & 127].on.load() && settings.lock[note & 127].vel.load() > 0) vel = settings.lock[note & 127].vel.load();
+    note_vel_[chan & 15][note & 127] = uint8_t(std::max(1, std::min(127, vel)));   // 2.4.27
 
     int mode = settings.voice_mode.load();
     float glide_semis = 0;
@@ -230,7 +277,8 @@ void Sampler::note_off(int chan, int note) {
     }
     if (!prog_ || swap_fade_) return;
     // release triggers
-    if (vel == 0) vel = 64;
+    if (vel == 0) vel = note_vel_[chan & 15][note & 127] ? note_vel_[chan & 15][note & 127] : 64;   // 2.4.27 (audit #10): its own velocity
+
     note_age0_ = age_counter_;
     for (int si = 0; si < 4; si++) {
         int shift = settings.slot_shift[si].load(), zn = note - shift;
@@ -291,7 +339,22 @@ void Sampler::start_voice(int zi, int chan, int note, int vel, bool release_trig
     v.stop = z.stop > 0 ? std::min<int64_t>(z.stop, frames) : frames;
     if (v.stop <= v.start) v.stop = frames;
     v.one_shot = z.one_shot && !release_trigger;
-    if (!z.loops.empty() && !z.reverse && !v.one_shot) {
+    // 1.8.2: playback mode and polarity: the note's lock, else its slot's; Rev turns the zone's own direction round
+    const Settings::NoteLock &lk = settings.lock[note & 127];
+    const bool locked = lk.on.load() != 0;
+    const int pm = locked && lk.mode.load() > 0 ? lk.mode.load() - 1 : settings.slot_play[zone_slot(z)].load();
+    const int pinv = locked && lk.inv.load() > 0 ? lk.inv.load() - 1 : settings.slot_inv[zone_slot(z)].load();
+    const bool rev = z.reverse != (pm == 1);
+    // Rev (REV MODE Full, the default) plays the whole sample back to its start whatever the note-off: a pad tap would
+    // otherwise cut it in the tail (often quiet, or a sustain loop), before the attack. Attack, decay and sustain shape
+    // it; it fades out by itself so the fade ends at the start (render_voice). 2.1.16: REV MODE Gated: the note-off
+    // releases it as Fwd's does. The zones a format reverses itself keep their own envelope and release. Not a
+    // wavetable: its one cycle loops and never reaches a start
+    if (rev && !z.reverse && !release_trigger && !(z.wt_count > 1 && z.wt_size > 1)) {
+        v.rev_tail = true;
+        v.one_shot = settings.rev_gated.load() == 0;
+    }
+    if (!z.loops.empty() && !rev && !v.one_shot) {
         const Loop &l = z.loops[0];
         int64_t ls = std::max<int64_t>(v.start, l.start), le = std::min<int64_t>(l.end + 1, v.stop);
         if (le - ls >= 2) {
@@ -310,16 +373,45 @@ void Sampler::start_voice(int zi, int chan, int note, int vel, bool release_trig
         for (int k = 0; k < MOD_SLOTS; k++)
             if (slot_dst_[k] == MD_START && slot_amt_[k] != 0 && (slot_layer_[k] < 0 || slot_layer_[k] == vs))
                 acc += slot_amt_[k] * src_val(v, slot_src_[k]);
-        if (acc > 0 && !z.reverse) v.start = std::min(v.stop - 1, v.start + int64_t(std::min(1.0f, acc) * 0.9f * float(v.stop - v.start)));
+        if (locked) acc += std::max(0.0f, std::min(0.95f, lk.start.load())) / 0.9f;   // the lock's start, a share of the length
+        if (acc > 0 && !rev) v.start = std::min(v.stop - 1, v.start + int64_t(std::min(1.0f, acc) * 0.9f * float(v.stop - v.start)));
     }
-    v.reverse_ = z.reverse;
-    v.dir = z.reverse ? -1 : 1;
-    v.pos = z.reverse ? double(v.stop - 1) : double(v.start);
+    v.reverse_ = rev;
+    v.dir = rev ? -1 : 1;
+    v.pos = rev ? double(v.stop - 1) : double(v.start);
+    if ((pm == 2 || pm == 3) && !rev && !release_trigger) {
+        // ping-pong: the zone's loop, else the whole sample, back and forth while held (a one-shot then follows the key)
+        v.one_shot = false;
+        if (!v.looping) { v.loop_start = v.start; v.loop_end = v.stop; v.loop_until_release = false; v.loop_tune = 0; }
+        v.loop_start = std::max(v.loop_start, v.start);   // the backward pass must turn before the start
+        v.looping = v.loop_end - v.loop_start >= 4;
+        v.loop_type = LoopType::Alternating;
+        if (pm == 3 && v.looping) {
+            const int ch = pcm->channels;
+            v.pp_inv = true;
+            v.pp_lo = double(v.loop_start);
+            v.pp_k = 1.0 / double(v.loop_end - 1 - v.loop_start);
+            for (int c = 0; c < 2; c++) {
+                const int cc = c < ch ? c : 0;
+                float a = pcm->data[size_t(v.loop_start) * size_t(ch) + size_t(cc)], b = pcm->data[size_t(v.loop_end - 1) * size_t(ch) + size_t(cc)];
+                v.pp_c[c] = 2 * a;
+                v.pp_d[c] = 2 * (b - a);
+            }
+        }
+    }
+    v.polarity = pinv ? -1.0f : 1.0f;
+    if (locked) {
+        v.lock_semis = lk.semis.load();
+        v.lock_cut_mul = std::exp2(lk.cut.load());
+        v.lock_pan = lk.pan.load();
+    }
 
     // level
     float vel_sens = settings.vel_sens.load();
     double vel01 = vel / 127.0;
-    double curve = std::pow(vel01, 2.0 * std::pow(3.0, z.amp_vel_curve));
+    // 2.4.6: x^(3^curve) as model.hpp documents (it was x^(2 * 3^curve): velocity squared by default, x^6 for SF2 / Kontakt,
+    // so a medium hit played at -12 / -36 dB and players had to strike hard). Default 0 = linear: velocity 64 = -6 dB.
+    double curve = std::pow(vel01, std::pow(3.0, z.amp_vel_curve));
     double depth = clampd_(z.amp_vel_depth * vel_sens, 0, 1);
     double velgain = (1 - depth) + depth * curve;
     double db = z.gain_db + prog_->inst.gain_db + z.amp_key_tracking * (znote - z.root);
@@ -330,6 +422,7 @@ void Sampler::start_voice(int zi, int chan, int note, int vel, bool release_trig
     if (z.vel_xfade_lo > 0 && vel < z.vel_lo + z.vel_xfade_lo) g *= std::sqrt(double(vel - z.vel_lo + 1) / (z.vel_xfade_lo + 1));
     if (z.vel_xfade_hi > 0 && vel > z.vel_hi - z.vel_xfade_hi) g *= std::sqrt(double(z.vel_hi - vel + 1) / (z.vel_xfade_hi + 1));
     v.gain = float(g) * settings.slot_gain[z.slot < 0 || z.slot > 3 ? 0 : z.slot].load();
+    if (locked) v.gain *= lk.gain.load();
     float pan = float(clampd_(z.pan, -1, 1));
     v.pan_l = std::cos((pan + 1) * PI_F / 4);
     v.pan_r = std::sin((pan + 1) * PI_F / 4);
@@ -339,14 +432,17 @@ void Sampler::start_voice(int zi, int chan, int note, int vel, bool release_trig
     if (!ae.set) { ae = Envelope(); ae.release = 0.02; }
     if (ae.release < 0.004) ae.release = 0.004;
     float tvel = float(1.0 - ae.time_vel_tracking * (vel01 - 0.5));   // + tracking shortens towards high velocities
-    float tkey = float(std::pow(2.0, -ae.time_key_tracking * (note - 60) / 24.0));
+    float tkey = float(std::exp2(-ae.time_key_tracking * (note - 60) / 24.0));
     v.amp.begin(ae, tvel * tkey, tkey, settings.attack_add.load() + settings.d_attack.load(), settings.release_add.load() + settings.d_release.load(),
                 settings.sustain_scale.load(), settings.d_sustain.load());
     v.amp.decay_s = std::max(0.0f, v.amp.decay_s * settings.decay_scale.load() + settings.d_decay.load());
     v.amp.attack_s = std::max(0.0f, v.amp.attack_s);              // the faders may take a zone's times below zero
     v.amp.release_s = std::max(0.004f, v.amp.release_s);
     if (v.amp.stage == Env::Attack) v.amp.enter(Env::Attack);   // re-read the changed times
-    if (release_trigger || v.one_shot) { v.amp.sustain = 1; }
+    // 2.4.25 (audit 2026-11-21 #1): a release / one-shot voice holds full level only when its zone has no envelope of
+    // its own (drum kits, plain samples: the panel's SUSTAIN must not cut them); a reader's own sustain (SFZ ampeg_sustain,
+    // NKI, EXS, Akai ...) is kept, so authored release tails and decaying one-shots decay as written
+    if ((release_trigger || (v.one_shot && !v.rev_tail)) && !z.amp_env.set) { v.amp.sustain = 1; }
     if (z.filter.env.set) v.fenv.begin(z.filter.env, 1, 1, 0, 0, 1);
     if (z.pitch_env.set) v.penv.begin(z.pitch_env, 1, 1, 0, 0, 1);
     if (z.amp_lfo.set) v.alfo.begin(z.amp_lfo, v.age);
@@ -402,14 +498,14 @@ void Sampler::block_mod(Voice &v, int n, double &step, float &cutoff_mul) {
         default: break;
         }
     }
-    semis += m_pitch * MOD_PITCH_SEMIS;
+    semis += m_pitch * MOD_PITCH_SEMIS + v.lock_semis;
     if (v.loop_tune != 0 && v.looping && v.pos >= double(v.loop_start) && !(v.released && v.loop_until_release)) semis += v.loop_tune;
     v.mod_cut_mul = m_cut != 0 ? std::exp2(m_cut * MOD_CUTOFF_OCT) : 1.0f;
     v.mod_res = m_res * MOD_RES;
     v.mod_gain = std::max(0.0f, std::min(2.0f, 1.0f + m_vol));
     v.mod_pan = std::max(-1.0f, std::min(1.0f, m_pan));
     v.mod_wt = m_wt;
-    step = std::pow(2.0, semis / 12.0) * double(v.pcm->rate) / double(SR);
+    step = std::exp2(semis / 12.0) * double(v.pcm->rate) / double(SR);
     float cents = 0;
     if (z.filter.type != FilterType::None) {
         cents += float(z.filter.env_depth * MAX_ENVELOPE_DEPTH) * (z.filter.env.set ? v.fenv.level : 0);
@@ -418,7 +514,7 @@ void Sampler::block_mod(Voice &v, int n, double &step, float &cutoff_mul) {
         cents += float(z.filter.lfo_depth * MAX_ENVELOPE_DEPTH) * fl;
         cents += float(z.filter.modwheel_depth * MAX_ENVELOPE_DEPTH) * modwheel_;
     }
-    cutoff_mul = std::pow(2.0f, cents / 1200.0f) * v.mod_cut_mul;
+    cutoff_mul = std::exp2(cents / 1200.0f) * v.mod_cut_mul;
 }
 
 float Sampler::src_val(const Voice &v, int s) const {
@@ -432,10 +528,11 @@ float Sampler::src_val(const Voice &v, int s) const {
 }
 
 void Sampler::transport(double ppq, double tempo, int playing, int ppq_valid) {
-    if (tempo > 1) tempo_ = tempo;
+    if (tempo > 1) { tempo_ = tempo; synth.set_tempo(tempo); }   // 2.3.2: the synth's LFOs follow it too
     playing_ = playing != 0;
     ppq_valid_ = ppq_valid != 0;
     if (ppq_valid_) ppq_ = ppq;
+    arp.transport(ppq, tempo_, playing_, ppq_valid_);   // 2.4
 }
 
 // beats (quarter notes) per LFO cycle for each sync setting; 0 = free
@@ -503,6 +600,48 @@ void Sampler::update_mod(int frames) {
     if (playing_ && ppq_valid_) ppq_ += double(frames) / SR * tempo_ / 60.0;
 }
 
+// 2.1.1: SINC, 8-point Hann-windowed sinc (after discoDSP's SFZero v3 akaiSincInterpolate, MIT): taps i0-3 .. i0+4,
+// the cutoff lowered to 1 / step when the sample plays faster than the output (no aliasing when pitched up). SFZero
+// computes 16 sin/cos per sample; here they are a table: 9 cutoffs (2^(-j/4), one octave and a quarter per two
+// steps, to 4x speed) x 257 phases x 8 taps, each phase normalised to unity DC gain, linearly interpolated by phase.
+namespace {
+constexpr int SINC_PHASES = 256, SINC_CUTS = 9;
+struct SincTable {
+    float c[SINC_CUTS][SINC_PHASES + 1][8];
+    SincTable() {
+        const double pi = 3.14159265358979323846;
+        for (int j = 0; j < SINC_CUTS; j++) {
+            const double fc = std::exp2(-j / 4.0);
+            for (int ph = 0; ph <= SINC_PHASES; ph++) {
+                const double frac = double(ph) / SINC_PHASES;
+                double w[8], sum = 0;
+                for (int q = 0; q < 8; q++) {
+                    const double x = double(q - 3) - frac;
+                    const double win = 0.5 + 0.5 * std::cos(x / 4.0 * pi);
+                    const double s = std::fabs(x) < 1e-12 ? fc : std::sin(fc * pi * x) / (pi * x);
+                    sum += (w[q] = s * win);
+                }
+                for (int q = 0; q < 8; q++) c[j][ph][q] = float(w[q] / sum);
+            }
+        }
+    }
+};
+const SincTable &sinc_table() { static const SincTable t; return t; }
+// the cutoff for a playback step (frames of the sample per output frame)
+const float (*sinc_for(double step))[8] {
+    int j = step > 1.0 ? int(std::lround(4.0 * std::log2(step))) : 0;
+    return sinc_table().c[j < 0 ? 0 : j >= SINC_CUTS ? SINC_CUTS - 1 : j];
+}
+inline void sinc_coefs(const float (*tab)[8], float t, float *k) {
+    float f = t * float(SINC_PHASES);
+    int ph = int(f);
+    if (ph >= SINC_PHASES) ph = SINC_PHASES - 1;
+    if (ph < 0) ph = 0;
+    const float u = f - float(ph), *a = tab[ph], *b = tab[ph + 1];
+    for (int q = 0; q < 8; q++) k[q] = a[q] + (b[q] - a[q]) * u;
+}
+}  // namespace
+
 static inline float hermite(float xm1, float x0, float x1, float x2, float t) {
     float c = (x1 - xm1) * 0.5f;
     float v = x0 - x1;
@@ -514,34 +653,71 @@ static inline float hermite(float xm1, float x0, float x1, float x2, float t) {
 
 void Sampler::render_voice(Voice &v, float *outl, float *outr, int n) {
     const Zone &z = *v.zone;
+    // 2.4.27 (velocity audit #1, CPU): a zone with its own envelope that has decayed to a silent sustain ends here (it
+    // rendered silently and held a voice until key-up: 36 % of TRITON zones are looped with sustain 0). Once per block.
+    if (!z.seq_step && z.amp_env.set && v.amp.stage == Env::Sustain && v.amp.level <= 1e-5f) { v.on = false; return; }
+    if (z.seq_step) {
+        // a wave sequence step: silent and in place until its time comes, gone once its crossfade out is done
+        if (v.amp.stage == Env::Delay) {
+            for (int i = 0; i < n && v.amp.stage == Env::Delay; i++) v.amp.tick();
+            if (v.amp.stage == Env::Delay) return;
+        } else if (v.amp.stage == Env::Sustain && v.amp.level <= 0) {
+            v.on = false;
+            return;
+        }
+    }
     double step;
     float cutoff_mul;
     block_mod(v, n, step, cutoff_mul);
+    if (v.rev_tail && !v.rev_faded && step > 0) {
+        // Rev: the fade starts when the time left back to the start is the release time, at most half the reversed
+        // sample (2.1.16: a release longer than the sample used to start the fade at the note-on, before the attack, and
+        // the note was silent). A note-off's release (Gated) that would outlast the sample is cut to end at the start
+        const double left_s = (v.pos - double(v.start)) / step / SR;
+        const float fade = std::max(0.004f, std::min(v.amp.release_s, float(0.5 * double(v.stop - v.start) / step / SR)));
+        if (!v.released && left_s <= fade) {
+            v.rev_faded = v.released = true;
+            v.amp.release_s = fade;
+            v.amp.release(); v.fenv.release(); v.penv.release();
+        } else if (v.released && v.amp.stage == Env::Release && v.amp.inc > 0
+                   && (1.0 - v.amp.t) / v.amp.inc / SR > left_s && left_s <= fade) {
+            v.rev_faded = true;
+            v.amp.release_s = float(std::max(0.004, left_s));
+            v.amp.enter(Env::Release);
+        }
+    }
     const int ch = v.pcm->channels;
     const int nch = ch > 1 ? 2 : 1;
-    if (v.zf[0].on) for (int c = 0; c < nch; c++) v.zf[c].set(float(z.filter.cutoff) * cutoff_mul, std::max(0.0f, std::min(1.0f, float(z.filter.resonance) + v.mod_res)));
+    if (v.zf[0].on) {   // 2.4.7: computed once, the other channel copies (it was set per channel: the same tan / exp twice)
+        v.zf[0].set(float(z.filter.cutoff) * cutoff_mul, std::max(0.0f, std::min(1.0f, float(z.filter.resonance) + v.mod_res)));
+        for (int c = 1; c < nch; c++) v.zf[c].copy_coefs(v.zf[0]);
+    }
     float mc = settings.cutoff_hz.load(), mr = settings.resonance.load();
     float fv = settings.filter_vel.load();
-    if (fv > 0) mc *= std::pow(2.0f, -4.0f * fv * (1.0f - v.vel / 127.0f));
-    mc *= v.mod_cut_mul;
+    if (fv > 0) mc *= std::exp2(-4.0f * fv * (1.0f - v.vel / 127.0f));
+    mc *= v.mod_cut_mul * v.lock_cut_mul;
     mr = std::max(0.0f, std::min(1.0f, mr + v.mod_res));
     bool master_on = !(int(settings.filter_type.load()) == 0 && mc >= 19500 && mr < 0.01f) || cut_mod_;
-    if (master_on) for (int c = 0; c < nch; c++) v.mf[c].set(mc, mr);
+    if (master_on) { v.mf[0].set(mc, mr); for (int c = 1; c < nch; c++) v.mf[c].copy_coefs(v.mf[0]); }   // 2.4.7: once
     float amp_lfo_gain = 1;
     if (z.amp_lfo.set && z.amp_lfo_depth != 0)
         amp_lfo_gain = std::pow(10.0f, float(z.amp_lfo_depth * MAX_VOLUME_DEPTH) * v.alfo.value / 20.0f);
     const int interp = settings.interpolation.load();
+    const float (*sinc)[8] = interp == 3 ? sinc_for(step) : nullptr;   // 2.1.1
+    const int mlo = interp == 3 ? 3 : 1, mhi = interp == 3 ? 5 : 3;     // taps before / after a fast-path read
     const int16_t *d = v.pcm->data.data();
     // the matrix's pan and the slot's (1.8) as one balance, read per block so a turned knob moves held notes too
-    const float bal = std::max(-1.0f, std::min(1.0f, v.mod_pan + settings.slot_pan[z.slot < 0 || z.slot > 3 ? 0 : z.slot].load()));
+    const float bal = std::max(-1.0f, std::min(1.0f, v.mod_pan + v.lock_pan + settings.slot_pan[z.slot < 0 || z.slot > 3 ? 0 : z.slot].load()));
     const float bal_l = bal > 0 ? 1 - bal : 1, bal_r = bal < 0 ? 1 + bal : 1;
-    const float gl = v.gain * v.mod_gain * bal_l * v.pan_l * amp_lfo_gain * (1.0f / 32768.0f),
-                gr = v.gain * v.mod_gain * bal_r * v.pan_r * amp_lfo_gain * (1.0f / 32768.0f);
+    const float gl = v.polarity * v.gain * v.mod_gain * bal_l * v.pan_l * amp_lfo_gain * (1.0f / 32768.0f),
+                gr = v.polarity * v.gain * v.mod_gain * bal_r * v.pan_r * amp_lfo_gain * (1.0f / 32768.0f);
     const bool zf_on = v.zf[0].on, fenv_on = z.filter.env.set, penv_on = z.pitch_env.set;
-    if (z.wt_count > 1 && z.wt_size > 1) {
+    // (the cycles that fit the audio: a preset's wt_count past a shorter sample read beyond its data)
+    const int64_t wt_fit = z.wt_count > 1 && z.wt_size > 1 ? v.pcm->frames() / z.wt_size : 0;
+    if (wt_fit >= 2) {
         // A wavetable: loop one cycle of wt_size frames (v.pos is the phase) and crossfade between the two cycles either
         // side of the position (the WT POSITION knob plus the matrix), set per sub-block
-        const int N = z.wt_size, C = z.wt_count;
+        const int N = z.wt_size, C = int(std::min<int64_t>(z.wt_count, wt_fit));
         float wp = std::max(0.0f, std::min(1.0f, settings.wt_pos.load() + v.mod_wt)) * float(C - 1);
         int fa = std::min(C - 2, int(wp));
         float fr = wp - float(fa);
@@ -583,16 +759,17 @@ void Sampler::render_voice(Voice &v, float *outl, float *outr, int n) {
             int k = 0;
             if (v.dir > 0) {
                 int64_t lim = loop_active ? std::min(v.loop_end - 1, v.stop) : v.stop;   // first index the run may not read
-                hi = double(lim - 3); lo = double(v.start + 1);
+                hi = double(lim - mhi); lo = double(v.start + mlo);
                 if (pos >= lo && pos <= hi) k = int((hi - pos) / step) + 1;
             } else if (loop_active || v.reverse_) {   // released out of a backward loop: the generic path turns it round
-                // reads p[i0 - 1 .. i0 + 2]: keep them inside the loop (while it loops) or the sample
+                // reads p[i0 - 1 .. i0 + 2] (SINC: i0 - 3 .. i0 + 4): keep them inside the loop (while it loops) or the sample
                 int64_t bottom = loop_active ? std::max(v.loop_start, v.start) : v.start;
                 int64_t top = loop_active ? std::min(v.loop_end, v.stop) : v.stop;
-                lo = double(bottom + 1); hi = double(top - 3);
+                lo = double(bottom + mlo); hi = double(top - mhi);
                 if (pos >= lo && pos <= hi) k = int((pos - lo) / step) + 1;
             }
             const double dstep = v.dir > 0 ? step : -step;
+            const bool ppi = v.pp_inv && v.dir < 0;   // 1.8.2: the inverted backward pass of a ping-pong
             if (k > 0) {
                 if (k > n - i) k = n - i;
                 for (int e = i + k; i < e; i++) {
@@ -609,10 +786,24 @@ void Sampler::render_voice(Voice &v, float *outl, float *outr, int n) {
                         const int16_t *p = d + i0 * ch;
                         sl = float(p[0]) + float(p[ch] - p[0]) * t;
                         sr = ch > 1 ? float(p[1]) + float(p[ch + 1] - p[1]) * t : sl;
+                    } else if (interp == 3) {
+                        float k8[8];
+                        sinc_coefs(sinc, t, k8);
+                        const int16_t *p = d + (i0 - 3) * ch;
+                        float a = 0, b = 0;
+                        if (ch > 1) for (int q = 0; q < 8; q++) { a += k8[q] * float(p[q * ch]); b += k8[q] * float(p[q * ch + 1]); }
+                        else for (int q = 0; q < 8; q++) a += k8[q] * float(p[q]);
+                        sl = a;
+                        sr = ch > 1 ? b : sl;
                     } else {
                         const int16_t *p = d + i0 * ch;
                         sl = p[0];
                         sr = ch > 1 ? float(p[1]) : sl;
+                    }
+                    if (ppi) {
+                        float u = float((pos - v.pp_lo) * v.pp_k);
+                        sl = v.pp_c[0] + v.pp_d[0] * u - sl;
+                        sr = v.pp_c[1] + v.pp_d[1] * u - sr;
                     }
                     pos += dstep;
                     float a = v.amp.tick();
@@ -660,6 +851,16 @@ void Sampler::render_voice(Voice &v, float *outl, float *outr, int n) {
             float a = fetch(i0, 0), b = fetch(i0 + 1, 0);
             sl = a + (b - a) * t;
             if (ch > 1) { float a2 = fetch(i0, 1), b2 = fetch(i0 + 1, 1); sr = a2 + (b2 - a2) * t; } else sr = sl;
+        } else if (interp == 3) {   // 2.1.1: near a loop point or an end, each tap through fetch (wraps, 0 outside)
+            float k8[8];
+            sinc_coefs(sinc, t, k8);
+            float a = 0, b = 0;
+            for (int q = 0; q < 8; q++) {
+                a += k8[q] * fetch(i0 - 3 + q, 0);
+                if (ch > 1) b += k8[q] * fetch(i0 - 3 + q, 1);
+            }
+            sl = a;
+            sr = ch > 1 ? b : sl;
         } else {
             if (i0 - 1 >= v.start && i0 + 2 < (v.looping ? std::min(v.loop_end, v.stop) : v.stop)) {
                 const int16_t *p = d + size_t(i0 - 1) * ch;
@@ -669,6 +870,11 @@ void Sampler::render_voice(Voice &v, float *outl, float *outr, int n) {
                 sl = hermite(fetch(i0 - 1, 0), fetch(i0, 0), fetch(i0 + 1, 0), fetch(i0 + 2, 0), t);
                 sr = ch > 1 ? hermite(fetch(i0 - 1, 1), fetch(i0, 1), fetch(i0 + 1, 1), fetch(i0 + 2, 1), t) : sl;
             }
+        }
+        if (v.pp_inv && v.dir < 0 && v.looping && !(v.released && v.loop_until_release)) {
+            float u = float((v.pos - v.pp_lo) * v.pp_k);
+            sl = v.pp_c[0] + v.pp_d[0] * u - sl;
+            sr = v.pp_c[1] + v.pp_d[1] * u - sr;
         }
         v.pos += step * v.dir;
 
@@ -687,15 +893,19 @@ void Sampler::swap_program() {
     if (!swap_fade_) {
         bool any = false;
         for (auto &v : voices_) if (v.on) { any = true; v.fading = true; v.amp.fast_release(0.006f); }
+        synth.set_program(nullptr);   // 2.3.4: no new note picks the program going away
+        if (synth.program_voices()) { any = true; synth.fade_program(); }   // 2.3.4: SAMPLE oscillators reading slots
         swap_fade_ = any ? 1 : 2;
         if (any) return;
     }
     for (auto &v : voices_) if (v.on) return;   // wait for the fades
+    if (synth.program_voices()) return;
     if (retired_.load()) return;                // the loader has not collected the last one yet
     retired_.store(prog_);
     prog_ = pending_.exchange(nullptr);
+    synth.set_program(prog_);   // 2.3.4
     if (prog_) {
-        prog_->index();
+        if (prog_->by_key.size() != 128) prog_->index();   // (the loader indexes it: no allocation on the audio thread)
         double a = 0;
         for (auto &z : prog_->inst.zones)
             if (z.amp_env.set) a = std::max(a, z.amp_env.delay + z.amp_env.attack + z.amp_env.hold);
@@ -731,7 +941,22 @@ struct FlushDenormals {
 };
 }  // namespace
 
+// 2.4: with the ARP on, the block is rendered in pieces that end where its next step or note-off falls, so each note
+// starts on its exact frame
 void Sampler::render(int16_t *out, int frames) {
+    const int cap = int(mixl_.size());   // the mix buffers' size: a larger host block in pieces
+    while (frames > cap) { render(out, cap); out += 2 * cap; frames -= cap; }
+    if (!arp.settings.on.load() && !arp.busy()) { render_block(out, frames); return; }   // (turned off: process() ends its notes once)
+    int done = 0;
+    while (done < frames) {
+        const int n = arp.process(arp_sink_, frames - done);
+        render_block(out + 2 * done, n);
+        arp.advance(n);
+        done += n;
+    }
+}
+
+void Sampler::render_block(int16_t *out, int frames) {
     FlushDenormals ftz;
     if (panic_req_.exchange(false)) do_panic();
     if (prev_stop_.exchange(false)) retire_preview();
@@ -765,53 +990,168 @@ void Sampler::render(int16_t *out, int frames) {
             for (int o = 0; o < frames && v.on; o += 64) render_voice(v, l + o, r + o, std::min(64, frames - o));
             if (v.on) active++;
         }
+    // 2.3: the SYNTH layer, into the same mix before the FX (it plays with or without a program loaded)
+    synth.render(l, r, frames);
+    active += synth.active.load(std::memory_order_relaxed);
     active_voices.store(active);
+    // 2.3.1: IDLE SKIP. Nothing playing and the output under -100 dB for half a second (every tail rung out): the FX
+    // are skipped until the next note (they kept processing silence: up to ~3% of a Live II core with nothing playing)
+    if (active == 0 && !pv && quiet_frames_ >= int64_t(SR / 2)) {
+        std::memset(out, 0, sizeof(int16_t) * size_t(2 * frames));
+        peak.store(peak.load() * 0.9f);
+        gain_red_db.store(0);
+        return;
+    }
     float vol = std::pow(10.0f, settings.volume_db.load() / 20.0f) * cc7_ * cc7_ * cc11_;
     float pan = std::max(-1.0f, std::min(1.0f, settings.pan.load() + cc10_));
     float pl = pan > 0 ? 1 - pan : 1, pr = pan < 0 ? 1 + pan : 1;
-    float mix = std::max(0.0f, std::min(1.0f, settings.reverb_mix.load() + g_rev_add_)),
+    // 2.2: the reverb's type: Off (no key lit: no reverb whatever the mix), Classic (Freeverb, 1.0 to 2.1) or Plate /
+    // Hall / Room (PlateReverb); cleared when it comes on or changes type, so no old tail comes back
+    const int rsel = std::max(0, std::min(4, settings.reverb_type.load())), rtype = rsel - 1;   // rtype: 0 Classic, 1.. Plate
+    float mix = rsel == 0 ? 0.0f : std::max(0.0f, std::min(1.0f, settings.reverb_mix.load() + g_rev_add_)),
           drive = std::max(0.0f, std::min(1.0f, settings.drive.load() + g_drive_add_));
-    if (mix > 0.001f) reverb_.set(settings.reverb_size.load(), settings.reverb_damp.load());
+    if (mix > 0.001f) {
+        if (rtype != rev_type_) {
+            if (rtype == 0) reverb_.clear();
+            else { plate_.set_type(rtype); plate_.clear(); }
+        }
+        if (rtype == 0) reverb_.set(settings.reverb_size.load(), settings.reverb_damp.load());
+        else plate_.set(settings.reverb_size.load(), settings.reverb_damp.load(), settings.reverb_predelay.load());
+    }
+    rev_type_ = mix > 0.001f ? rtype : -1;
     // 1.8: the FX page, before the reverb: EQ, compressor, chorus, delay. Each is skipped while off; the chorus and
     // delay lines are cleared when switched back on, so no old audio comes back
     eq_.set(settings.eq_low.load(), settings.eq_mid.load(), settings.eq_high.load());
-    float comp = settings.comp.load();
-    if (comp > 0.001f) comp_.set(comp);
-    float cmix = settings.chorus_mix.load(), dmix = settings.delay_mix.load();
+    // 2.2: the compressor's type: Off (none chosen: AMOUNT does nothing), Classic (1.8's), Glue / Punch (BusComp)
+    const int mtype = std::max(0, std::min(3, settings.comp_type.load()));
+    float comp = mtype == 0 ? 0.0f : settings.comp.load();
+    const bool comp_on = comp > 0.001f;
+    if (comp_on) {
+        if (!comp_on_ || mtype != comp_type_) {
+            if (mtype == 1) comp_.clear();
+            else bus_.clear();
+        }
+        if (mtype == 1) comp_.set(comp); else bus_.set(mtype, comp);
+    }
+    comp_type_ = mtype;
+    comp_on_ = comp_on;
+    // 2.2: the limiter (63 samples of delay while on); cleared when switched on
+    const bool lim_on = settings.limiter.load() != 0;
+    if (lim_on && !limiter_on_) limiter_.clear();
+    limiter_on_ = lim_on;
+    // 2.2: the delay's type: Off (none lit: no delay whatever the mix), Classic, Tape, Analog
+    const int dtype = std::max(0, std::min(3, settings.delay_type.load()));
+    // 2.2: the chorus's type: Off (none lit: no chorus whatever the mix), Classic (1.8's), Ens I / II / I+II (Ensemble)
+    const int ctype = std::max(0, std::min(4, settings.chorus_type.load()));
+    float cmix = ctype == 0 ? 0.0f : settings.chorus_mix.load(), dmix = dtype == 0 ? 0.0f : settings.delay_mix.load();
     if (cmix > 0.001f) {
-        if (!chorus_on_) chorus_.clear();
-        chorus_.set(settings.chorus_rate.load(), settings.chorus_depth.load(), cmix);
+        if (!chorus_on_ || ctype != chorus_type_) { chorus_.clear(); ensemble_.clear(); }
+        if (ctype == 1) chorus_.set(settings.chorus_rate.load(), settings.chorus_depth.load(), cmix);
+        else ensemble_.set(ctype - 1, settings.chorus_rate.load(), settings.chorus_depth.load(), cmix);
     }
     chorus_on_ = cmix > 0.001f;
+    chorus_type_ = ctype;
     if (dmix > 0.001f) {
         if (!delay_on_) delay_.clear();
         int dv = std::max(0, std::min(DELAY_COUNT - 1, settings.delay_div.load()));
         double tempo = tempo_ > 20 ? tempo_ : 120;
-        delay_.set(float(DELAY_BEATS[dv] * 60.0 / tempo), settings.delay_fb.load(), settings.delay_tone.load(), dmix, settings.delay_ping.load() != 0);
+        delay_.set(float(DELAY_BEATS[dv] * 60.0 / tempo), settings.delay_fb.load(), settings.delay_tone.load(), dmix, settings.delay_ping.load() != 0, dtype);
     }
     delay_on_ = dmix > 0.001f;
-    const bool eq_on = eq_.on, comp_on = comp > 0.001f;
-    float pk = 0;
-    // the drive's normalisation, once per block (it was a tanh per sample)
-    const float dk = 1 + drive * 8, dnorm = 1 / std::tanh(dk);
+    // 1.8.2: the MOD FX page, after the compressor: lo-fi, phaser, flanger, tremolo / auto-pan
+    float lmix = settings.lofi_mix.load(), pmix = settings.phaser_mix.load(), fmix = settings.flanger_mix.load(),
+          tdepth = settings.trem_depth.load();
+    if (lmix > 0.001f && !lofi_on_) lofi_.clear();
+    if (lmix > 0.001f) lofi_.set(settings.lofi_rate.load(), settings.lofi_bits.load(), lmix);
+    lofi_on_ = lmix > 0.001f;
+    if (pmix > 0.001f) {
+        if (!phaser_on_) phaser_.clear();
+        phaser_.set(settings.phaser_rate.load(), settings.phaser_depth.load(), settings.phaser_fb.load(), pmix);
+    }
+    phaser_on_ = pmix > 0.001f;
+    if (fmix > 0.001f) {
+        if (!flanger_on_) flanger_.clear();
+        flanger_.set(settings.flanger_rate.load(), settings.flanger_depth.load(), settings.flanger_fb.load(), fmix);
+    }
+    flanger_on_ = fmix > 0.001f;
+    if (tdepth > 0.001f) {
+        int ts = settings.trem_sync.load();
+        double beats = ts > 0 && ts < SYNC_COUNT ? SYNC_BEATS[ts] : 0;
+        double tempo = tempo_ > 20 ? tempo_ : 120;
+        trem_.set(float(beats > 0 ? tempo / 60.0 / beats : settings.trem_rate.load()), tdepth, settings.trem_pan.load() != 0,
+                  settings.trem_square.load() != 0);
+    }
+    const bool lofi_on = lmix > 0.001f, trem_on = tdepth > 0.001f;
+    const bool eq_on = eq_.on;
+    float pk = 0, sum = 0;   // sum: 2.4.32, the non-finite check
+    // 2.2: the drive's type: Off (no type chosen: the DRIVE knob does nothing), else 2x oversampled (Drive)
+    const int dsel = std::max(0, std::min(4, settings.drive_type.load()));
+    if (dsel > 0) {
+        if (dsel != drive_type_) drive_.clear();
+        drive_.set(dsel, drive);
+    }
+    drive_type_ = dsel;
+    {   // 2.4.30: FX BANK, once per block on the mix (off = program 0 / NO EFFECT / mix 0: nothing runs)
+        // 2.4.33: the bay's slot: A runs the factory rack; B..D run their expansion bank (A is then off: program 0)
+        const int slot = std::max(0, std::min(3, settings.fxb_slot.load()));
+        const int fsel = slot == 0 ? settings.fxb_prog.load() : 0;
+        const bool byp = settings.fxb_bypass.load() != 0, was_byp = fxb_byp_;
+        if (fsel != fxb_sel_) { if (!fxb_.select(size_t(std::max(0, fsel)))) fxb_.select(0); fxb_sel_ = fsel; }
+        else if (was_byp && !byp) fxb_.reset();   // back from BYPASS: no tail from before it
+        fxb_byp_ = byp;
+        auto controls = [this] {
+            omnisampler::fxbank::Controls c;
+            c.mix = settings.fxb_mix.load(); c.rateHz = settings.fxb_rate.load(); c.depth = settings.fxb_depth.load();
+            c.feedback = settings.fxb_fb.load(); c.timeMs = settings.fxb_time.load(); c.tone = settings.fxb_tone.load();
+            c.driveDb = settings.fxb_drive.load(); c.thresholdDb = settings.fxb_thr.load(); c.ratio = settings.fxb_ratio.load();
+            c.pitchSemitones = settings.fxb_pitch.load(); c.lowDb = settings.fxb_low.load(); c.midDb = settings.fxb_mid.load();
+            c.highDb = settings.fxb_high.load();
+            return c;
+        };
+        if (fsel > 0 && !byp) {
+            const omnisampler::fxbank::Controls c = controls();
+            if (!fxb_set_ || std::memcmp(&c, &fxb_c_, sizeof c) != 0) { fxb_.set(c); fxb_c_ = c; fxb_set_ = true; }   // pow()s only on a change
+            fxb_.process(l, r, size_t(frames));
+        }
+        if (slot > 0 && fxx_[slot - 1]) {   // 2.4.33: an expansion bank (an empty slot: nothing runs, the mix passes dry)
+            FxExpansion &x = *fxx_[slot - 1];
+            const int k = slot - 1, n = x.count();
+            const int p = std::max(0, std::min(n, settings.fxb_xprog[k].load()));
+            if (p != fxx_sel_[k] || slot != fxx_slot_) {   // a new program, or back in this slot: no old tail
+                if (p > 0) x.select(p);
+                fxx_sel_[k] = p;
+            } else if (was_byp && !byp) x.reset();
+            if (p > 0 && !byp) {
+                const omnisampler::fxbank::Controls c = controls();
+                if (!fxx_set_[k] || std::memcmp(&c, &fxx_c_[k], sizeof c) != 0) { x.set(c); fxx_c_[k] = c; fxx_set_[k] = true; }
+                x.tempo(tempo_);   // 2.4.35 (Camel: tempo gates / delays)
+                x.process(l, r, frames);
+            }
+        }
+        fxx_slot_ = slot;
+    }
     for (int i = 0; i < frames; i++) {
         float a = l[i], b = r[i];
         if (eq_on) eq_.tick(a, b);
-        if (comp_on) comp_.tick(a, b);
-        if (chorus_on_) chorus_.tick(a, b);
+        if (comp_on) { if (mtype == 1) comp_.tick(a, b); else bus_.tick(a, b); }
+        if (lofi_on) lofi_.tick(a, b);
+        if (phaser_on_) phaser_.tick(a, b);
+        if (flanger_on_) flanger_.tick(a, b);
+        if (trem_on) trem_.tick(a, b);
+        if (chorus_on_) { if (ctype == 1) chorus_.tick(a, b); else ensemble_.tick(a, b); }
         if (delay_on_) delay_.tick(a, b);
         if (mix > 0.001f) {
             float wl, wr;
-            reverb_.tick(a, b, wl, wr);
+            if (rtype == 0) reverb_.tick(a, b, wl, wr);
+            else plate_.tick(a, b, wl, wr);
             a = a * (1 - mix * 0.5f) + wl * mix;
             b = b * (1 - mix * 0.5f) + wr * mix;
         }
         if (pv) { a += pvl_[size_t(i)]; b += pvr_[size_t(i)]; }   // the preview: after the reverb, at the plugin's volume
         a *= vol * pl; b *= vol * pr;
-        if (drive > 0.001f) {
-            a = fast_tanh(a * dk) * dnorm;
-            b = fast_tanh(b * dk) * dnorm;
-        }
+        if (dsel > 0) drive_.tick(a, b);
+        if (lim_on) limiter_.tick(a, b);   // 2.2: before the soft limit, which it then never reaches
+        sum += a + b;
         // soft limit above -1 dBFS instead of hard clipping
         auto lim = [](float x) { float ax = std::fabs(x); return ax < 0.89f ? x : (x > 0 ? 1 : -1) * (0.89f + 0.11f * std::tanh((ax - 0.89f) / 0.11f)); };
         a = lim(a); b = lim(b);
@@ -819,7 +1159,21 @@ void Sampler::render(int16_t *out, int frames) {
         out[2 * i] = int16_t(std::lrint(a * 32767.0f));
         out[2 * i + 1] = int16_t(std::lrint(b * 32767.0f));
     }
+    if (!std::isfinite(sum)) {   // 2.4.32: inf / NaN in the mix: this block silent, every state cleared (heal_nonfinite)
+        std::memset(out, 0, sizeof(int16_t) * size_t(2 * frames));
+        heal_nonfinite();
+        pk = 0;
+    }
     peak.store(std::max(pk, peak.load() * 0.9f));
+    quiet_frames_ = active == 0 && !pv && pk < 1e-5f ? quiet_frames_ + frames : 0;   // 2.3.1: idle skip
+    {   // 2.2: the GR meter: the compressor's reduction plus the limiter's, falling back at about 40 dB a second
+        float red = 0;
+        if (comp_on && mtype == 1) red += std::max(0.0f, 20 * std::log10(std::max(1e-6f, comp_.makeup / std::max(1e-6f, comp_.g))));
+        else if (comp_on) red += bus_.red_db;
+        if (lim_on) red += std::max(0.0f, -20 * std::log10(std::max(1e-6f, limiter_.last_g)));
+        float shown = gain_red_db.load();
+        gain_red_db.store(std::max(red, shown - 40.0f * float(frames) / SR));
+    }
     if (pv && prev_pos_ >= double(prev_->frames() - 1)) retire_preview();
 }
 

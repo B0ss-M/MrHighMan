@@ -23,8 +23,10 @@ static std::string get(void *inst, const char *key) {
     int n = E->get_param(inst, key, buf, sizeof buf);
     return n > 0 ? std::string(buf) : std::string();
 }
+// 2.4.32: wait on led_busy (lock-free), not br_info: while the worker holds ui_mutex, get_param serves the last cached
+// text (2.4.11: never stall audio), so br_info could read stale and settle returned with the worker still listing
 static void settle(void *inst) {   // the browser's worker thread runs Enter and taps
-    for (int i = 0; i < 2500 && get(inst, "br_info") == "Opening..."; i++) std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    for (int i = 0; i < 2500 && get(inst, "led_busy") == "1"; i++) std::this_thread::sleep_for(std::chrono::milliseconds(2));
 }
 static std::string row(void *inst, int r) { char k[16]; std::snprintf(k, sizeof k, "br_%d", r); return get(inst, k); }
 static std::string lit(void *inst, int r) { char k[16]; std::snprintf(k, sizeof k, "br_%d_on", r); return get(inst, k); }
@@ -35,6 +37,10 @@ static int marked(void *inst) {
         if (row(inst, r).compare(0, 2, "> ") == 0) at = at ? -1 : r;
     return at;
 }
+
+// 2.4.27: an instance now comes back to its last list position (last_browse.txt); these checks are about an instance
+// without one, so each starts with no saved position
+static void *fresh_create() { std::remove("/tmp/omni-sampler-test/last_browse.txt"); return E->create("/tmp/omni-sampler-test"); }
 
 int main() {
     const std::string root = "/tmp/omni-wheel-test";
@@ -50,7 +56,7 @@ int main() {
 
     setenv("OMNI_WHEEL_MS", "0", 1);   // the one-row-per-click burst limit: off, this test steps faster than a hand
     E = mpc_engine();
-    void *inst = E->create("/tmp/omni-sampler-test");
+    void *inst = fresh_create();
     E->set_param(inst, "br_path", root.c_str());
     settle(inst);
     std::string loc = get(inst, "br_loc");
@@ -95,7 +101,7 @@ int main() {
 
     // 6. Q-Link 1 (br_row): MPC sends the data wheel on BROWSE to this same parameter, so it moves the highlight too
     {
-        void *q = E->create("/tmp/omni-sampler-test");
+        void *q = fresh_create();
         E->set_param(q, "br_path", root.c_str());
         settle(q);
         E->set_param(q, "br_row", "2");
@@ -107,8 +113,9 @@ int main() {
         E->destroy(q);
     }
 
-    // 7. a fresh instance: Enter with no highlight only shows it, and opens nothing
-    void *b = E->create("/tmp/omni-sampler-test");
+    // 7. a fresh instance: Enter with no highlight only shows it, and opens nothing (2.4.27: "fresh" = no saved list
+    // position either: an instance now comes back to the row last highlighted, from last_browse.txt)
+    void *b = fresh_create();
     E->set_param(b, "br_path", root.c_str());
     settle(b);
     std::string before = get(b, "br_loc");
@@ -121,7 +128,7 @@ int main() {
     // 9 (timing, as a hand turns, from the device log 2026-11-02): one row per turn, a held turn scrolls fast
     {
         setenv("OMNI_WHEEL_MS", "70", 1);
-        void *w = E->create("/tmp/omni-sampler-test");
+        void *w = fresh_create();
         E->set_param(w, "br_path", root.c_str());
         settle(w);
         auto turn = [&](const char *v, int ms) {   // events 30 ms apart, MPC's "-" mixed in, then a 400 ms pause
@@ -156,7 +163,7 @@ int main() {
     // 8. PREVIEW ON loads as you scroll, PREVIEW OFF only highlights: with OMNI_WHEEL_BANK set to a multi-preset file, open it, then each wheel step loads the
     //    highlighted preset (prog_name follows the highlighted row's name)
     if (const char *bank = std::getenv("OMNI_WHEEL_BANK")) {
-        void *c = E->create("/tmp/omni-sampler-test");
+        void *c = fresh_create();
         std::string f = bank, dir = f.substr(0, f.rfind('/')), base = f.substr(f.rfind('/') + 1);
         E->set_param(c, "br_path", dir.c_str());
         settle(c);
