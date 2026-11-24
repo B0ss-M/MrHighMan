@@ -22,5 +22,11 @@
   "device": "Akai MPC Live II (Hakai)",
   "firmware": "MPC OS 3.9.1.2",
   "date": "2026-11-23"
+ },
+ {
+  "version": "2.3.0",
+  "device": "Akai MPC Live III (Gen2)",
+  "firmware": "MPC OS 3.10.1.12",
+  "date": "2026-11-24"
  }
 ]
