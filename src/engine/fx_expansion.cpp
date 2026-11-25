@@ -15,11 +15,79 @@
 #include "camel_fx.hpp"
 #include "hardware_fx.hpp"
 #endif
+#include "mv8800_bank_a.hpp"
+#include "mv8800_fx.hpp"   // 2.4.37: the MV-8800 MFX (private: slot B after the Roland hardware; 2.4.39 public: bank A)
 
 namespace omni {
 
 namespace {
 std::atomic<FxExpansionFactory> g_factory{nullptr};
+
+// 2.4.37 (user): the MV-8800 MFX as programs "MV <effect>", each at its .MVE defaults; the page's MIX blends dry / wet (as
+// CAMEL). 2.4.39: built from a list (effect index, dry): private slot B leaves the Live II's heavy ones out (bay_hidden),
+// public bank A lists all 30 light-first and plays the heavy ones dry on 32-bit ARM ("64-bit MPC only")
+class MvBank : public FxExpansion {
+    omnisampler::mv8800::Processor fx_;
+    std::vector<float> dl_, dr_;
+    std::vector<unsigned> idx_;
+    std::vector<bool> dry_;
+    std::vector<std::string> names_;
+    float mix_ = .5f;
+    double bpm_ = 120, rate_ = 0;
+    int sel_ = 0;
+public:
+    explicit MvBank(const std::vector<std::pair<unsigned, bool>> &list) {
+        for (const auto &e : list) {
+            if (e.first >= omnisampler::mv8800::count) continue;
+            idx_.push_back(e.first);
+            dry_.push_back(e.second);
+            names_.push_back(std::string("MV ") + omnisampler::mv8800::programs[e.first].name + (e.second ? " (64-bit MPC only)" : ""));
+        }
+    }
+    const char *title() const override { return "MV-8800"; }
+    int count() const override { return int(idx_.size()); }
+    const char *name(int p) const override { return p >= 1 && p <= count() ? names_[size_t(p - 1)].c_str() : ""; }
+    void prepare(double sample_rate, int max_block) override {
+        if (rate_ != sample_rate) { fx_.prepare(unsigned(sample_rate + .5)); rate_ = sample_rate; if (sel_ > 0) select(sel_); }
+        dl_.assign(size_t(std::max(1, max_block)), 0.f);
+        dr_.assign(size_t(std::max(1, max_block)), 0.f);
+    }
+    void select(int p) override {
+        if (p < 1 || p > count()) return;
+        sel_ = p;
+        if (!dry_[size_t(p - 1)]) fx_.load(static_cast<omnisampler::mv8800::Effect>(idx_[size_t(p - 1)]));
+    }
+    void set(const omnisampler::fxbank::Controls &c) override { mix_ = std::isfinite(c.mix) ? std::max(0.f, std::min(1.f, c.mix)) : .5f; }
+    void tempo(double bpm) override { bpm_ = bpm; }
+    void process(float *l, float *r, int frames) override {
+        if (sel_ <= 0 || dry_[size_t(sel_ - 1)] || frames <= 0 || mix_ <= 0 || dl_.empty()) return;
+        for (int done = 0; done < frames;) {
+            const int n = std::min(frames - done, int(dl_.size()));
+            float *a = l + done, *b = r + done;
+            std::memcpy(dl_.data(), a, sizeof(float) * size_t(n));
+            std::memcpy(dr_.data(), b, sizeof(float) * size_t(n));
+            fx_.process(a, b, unsigned(n), bpm_);
+            if (mix_ < 1)
+                for (int i = 0; i < n; i++) { a[i] = dl_[size_t(i)] + mix_ * (a[i] - dl_[size_t(i)]); b[i] = dr_[size_t(i)] + mix_ * (b[i] - dr_[size_t(i)]); }
+            done += n;
+        }
+    }
+    void reset() override { fx_.reset(); }
+};
+
+// public bank A: light ones (they run on the Live II) first, then the heavy ones (dry on 32-bit ARM)
+std::vector<std::pair<unsigned, bool>> mv_bank_a_list() {
+    std::vector<std::pair<unsigned, bool>> out;
+#if defined(__arm__) && !defined(__aarch64__)
+    const bool arm32 = true;
+#else
+    const bool arm32 = false;
+#endif
+    for (int pass = 0; pass < 2; pass++)
+        for (unsigned i = 0; i < omnisampler::mv8800::count; i++)
+            if (mv_heavy_armv7(omnisampler::mv8800::programs[i].name) == (pass == 1)) out.push_back({i, pass == 1 && arm32});
+    return out;
+}
 
 #if !OMNI_PUBLIC
 namespace hw = omnisampler::hardware;
@@ -139,6 +207,35 @@ public:
     void reset() override { fx_.reset(); }
 };
 
+// 2.4.37: slot B = the Roland hardware programs (unchanged numbers 1..n), then the MV-8800 programs
+class RolandSlot : public FxExpansion {
+    std::unique_ptr<FxExpansion> hw_, mv_;
+    FxExpansion *on_ = nullptr;   // the bank of the selected program
+public:
+    RolandSlot(std::unique_ptr<FxExpansion> hw, std::unique_ptr<FxExpansion> mv) : hw_(std::move(hw)), mv_(std::move(mv)) {}
+    const char *title() const override { return "ROLAND HW"; }
+    int count() const override { return hw_->count() + mv_->count(); }
+    const char *name(int p) const override { return p <= hw_->count() ? hw_->name(p) : mv_->name(p - hw_->count()); }
+    void prepare(double sample_rate, int max_block) override { hw_->prepare(sample_rate, max_block); mv_->prepare(sample_rate, max_block); }
+    void select(int p) override {
+        if (p < 1 || p > count()) return;
+        if (p <= hw_->count()) { hw_->select(p); on_ = hw_.get(); }
+        else { mv_->select(p - hw_->count()); on_ = mv_.get(); }
+    }
+    void set(const omnisampler::fxbank::Controls &c) override { hw_->set(c); mv_->set(c); }
+    void process(float *l, float *r, int frames) override { if (on_) on_->process(l, r, frames); }
+    void reset() override { if (on_) on_->reset(); }
+    void tempo(double bpm) override { hw_->tempo(bpm); mv_->tempo(bpm); }
+    void note_on() override { if (on_) on_->note_on(); }
+};
+
+std::unique_ptr<FxExpansion> mv_slot_b() {
+    std::vector<std::pair<unsigned, bool>> list;
+    for (unsigned i = 0; i < omnisampler::mv8800::count; i++)
+        if (!bay_hidden('B', (std::string("MV ") + omnisampler::mv8800::programs[i].name).c_str())) list.push_back({i, false});
+    return std::make_unique<MvBank>(list);
+}
+
 const std::vector<std::pair<const char *, const char *>> &roland_banks() {
     static const std::vector<std::pair<const char *, const char *>> b = {
         {"XV-3080 MFX", "XV"}, {"SC-88 Pro System", "88P"}, {"SC-88 Pro Delay", "88P"}, {"SC-88 Pro Insert", "88P"},
@@ -162,7 +259,7 @@ void make_fx_expansions(std::unique_ptr<FxExpansion> out[3]) {
     for (int k = 0; k < 3; k++) out[k] = nullptr;   // empty slots
 #else
     auto sh = std::make_shared<HardwareShared>();
-    out[0] = std::make_unique<HardwareBank>(sh, "ROLAND HW", 'B', roland_banks());
+    out[0] = std::make_unique<RolandSlot>(std::make_unique<HardwareBank>(sh, "ROLAND HW", 'B', roland_banks()), mv_slot_b());   // 2.4.37: + MV
     out[1] = std::make_unique<HardwareBank>(sh, "HARDWARE", 'C', other_banks());
     out[2] = std::make_unique<CamelBank>();
 #endif
@@ -175,13 +272,15 @@ std::unique_ptr<FxExpansion> make_fx_expansion(int slot) {
     return nullptr;
 #else
     switch (slot) {
-    case 1: return std::make_unique<HardwareBank>(std::make_shared<HardwareShared>(), "ROLAND HW", 'B', roland_banks());
+    case 1: return std::make_unique<RolandSlot>(std::make_unique<HardwareBank>(std::make_shared<HardwareShared>(), "ROLAND HW", 'B', roland_banks()), mv_slot_b());
     case 2: return std::make_unique<HardwareBank>(std::make_shared<HardwareShared>(), "HARDWARE", 'C', other_banks());
     case 3: return std::make_unique<CamelBank>();
     default: return nullptr;
     }
 #endif
 }
+
+std::unique_ptr<FxExpansion> make_mv_bank_a() { return std::make_unique<MvBank>(mv_bank_a_list()); }
 
 void set_fx_expansion_factory(FxExpansionFactory f) { g_factory.store(f); }
 

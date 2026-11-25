@@ -1,10 +1,37 @@
 // Omni Sampler: voices, note handling and rendering (see sampler.hpp).
 #include "sampler.hpp"
+#include "mv8800_bank_a.hpp"   // 2.4.39: MV_A_BASE
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 
 namespace omni {
+
+// 2.4.40: the FX BANK knobs a program uses (bit k = fxknobs::Knob k), from the knob audit (reports/fx-knob-audit/); a program
+// not in the tables: MIX only (every other knob then acts through the shared section)
+namespace {
+#include "fx_knob_usage_a.inc"
+#if !(defined(OMNI_PUBLIC) && OMNI_PUBLIC)
+#include "fx_knob_usage_bcd.inc"
+#endif
+uint16_t fx_usage_a(int catalog) {
+    for (const auto &u : FX_USAGE_A) if (u.index == catalog) return u.used;
+    return 1u << omnisampler::fxknobs::K_MIX;
+}
+uint16_t fx_usage_named(char slot, const char *name) {
+    std::string n = name ? name : "";
+    const size_t only = n.find(" (64-bit MPC only)");
+    if (only != std::string::npos) n.erase(only);
+    if (n.compare(0, 3, "MV ") == 0)
+        for (const auto &u : FX_USAGE_MV) if (n == u.name) return u.used;
+#if !(defined(OMNI_PUBLIC) && OMNI_PUBLIC)
+    for (const auto &u : FX_USAGE_BCD) if (u.slot == slot && n == u.name) return u.used;
+#else
+    (void)slot;
+#endif
+    return 1u << omnisampler::fxknobs::K_MIX;
+}
+}  // namespace
 
 static inline double clampd_(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi : v; }
 
@@ -28,8 +55,13 @@ Sampler::Sampler() {
     fxb_.prepare(SR);   // 2.4.30: allocates here only
     fxb_.select(0);
     make_fx_expansions(fxx_);   // 2.4.33: the bay's expansion slots (empty ones stay nullptr); 2.4.35: B / C share a rack
+#if defined(OMNI_PUBLIC) && OMNI_PUBLIC
+    fxa_mv_ = make_mv_bank_a();   // 2.4.39 (public 2.3.1): bank A's MV-8800 programs
+#endif
     for (int k = 0; k < 3; k++)
         if (fxx_[k]) fxx_[k]->prepare(SR, int(mixl_.size()));
+    if (fxa_mv_) fxa_mv_->prepare(SR, int(mixl_.size()));   // 2.4.39 (public bank A MV)
+    fxk_.prepare(float(SR), int(mixl_.size()));   // 2.4.40: the FX BANK's shared knob section
 }
 
 Sampler::~Sampler() {
@@ -1094,7 +1126,10 @@ void Sampler::render_block(int16_t *out, int frames) {
     {   // 2.4.30: FX BANK, once per block on the mix (off = program 0 / NO EFFECT / mix 0: nothing runs)
         // 2.4.33: the bay's slot: A runs the factory rack; B..D run their expansion bank (A is then off: program 0)
         const int slot = std::max(0, std::min(3, settings.fxb_slot.load()));
-        const int fsel = slot == 0 ? settings.fxb_prog.load() : 0;
+        const int fraw = slot == 0 ? settings.fxb_prog.load() : 0;
+        // 2.4.39 (public 2.3.1): catalog numbers above MV_A_BASE = bank A's MV-8800 programs (the factory rack then off)
+        const int mvp = fraw > MV_A_BASE && fxa_mv_ ? std::min(fxa_mv_->count(), fraw - MV_A_BASE) : 0;
+        const int fsel = fraw > MV_A_BASE ? 0 : fraw;
         const bool byp = settings.fxb_bypass.load() != 0, was_byp = fxb_byp_;
         if (fsel != fxb_sel_) { if (!fxb_.select(size_t(std::max(0, fsel)))) fxb_.select(0); fxb_sel_ = fsel; }
         else if (was_byp && !byp) fxb_.reset();   // back from BYPASS: no tail from before it
@@ -1108,10 +1143,34 @@ void Sampler::render_block(int16_t *out, int frames) {
             c.highDb = settings.fxb_high.load();
             return c;
         };
+        // 2.4.40: the knobs this program does not use act through the shared section around it (off at the page defaults)
+        long pkey = -1;
+        if (fsel > 0) pkey = long(fsel);
+        else if (mvp > 0) pkey = 100000L + mvp;
+        else if (slot > 0 && fxx_[slot - 1]) { const int xp = std::max(0, std::min(fxx_[slot - 1]->count(), settings.fxb_xprog[slot - 1].load())); if (xp > 0) pkey = slot * 1000000L + xp; }
+        if (pkey != fxk_key_) {
+            fxk_key_ = pkey;
+            fxk_used_ = pkey < 0 ? omnisampler::fxknobs::ALL : fsel > 0 ? fx_usage_a(fsel)
+                      : mvp > 0 ? fx_usage_named('A', fxa_mv_->name(mvp)) : fx_usage_named(char('A' + slot), fxx_[slot - 1]->name(int(pkey % 1000000L)));
+            fxk_.reset();
+        }
+        const bool knobs = pkey >= 0 && !byp;
+        const omnisampler::fxbank::Controls kc = controls();
+        if (knobs) fxk_.pre(l, r, frames, kc, fxk_used_);
         if (fsel > 0 && !byp) {
             const omnisampler::fxbank::Controls c = controls();
             if (!fxb_set_ || std::memcmp(&c, &fxb_c_, sizeof c) != 0) { fxb_.set(c); fxb_c_ = c; fxb_set_ = true; }   // pow()s only on a change
             fxb_.process(l, r, size_t(frames));
+        }
+        if (fxa_mv_) {   // 2.4.39 (public 2.3.1): bank A's MV-8800 program
+            if (mvp != fxa_mv_sel_) { if (mvp > 0) fxa_mv_->select(mvp); fxa_mv_sel_ = mvp; }
+            else if (was_byp && !byp) fxa_mv_->reset();
+            if (mvp > 0 && !byp) {
+                const omnisampler::fxbank::Controls c = controls();
+                if (!fxa_mv_set_ || std::memcmp(&c, &fxa_mv_c_, sizeof c) != 0) { fxa_mv_->set(c); fxa_mv_c_ = c; fxa_mv_set_ = true; }
+                fxa_mv_->tempo(tempo_);
+                fxa_mv_->process(l, r, frames);
+            }
         }
         if (slot > 0 && fxx_[slot - 1]) {   // 2.4.33: an expansion bank (an empty slot: nothing runs, the mix passes dry)
             FxExpansion &x = *fxx_[slot - 1];
@@ -1128,6 +1187,7 @@ void Sampler::render_block(int16_t *out, int frames) {
                 x.process(l, r, frames);
             }
         }
+        if (knobs) fxk_.post(l, r, frames, kc, fxk_used_);
         fxx_slot_ = slot;
     }
     for (int i = 0; i < frames; i++) {

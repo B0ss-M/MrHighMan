@@ -24,7 +24,9 @@ static std::string get(void *inst, const char *key) {
     return n > 0 ? std::string(buf) : std::string();
 }
 static void settle(void *inst) {
-    for (int i = 0; i < 2500 && get(inst, "br_info") == "Opening..."; i++) std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    // 2.4.38: the lock-free busy LED (as test_wheel 2.4.32): br_info serves the CACHED text while the browser worker holds
+    // ui_mutex, so polling it could return with the worker still listing (1 in 8 runs read the old rows)
+    for (int i = 0; i < 2500 && (get(inst, "led_busy") == "1" || get(inst, "br_info") == "Opening..."); i++) std::this_thread::sleep_for(std::chrono::milliseconds(2));
 }
 static std::string row(void *inst, int r) {   // the label, without the highlight's "> "
     char k[16];
@@ -65,7 +67,7 @@ int main() {
     std::printf("drives: %s | 1 \"%s\" 2 \"%s\"\n", get(inst, "br_loc").c_str(), row(inst, 1).c_str(), row(inst, 2).c_str());
     CHECK(get(inst, "br_loc") == "Drives", "not the drives list: %s", get(inst, "br_loc").c_str());
     int internal = find_row(inst, "Internal");
-#ifdef OMNI_OFFICIAL
+    // 2.4.39: every build lists the Live III internal drive (was the official package only)
     CHECK(internal > 0, "no Internal row for the user drive");
     if (internal) {
         tap(inst, internal);
@@ -105,13 +107,6 @@ int main() {
     setenv("OMNI_SAMPLER_USER_DRIVE", (root + "/missing").c_str(), 1);
     E->set_param(inst, "br_path", "");
     CHECK(find_row(inst, "Internal") == 0 || std::system("test -d /sdcard") == 0, "an Internal row with no drive");
-#else
-    CHECK(internal == 0 || std::system("test -d /sdcard") == 0, "the private build listed the user drive");
-    E->set_param(inst, "br_path", (drive + "/OMNI").c_str());
-    trigger(inst, "br_setlib");
-    CHECK(get(inst, "lib_path").find(drive) == std::string::npos, "the private build took a library outside /media: %s",
-          get(inst, "lib_path").c_str());
-#endif
     E->destroy(inst);
     std::system(("rm -rf " + root).c_str());
     if (fails) { std::printf("FAILED (%d)\n", fails); return 1; }

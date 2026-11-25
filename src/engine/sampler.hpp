@@ -9,7 +9,8 @@
 #include "dsp.hpp"
 #include "synth.hpp"
 #include "arp.hpp"
-#include "omni_fx_bank.hpp"   // 2.4.30: FX BANK (T6, MAI 2: OmniSampler FX Bank, FX1/FX2 fixed)
+#include "omni_fx_bank.hpp"
+#include "fx_knobs.hpp"   // 2.4.40   // 2.4.30: FX BANK (T6, MAI 2: OmniSampler FX Bank, FX1/FX2 fixed)
 #include "fx_expansion.hpp"   // 2.4.33: the bay's expansion slots B / C / D
 
 namespace omni {
@@ -279,6 +280,16 @@ private:
     omnisampler::fxbank::Controls fxx_c_[3]{};
     bool fxx_set_[3] = {false, false, false};
     int fxx_slot_ = 0;
+    // 2.4.39 (public 2.3.1): FX BANK slot A's MV-8800 programs (created only with OMNI_PUBLIC; nullptr in private builds)
+    std::unique_ptr<FxExpansion> fxa_mv_;
+    int fxa_mv_sel_ = 0;
+    omnisampler::fxbank::Controls fxa_mv_c_{};
+    bool fxa_mv_set_ = false;
+    // 2.4.40: the FX BANK knobs the playing program does not use drive a shared section around it (fx_knobs.hpp; off at
+    // the page defaults); fxk_used_ = the program's knobs (fx_knob_usage*.inc), fxk_key_ = which program that is
+    omnisampler::fxknobs::Shared fxk_;
+    uint16_t fxk_used_ = omnisampler::fxknobs::ALL;
+    long fxk_key_ = -1;
 
     void note_on(int chan, int note, int vel);
     int curve_vel(int v) const;   // 2.4.6: an incoming note-on's velocity through settings.vel_curve

@@ -983,7 +983,9 @@ int main() {
         check(chord() == "Am/C", ("A minor INVERT UP: Am/C: " + chord()).c_str());
         e->set_param(y, "arp_mode", "1");
         go("0");
-        check(get(e, y, "arp_info").find("SEQ") != std::string::npos, ("ARP mode: VOICE says it needs SEQ: " + get(e, y, "arp_info")).c_str());
+        // 2.4.40: VOICE works on ARP grids too (by octaves: NOTE OCT), it no longer refuses
+        check(get(e, y, "arp_info").find("moved by octaves") != std::string::npos || get(e, y, "arp_info").find("already voiced") != std::string::npos,
+              ("ARP mode: VOICE voices by octaves: " + get(e, y, "arp_info")).c_str());
         check(chord() == "ARP", "ARP mode: no written chord");
         e->destroy(y);
     }

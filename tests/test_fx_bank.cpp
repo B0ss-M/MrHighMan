@@ -95,10 +95,15 @@ int main() {
     check(m0.energy < 1e3, "mix 0: dry (" + std::to_string(m0.energy) + ")");
     set(y, "fxb_mix", "100");
 
+#if OMNI_PUBLIC
+    const int LAST = 147;   // public 2.3.1: bank A = 117 factory programs + 30 MV-8800 programs
+#else
+    const int LAST = 117;
+#endif
     // 4. every option with extreme controls (ASan/UBSan watch the Rack): each one goes silent once switched Off (no
     // runaway / NaN state left in the output chain); full-scale peaks are counted (the soft limiter holds them)
     int bad = 0, full = 0;
-    for (int k = 0; k <= 117; k++) {
+    for (int k = 0; k <= LAST; k++) {
         set(y, "fxb_prog", std::to_string(k));
         set(y, "fxb_drive", k % 2 ? "36" : "0"); set(y, "fxb_fb", k % 3 ? "94" : "-94"); set(y, "fxb_pitch", k % 2 ? "24" : "-24");
         Stats s = hit(y, 30, 120);
@@ -107,14 +112,14 @@ int main() {
         run(y, 2);
         if (run(y, 100).energy > 1e3) bad++;
     }
-    check(bad == 0, "117 programs with extreme controls, then Off: silent every time (" + std::to_string(bad) + " not)");
-    std::printf("info: %d of 118 options reached full scale with extreme controls (soft-limited)\n", full);
+    check(bad == 0, std::to_string(LAST) + " programs with extreme controls, then Off: silent every time (" + std::to_string(bad) + " not)");
+    std::printf("info: %d of %d options reached full scale with extreme controls (soft-limited)\n", full, LAST + 1);
 
     // 4b. the OLED's < >: step and wrap (Off <- -> the last program), the readout names the program
     set(y, "fxb_prog", "0");
     set(y, "fxb_prog_prev", "1"); set(y, "fxb_prog_prev", "0");
     const int last = std::atoi(get(y, "fxb_prog").c_str());
-    check(last == 117, "< from Off wraps to the last program (" + get(y, "fxb_prog") + ")");
+    check(last == LAST, "< from Off wraps to the last program (" + get(y, "fxb_prog") + ")");
     set(y, "fxb_prog_next", "1"); set(y, "fxb_prog_next", "0");
     check(std::atoi(get(y, "fxb_prog").c_str()) == 0, "> from the last program wraps to Off (" + get(y, "fxb_prog") + ")");
     set(y, "fxb_prog_next", "1"); set(y, "fxb_prog_next", "0");
@@ -135,8 +140,16 @@ int main() {
     check(std::atoi(get(y, "fxb_prog").c_str()) == 84, "ENTER selects program 84 (" + get(y, "fxb_prog") + ")");
     check(std::atoi(get(y, "fxb_pad").c_str()) == 0 || get(y, "fxb_pad") == "Closed", "ENTER closes the keypad (" + get(y, "fxb_pad") + ")");
     check(get(y, "fxb_info").find("MODE 084") != std::string::npos, "OLED follows: " + get(y, "fxb_info"));
+#if OMNI_PUBLIC   // public 2.3.1: 118-147 are the MV programs; 190 is past the last one
+    key("fxb_num_tap"); key("fxb_k1"); key("fxb_k2"); key("fxb_k0"); key("fxb_kenter");
+    check(std::atoi(get(y, "fxb_prog").c_str()) == 120 && get(y, "fxb_pname").rfind("MV ", 0) == 0, "1 2 0 ENTER: MV program 120 (" + get(y, "fxb_pname") + ")");
+    key("fxb_num_tap"); key("fxb_k0"); key("fxb_k8"); key("fxb_k4"); key("fxb_kenter");
+    key("fxb_num_tap"); key("fxb_k1"); key("fxb_k9"); key("fxb_k0"); key("fxb_kenter");
+    check(get(y, "fxb_num") == "ERR" && std::atoi(get(y, "fxb_prog").c_str()) == 84, "190: ERR, program unchanged (" + get(y, "fxb_num") + ")");
+#else
     key("fxb_num_tap"); key("fxb_k1"); key("fxb_k2"); key("fxb_k0"); key("fxb_kenter");
     check(get(y, "fxb_num") == "ERR" && std::atoi(get(y, "fxb_prog").c_str()) == 84, "120: ERR, program unchanged (" + get(y, "fxb_num") + ")");
+#endif
     key("fxb_kclr");
     check(get(y, "fxb_num") == "084", "CLR clears the entry (" + get(y, "fxb_num") + ")");
     key("fxb_k5"); key("fxb_k5"); key("fxb_kenter");
