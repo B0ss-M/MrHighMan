@@ -1,4 +1,4 @@
-# Omni Sampler 2.3.0 – User Guide
+# Omni Sampler 2.3.1 – User Guide
 
 Omni Sampler is a multi-format sampler and synth for the MPC standalone hardware, by MR HighMan. It plays instruments
 from hardware samplers, sample libraries, hardware ROMs and software-synth presets, straight from their files or the
@@ -6,7 +6,66 @@ disk images they came on.
 
 ---
 
-## What's new in 2.3.0
+## What's new in 2.3.1
+
+2.3.1 is a free update to 2.3.0. Projects made with 2.3.0 open unchanged.
+
+### ARP page: Omni Style
+- **128 Omni Style patterns** in GENERATE: pick **Style** as the mode and choose a pattern with the **OMNI STYLE** knob
+  (styles such as BOSSA NOVA, TANGO 2 or HOUSE 1).
+- A style follows your **KEY and SCALE**: its notes are placed on the scale you chose.
+- With a **MIDI file loaded** on the ARP page, a style plays its rhythm with the notes of your file.
+- **VOICE** (INVERT UP / DOWN, DROP 2, DROP 3, OPEN, CLOSE) now changes the pattern in ARP mode and on single-note
+  melodies too, moving notes by octaves. Before, it only acted on chords in SEQ mode.
+- **INVERT** on a one-row pattern now mirrors the notes within the RANGE (before, it did nothing).
+- **UNDO** also restores the octave of each note.
+
+### FX BANK
+- **30 new effect programs** in bank A, numbers **118 to 147**: Auto Pan, LoFi Noise, Mod Delay, Octave, Quad Tap Delay,
+  Ring Mod, Rotary, Shuffle Delay, Slicer + Flanger, Slicer, Step Flanger, Step Filter, Step Phaser, Time Control Delay,
+  Time Skip Delay, Tremolo, Tremolo Chorus, then 2-Voice Pitch, Bass Multi, EP Multi, Feedback Pitch, Graphic EQ,
+  Guitar Amp Sim, Hexa-Chorus, Humanizer, Keyboard Multi, MultiTap Delay, Reverse Delay, Spectrum and Super Filter.
+  They are shown as **MV** programs on the screen.
+- **On 32-bit MPCs** (Live, Live II, One, X, Key 61 / 37, Force), the last 13 (2-Voice Pitch to Super Filter) are marked
+  **(64-bit MPC only)** and pass the sound through dry: they need more CPU than a 32-bit MPC can spare. Programs 118 to
+  134 work on every MPC.
+- **Every FX BANK knob now changes the sound.** Before, many knobs did nothing on some programs. Each program keeps its
+  own controls. The knobs a program does not use now work on the program as a whole:
+  - **DRIVE:** saturation before the program;
+  - **LOW / MID / HIGH:** EQ after it;
+  - **TONE:** brighter or darker;
+  - **THRESH / RATIO:** compression or expansion;
+  - **RATE / DEPTH:** tremolo and auto-pan;
+  - **FEEDBACK / TIME:** an echo;
+  - **PITCH:** a pitched layer;
+  - **MIX:** the dry/wet balance of all of this.
+
+  At their default positions these knobs change nothing, so 2.3.0 projects sound the same.
+- Programs 1 to 117 are unchanged. Slots B to D are still empty.
+
+### MPC Live III: the internal drive
+- The Live III's **internal SSD (the user drive)** is now listed as **Internal** on the BROWSE page. You can open your
+  sounds there, set it as your Plugin Library and save to it.
+- Other MPCs do not list an internal drive.
+
+### Decent Sampler
+- **Presets load in place** from `.dspreset` files, `.dslibrary` libraries and `.dsbundle` folders, with no extracting
+  first.
+- **More of each preset is played:**
+  - the preset's knob settings;
+  - its effects;
+  - its modulators (LFOs and envelopes) and their routes;
+  - its oscillators and wavetables;
+  - its groups' filters, tags and buses.
+
+  The info line names anything that is approximated or left out.
+- **Sealed products** (encrypted `.dsproduct` files) are listed as *(sealed)* and are not opened.
+  - **Paper Drums:** a bundle with Paper Drums' sample folders also lists **Paper Drums kit (from the samples)**. It is
+    a drum kit built from the bundle's own WAV files on the General MIDI drum notes.
+
+---
+
+## What was new in 2.3.0
 
 Everything below is new compared with the public 1.8 releases.
 
@@ -32,7 +91,8 @@ Everything below is new compared with the public 1.8 releases.
 ### FX page and FX BANK
 - **FX page:** EQ, compressor, reverb, drive, chorus, delay and modulation effects.
 - **FX BANK:** 117 factory effect programs (reverbs, delays, choruses, flangers, phasers, distortion, EQ and more), with
-  a 3-digit keypad, program stepping and a DRY/WET fader. Slots B to D are empty in this release.
+  a 3-digit keypad, program stepping and a DRY/WET fader. Slots B to D are empty in this release (2.3.1 adds
+  30 programs to bank A).
 
 ### New formats
 Serum 2, Vital, LUXONIX Purity (waveforms, user banks and **`.pth` patch banks, including drum kits**), Heat Up 3,
@@ -60,27 +120,34 @@ Separate packages for Hakai 32-bit, Hakai 64-bit, official MPC OS 32-bit and off
 
 | Package | For | How |
 |---|---|---|
-| `Omni-Sampler-2.3.0-mpc-armv7.zip` | modded 32-bit MPCs (Live, Live II, One, X, Key 61 / 37, Force) with SSH root access | unzip, copy the `Omni-Sampler-2.3.0` folder to the MPC, run `install.sh` (see its INSTALL.md) |
-| `Omni-Sampler-2.3.0-mpc-aarch64.zip` | modded 64-bit MPCs with SSH root access | the same, with this package |
-| `Omni-Sampler-2.3.0-public-official-32bit.zip` | official MPC OS 3.10.1 or later, 32-bit MPCs | copy the folder `MR HighMan - VST - Omni Sampler` into `VST2 Plugins` at the root of a USB drive, SD card or the internal drive |
-| `Omni-Sampler-2.3.0-public-official-64bit.zip` | official MPC OS 3.10.1 or later, 64-bit MPCs (Live III, XL and later) | the same, with this package |
+| `Omni-Sampler-2.3.1-mpc-armv7.zip` | modded 32-bit MPCs (Live, Live II, One, X, Key 61 / 37, Force) with SSH root access | unzip, copy the `Omni-Sampler-2.3.1` folder to the MPC, run `install.sh` (see its INSTALL.md) |
+| `Omni-Sampler-2.3.1-mpc-aarch64.zip` | modded 64-bit MPCs with SSH root access | the same, with this package |
+| `Omni-Sampler-2.3.1-public-official-32bit.zip` | official MPC OS 3.10.1 or later, 32-bit MPCs | copy the folder `MR HighMan - VST - Omni Sampler` into `VST2 Plugins` at the root of a USB drive, SD card or the internal drive |
+| `Omni-Sampler-2.3.1-public-official-64bit.zip` | official MPC OS 3.10.1 or later, 64-bit MPCs (Live III, XL and later) | the same, with this package |
 
 **On the official firmware:** turn on Preferences › Enhancements › Enable Enhancements and External Plugin Support.
 Omni Sampler is then listed under External Plugins.
+
+**Use the `VST2 Plugins` folder on the official firmware.** A copy installed anywhere else is not listed in the
+plugin menu.
 
 **Before you install:**
 - Keep **one** copy of Omni Sampler per MPC. Remove older copies from every drive first, otherwise the MPC may load the
   wrong one.
 - Save your project first: the Hakai installer restarts MPC.
 
-**Your existing projects:** projects made with Omni Sampler 1.8 open in 2.3.0 (same plugin and parameter order).
+**Your existing projects:** projects made with Omni Sampler 1.8 or 2.3.0 open in 2.3.1 (same plugin and parameter
+order).
+
+**Updating from 2.3.0:** replace the old folder with the new one. Do not keep both.
 
 ---
 
 ## First steps
 
 1. Put your sounds on an **SD card, USB drive or SSD**: sample libraries, disk images, ROM dumps and presets.
-2. Add Omni Sampler to a track and open the **BROWSE** page.
+2. Add Omni Sampler to a track and open the **BROWSE** page. On an MPC Live III, your internal drive is listed as
+   **Internal**.
 3. Open the folder that holds your sounds and tap **SET LIBRARY HERE**. Omni remembers this Plugin Library for every
    project. It uses its `Extracted`, `Patches` and `MIDI` folders, and finds shared ROMs and wavetables there.
 4. Tap a file to list its presets, then tap a preset to load it into the **Target Slot** (A–D, on the SETUP page).

@@ -102,6 +102,7 @@ std::vector<Instrument> ujam_load_many(VolumePtr volume, const std::string &part
 void register_ujam_patch();   // 2.4.28: UJAM .patch presets (Symphonic Elements style: SE CHOIR), on the library's BLOB    // LUXONIX Purity .wvt waveform maps (+ .smp sample banks), .usr user banks (list only)
 void register_rom_map(); // Omni ROM map (.omnirom JSON + raw PCM image)
 void register_decent_sampler();   // 2.4.30: Decent Sampler presets (.dspreset; .dslibrary = ZIP)
+void register_decent_product();   // 2.4.38: sealed .dsproduct (listed, refused) + the Paper Drums kit from its samples
 void register_directwave();  // Image-Line DirectWave programs (.dwp)
 void register_ableton();     // Ableton Sampler / Simpler presets and racks (.adv, .adg)
 void register_omnisphere();  // Omnisphere patches / multis with user soundsources (.prt_omn, .mlt_omn, .zmap)

@@ -102,6 +102,7 @@ void register_all() {
         register_sfz();
         register_sf2();
         register_decent_sampler();   // 2.4.30: .dspreset (extension + "<DecentSampler" probe)
+        register_decent_product();   // 2.4.38: .dsproduct ("DECENTSAMPLER001": sealed; Paper Drums kit from its samples)
         register_directwave();   // extension-only matches (.dwp / .adv .adg / .prt_omn .mlt_omn .zmap): ahead of the
         register_ableton();      // probe-only ROM readers, which could otherwise take a file of a ROM's size
 #if !OMNI_PUBLIC   // 2.3 public build: not in the public reader set (build_public.sh leaves its file out)

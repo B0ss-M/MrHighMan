@@ -33,6 +33,9 @@ extern "C" {
 #include "engine/smf.hpp"   // 2.4
 #include "engine/chord.hpp"     // 2.4.14: the GRID's chord names
 #include "engine/voicing.hpp"   // 2.4.14: the GRID's VOICE (inversions, spread) in key and scale
+#include "engine/mc909_arp.hpp"   // 2.4.37: GENERATE's MC-909 styles
+#include "engine/mv8800_bank_a.hpp"   // 2.4.39: bank A's MV-8800 programs (public)
+#include "engine/mv8800_names.hpp"
 #include <random>
 #include "formats/format.hpp"
 #include "formats/omni_native.hpp"
@@ -198,6 +201,7 @@ const NumParam NUM_PARAMS[] = {
     {"fxb_pad", 0},      // 2.4.32: the program keypad shown (1) or not; the project's own, not a sound setting
     // 2.4.33 (appended): the bay's slot (0 A factory, 1..3 B..D expansions) and each expansion slot's program (0 Off, 1..256); 2.4.35: 1..999
     {"fxb_slot", 0}, {"fxb_prog_b", 0}, {"fxb_prog_c", 0}, {"fxb_prog_d", 0},
+    {"arp_g_style", 0},   // 2.4.37: GENERATE's MC-909 style (0 Off, 1..128)
 };
 constexpr int NUM_COUNT = int(sizeof NUM_PARAMS / sizeof NUM_PARAMS[0]);
 #if UINTPTR_MAX > 0xFFFFFFFFu
@@ -414,10 +418,10 @@ bool host_dir(const std::string &p) { struct stat st; return !p.empty() && stat(
 // storage is small). MPC OS mounts its own storage under /media too: az01-internal (= /data), az01-internal-sd
 // (= /sdcard) and acvs-content (read-only), so a folder counts as external when it is under /media/<drive>, the drive
 // is not one of those, and (when it is mounted) it is not on the same device as /, /data or /sdcard.
-#ifdef OMNI_OFFICIAL
-// official package only (build_aarch64.sh / package_official.sh): MPC OS 3.10's Live III keeps the user's internal drive
-// ("MPC User", what MPC's browser calls Internal) on /nvme; its /sdcard is an empty folder on the system. Used only while
-// /nvme is a mounted drive, so other MPCs running this package keep /sdcard. OMNI_SAMPLER_USER_DRIVE: tests (any folder)
+// The Live III keeps the user's internal drive ("MPC User", what MPC's browser calls Internal) on /nvme; its /sdcard is an
+// empty folder on the system. Used only while /nvme is a mounted drive, so other MPCs keep /sdcard. OMNI_SAMPLER_USER_DRIVE:
+// tests (any folder). 2.4.39 (the user: the Live III's internal drive in public AND private): every build, not only the
+// official package (the catalog's Gen2 zip, built OMNI_OFFICIAL=0, could not reach it); the Live II has no /nvme.
 std::string user_drive() {
     const char *t = std::getenv("OMNI_SAMPLER_USER_DRIVE");
     std::string p = t && *t ? t : "/nvme";
@@ -426,9 +430,6 @@ std::string user_drive() {
     if (!(t && *t) && stat("/", &sys) == 0 && sys.st_dev == st.st_dev) return "";   // not mounted
     return p;
 }
-#else
-std::string user_drive() { return ""; }
-#endif
 bool on_user_drive(const std::string &p) {
     std::string u = user_drive();
     return !u.empty() && p.compare(0, u.size(), u) == 0 && (p.size() == u.size() || p[u.size()] == '/');
@@ -480,7 +481,14 @@ int fxb_catalog(int option) {
             if (list[i].engine != omnisampler::fxbank::Engine::Bypass) t.push_back(int(i));
         return t;
     }();
+#if OMNI_PUBLIC   // 2.4.39 (public 2.3.1): the MV-8800 programs after the factory ones (catalog MV_A_BASE + 1 ..)
+    const int mv = int(omnisampler::mv8800_count());
+    if (option < 0) return int(table.size()) - 1 + mv;
+    if (option >= int(table.size())) return option - int(table.size()) < mv ? MV_A_BASE + 1 + (option - int(table.size())) : 0;
+    return table[size_t(option)];
+#else
     return option >= 0 ? (option < int(table.size()) ? table[size_t(option)] : 0) : int(table.size()) - 1;
+#endif
 }
 int fxb_catalog_count() { return fxb_catalog(-1); }   // the programs the popup lists (Off not counted)
 // 2.4.33: the bay's expansion slots B..D: each keeps its own program (0 Off, 1..256); 2.4.35: 1..999
@@ -489,6 +497,7 @@ const char *const FXB_XPROG[3] = {"fxb_prog_b", "fxb_prog_c", "fxb_prog_d"};
 std::string fxb_label(int option) {
     const int cat = fxb_catalog(option);
     if (option <= 0 || cat <= 0) return "Off";
+    if (cat > MV_A_BASE) return omnisampler::mv8800_label(cat - MV_A_BASE);   // 2.4.39 (public): an MV-8800 program
     std::size_t n = 0;
     const omnisampler::fxbank::Program *list = omnisampler::fxbank::programs(n);
     const std::string bank = list[cat].bank;
@@ -1035,9 +1044,13 @@ void list_drives(Omni *o) {
     if (o->cur >= 0) o->cur = 0;
     std::string lib = library_dir(o);   // listed only while its drive is connected
     if (!lib.empty()) o->rows.push_back({"Plugin Library", lib, RowKind::Drive});
-    std::string user = user_drive();   // official package: the Live III's internal drive in place of its empty /sdcard
+    std::string user = user_drive();   // the Live III's internal drive (/nvme) in place of its empty /sdcard
     if (!user.empty()) o->rows.push_back({"Internal", user, RowKind::Drive});
+#if !(defined(__arm__) && !defined(__aarch64__))
     else if (is_dir_host("/sdcard")) o->rows.push_back({"Internal", "/sdcard", RowKind::Drive});
+#endif
+    // 2.4.39 (the user): 32-bit ARM (the Live II, Hakai) lists no Internal drive: its /sdcard is the system's internal
+    // storage, not for the user to browse (the Live III's /nvme above is the user's own drive)
     std::vector<DirEntry> media;
     try { media = o->vfs.list("/media"); } catch (const std::exception &) {}
     // MPC OS's own mounts (the internal storage again, the system data, read-only content) are not drives to browse
@@ -1210,9 +1223,7 @@ void list_folder(Omni *o, const std::string &dir, const std::string &group = "")
     if (num(o, "br_folders") < 0.5f) hide = companion_folders(o, dir, entries);
     for (auto &e : entries) {
         if (e.name.empty() || e.name[0] == '.') continue;   // hidden files, macOS "._" resource forks
-#ifdef OMNI_OFFICIAL
-        if (e.dir && (e.name == "$RECYCLE.BIN" || e.name == "System Volume Information")) continue;   // Windows' own, on exFAT drives
-#endif
+        if (e.dir && (e.name == "$RECYCLE.BIN" || e.name == "System Volume Information")) continue;   // Windows' own, on exFAT drives (2.4.39: every build)
         std::string full = path_join(dir, e.name), ext = path_ext(e.name);
         if (e.dir && hide.count(e.name)) continue;          // 2.1.3: an instrument's own sample folder
         if (e.dir) o->rows.push_back({"[" + e.name + "]", full, RowKind::Folder});
@@ -2284,9 +2295,9 @@ int arp_generate_into(Omni *o, int from, int len, double density, int ratchet_pc
 // file is the material: its rhythm, its notes and its opening cell, developed by the mode; without one, its own.
 // One melody line (one note at a time). Velocities: accents on the beats, a swell to the climax.
 enum ArpMode { AM_RISE, AM_FALL, AM_ARCH, AM_VALLEY, AM_WAVE, AM_RANDOM, AM_OSTINATO, AM_RIFF, AM_DOWN, AM_UP, AM_CALL,
-               AM_PEDAL, AM_ARPEGGIO, AM_COUNT };   // design.py ARP_CONTOURS
+               AM_PEDAL, AM_ARPEGGIO, AM_STYLE, AM_COUNT };   // design.py ARP_CONTOURS (2.4.37: + Style, appended)
 const char *const ARP_MODE_NAMES[AM_COUNT] = {"Rise", "Fall", "Arch", "Valley", "Wave", "Random", "Ostinato", "Orch Riff",
-                                               "High to Low", "Low to High", "Call + Answer", "Pedal", "Arpeggio"};
+                                               "High to Low", "Low to High", "Call + Answer", "Pedal", "Arpeggio", "Style"};
 struct GNote {
     int s, len, row, vel;
     // 2.4.11: the note's own expression, as the grid stores it (0 = the pattern's): GATE %, velocity %, CHANCE skip %,
@@ -3200,13 +3211,87 @@ std::string arp_chord_text(Omni *o) {
     if (n == 0) return "-";
     return chord_detect(p, n).name;
 }
+// 2.4.40 (the user: "the motif for open, closed etc. don't seem to have much impact on the sequence"): VOICE where it used to
+// refuse or find nothing - an ARP grid (rows = the held keys in order) and a melody with no chords - voices by octaves
+// (each note's NOTE OCT, -2..+2; its row, length and expression stay). A melody (notes in time order):
+//   OPEN every second note an octave up; CLOSE every note to within an octave of the first; DROP 2 / DROP 3 every second /
+//   third note an octave down; INVERT UP the lowest notes an octave up; INVERT DOWN the highest an octave down.
+// A chord on an ARP grid (notes starting on one step, low to high): OPEN every second note up; CLOSE within an octave of its
+// lowest; DROP 2 / DROP 3 the second / third highest down; INVERT UP the lowest up; INVERT DOWN the highest down.
+int arp_voice_octaves(Omni *o, int len, int only_step, int mode, bool seq, char *msg, size_t msz) {
+    Arp &a = o->sampler.arp;
+    const int scale = a.settings.scale.load(), root = ((a.settings.root.load() % 12) + 12) % 12, base = a.settings.base.load();
+    struct N { int r, a, oct, pitch; };
+    std::vector<N> ns;
+    for (const ArpRun &r : arp_runs(o, len)) {
+        if (only_step >= 0 && r.a != only_step) continue;
+        const int oct = std::max(-2, std::min(2, int(a.noct[r.a * 16 + r.r].load())));
+        const int q = seq ? Arp::seq_note(60 + root, r.r, scale, root, base) : 60 + r.r;   // ARP: the key's rank as its pitch
+        ns.push_back({r.r, r.a, oct, (q < 0 ? 60 : q) + 12 * oct});
+    }
+    if (ns.empty()) { std::snprintf(msg, msz, "VOICE: no notes%s", only_step >= 0 ? " on the selected note's step" : " in the pattern"); return 0; }
+    std::sort(ns.begin(), ns.end(), [](const N &x, const N &y) { return x.a != y.a ? x.a < y.a : x.pitch < y.pitch; });
+    std::vector<int> want(ns.size());
+    for (size_t i = 0; i < ns.size(); i++) want[i] = ns[i].oct;
+    auto close_to = [&](size_t i, int ref) {   // the octave that puts note i nearest to ref
+        int best = ns[i].oct, bd = 1 << 30;
+        for (int c = -2; c <= 2; c++) { const int d = std::abs(ns[i].pitch + 12 * (c - ns[i].oct) - ref); if (d < bd) { bd = d; best = c; } }
+        return best;
+    };
+    int chords = 0;
+    for (size_t i = 0, j; i < ns.size(); i = j) {   // the chords of an ARP grid
+        for (j = i; j < ns.size() && ns[j].a == ns[i].a; j++) {}
+        if (seq || j - i < 2) continue;
+        chords++;
+        const size_t k = j - i;
+        switch (mode) {
+            case VM_OPEN: for (size_t q = 1; q < k; q += 2) want[i + q] = ns[i + q].oct + 1; break;
+            case VM_CLOSE: for (size_t q = 1; q < k; q++) want[i + q] = close_to(i + q, ns[i].pitch); break;
+            case VM_DROP2: want[j - 2] = ns[j - 2].oct - 1; break;
+            case VM_DROP3: if (k >= 3) want[j - 3] = ns[j - 3].oct - 1; break;
+            case VM_INV_UP: want[i] = ns[i].oct + 1; break;
+            case VM_INV_DOWN: want[j - 1] = ns[j - 1].oct - 1; break;
+        }
+    }
+    if (!chords) {   // a melody, in time order
+        int lo = 1 << 30, hi = -(1 << 30);
+        for (const N &n : ns) { lo = std::min(lo, n.pitch); hi = std::max(hi, n.pitch); }
+        for (size_t i = 0; i < ns.size(); i++)
+            switch (mode) {
+                case VM_OPEN: if (i % 2 == 1) want[i] = ns[i].oct + 1; break;
+                case VM_CLOSE: want[i] = close_to(i, ns[0].pitch); break;
+                case VM_DROP2: if (i % 2 == 1) want[i] = ns[i].oct - 1; break;
+                case VM_DROP3: if (i % 3 == 2) want[i] = ns[i].oct - 1; break;
+                case VM_INV_UP: if (ns[i].pitch == lo) want[i] = ns[i].oct + 1; break;
+                case VM_INV_DOWN: if (ns[i].pitch == hi) want[i] = ns[i].oct - 1; break;
+            }
+    }
+    int moved = 0, stuck = 0;
+    for (size_t i = 0; i < ns.size(); i++) {
+        const int w = want[i];
+        if (w == ns[i].oct) continue;
+        if (w < -2 || w > 2) { stuck++; continue; }   // NOTE OCT's range
+        a.noct[ns[i].a * 16 + ns[i].r].store(int8_t(w));
+        moved++;
+    }
+    if (!moved) {
+        std::snprintf(msg, msz, "VOICE %s  ·  %s", VOICE_MODE_NAMES[mode],
+                      stuck ? "the notes are already at NOTE OCT's limit (+-2 octaves)" : "already voiced that way");
+        return 0;
+    }
+    std::snprintf(msg, msz, "VOICE %s  ·  %d note%s moved by octaves%s  ·  UNDO to go back", VOICE_MODE_NAMES[mode], moved, moved == 1 ? "" : "s",
+                  chords ? (std::string("  ·  ") + std::to_string(chords) + " chord" + (chords == 1 ? "" : "s")).c_str() : "  ·  melody");
+    return moved;
+}
+
 // VOICE: the chords (notes that start on one step: TIE runs whose first dot is that step) re-voiced by arp_v_mode, each
 // note to the GRID cell (row + NOTE OCT) that plays its new pitch; a note keeps its length, gate, velocity, chance,
 // ratchet and slide; the step's velocity is not touched. A selected note: its chord only; else every chord in LENGTH.
 // A chord with no room (a row taken by another note, out of the rows even with NOTE OCT, out of 0..127) is left as it is.
 int arp_voice(Omni *o, int len, int only_step, char *msg, size_t msz) {
     Arp &a = o->sampler.arp;
-    if (a.settings.mode.load() != 0) { std::snprintf(msg, msz, "VOICE works on SEQ grids (rows are scale steps): set MODE to SEQ"); return 0; }
+    // 2.4.40: an ARP grid (rows = held keys) voices by octaves (was "set MODE to SEQ")
+    if (a.settings.mode.load() != 0) return arp_voice_octaves(o, len, only_step, int(num(o, "arp_v_mode") + 0.5f), false, msg, msz);
     const int scale = a.settings.scale.load(), root = ((a.settings.root.load() % 12) + 12) % 12, base = a.settings.base.load();
     const int octave = std::max(-3, std::min(3, a.settings.octave.load()));
     const VoiceMode mode = VoiceMode(std::max(0, std::min(int(VM_COUNT) - 1, int(num(o, "arp_v_mode") + 0.5f))));
@@ -3295,15 +3380,101 @@ int arp_voice(Omni *o, int len, int only_step, char *msg, size_t msz) {
         o->voice_anchor[s] = anchor >= 0 ? anchor : mean;
         done++;
     }
-    if (!chords) {
-        std::snprintf(msg, msz, "VOICE: %s", only_step >= 0 ? "the selected note's step has no chord (2+ notes starting there)"
-                                                           : "no chords in the pattern (2+ notes starting on one step)");
-        return 0;
+    if (!chords || !done) {   // 2.4.40: a melody (no chords), or chords with no room: voiced by octaves
+        char m2[200];
+        const int n = arp_voice_octaves(o, len, only_step, int(mode), true, m2, sizeof m2);
+        if (n || !chords) { std::snprintf(msg, msz, "%s", m2); return n; }
     }
     std::snprintf(msg, msz, "VOICE %s  ·  %d of %d chord%s%s%s%s%s  ·  UNDO to go back", VOICE_MODE_NAMES[mode], done, chords,
                   chords == 1 ? "" : "s", first_name.empty() ? "" : "  ·  ", first_name.c_str(), skipped ? "  ·  left as they were: " : "",
                   skipped ? why : "");
     return done;
+}
+
+// 2.4.37: an MC-909 style (1..128, mc909_arp.hpp) as grid notes: its rows = its notes from low to high (up to 12 of the
+// grid's 16: on ARP the 1st, 2nd .. held key, on SEQ the scale from the root), its steps as stored (up to 32), a velocity
+// starts a note and the ties after it (128) hold it. Every note keeps its row (chord = true: arp_write leaves it there).
+struct StyleGrid { int len = 0; uint16_t mask[64] = {}; std::vector<GNote> notes; };
+bool mc909_style_grid(int id, StyleGrid &g) {
+    const mv8800_arp::Style *st = id >= 1 && id <= 128 ? mv8800_arp::factory().get(unsigned(id - 1)) : nullptr;
+    if (!st) return false;
+    const int steps = std::min(int(st->steps), int(Arp::STEPS));
+    std::vector<int> keys;
+    for (unsigned j = 0; j < st->lanes; j++) keys.push_back(st->rows[j * (st->steps + 1)]);
+    std::sort(keys.begin(), keys.end());
+    keys.erase(std::unique(keys.begin(), keys.end()), keys.end());
+    if (keys.size() > 16) keys.resize(16);
+    g = StyleGrid();
+    g.len = steps;
+    for (unsigned j = 0; j < st->lanes; j++) {
+        const mv8800_arp::Byte *row = st->rows + j * (st->steps + 1);
+        const auto it = std::lower_bound(keys.begin(), keys.end(), int(row[0]));
+        if (it == keys.end() || *it != int(row[0])) continue;
+        const int r = int(it - keys.begin());
+        for (int s0 = 0; s0 < steps; s0++) {
+            const int c = row[1 + s0];
+            if (c < 1 || c > 127) continue;
+            int l = 1;
+            while (s0 + l < steps && row[1 + s0 + l] == 128) l++;
+            GNote n{s0, l, r, c};
+            n.chord = true;
+            g.notes.push_back(n);
+            for (int k = s0; k < s0 + l; k++) g.mask[k] = uint16_t(g.mask[k] | (1u << r));
+        }
+    }
+    std::sort(g.notes.begin(), g.notes.end(), [](const GNote &a, const GNote &b) { return a.s != b.s ? a.s < b.s : a.row < b.row; });
+    return !g.notes.empty();
+}
+// 2.4.40 (the user: "Omni Style should tie in with the key and scale and the user's MIDI if they have loaded one"): with a
+// MIDI file loaded, a style's rhythm (its hits, lengths and accents) carries the file's notes: each style hit takes the
+// file's next onset (its notes in rows = the key's scale steps, chords whole), in order, round again at the end.
+// false: no file loaded (or a file with no notes)
+bool style_with_midi(Omni *o, StyleGrid &g) {
+    uint16_t m[64];
+    int mlen = 0;
+    {
+        std::lock_guard<std::mutex> lock(o->syn_mutex);
+        if (!o->arp_src.set) return false;
+        mlen = std::max(1, std::min(Arp::STEPS, o->arp_src.length));
+        std::copy(o->arp_src.mask, o->arp_src.mask + 64, m);
+    }
+    std::vector<uint16_t> onsets;   // the rows starting on each step that starts something
+    for (int st = 0; st < mlen; st++) {
+        const uint16_t start = uint16_t(m[st] & ~(st > 0 ? m[st - 1] : 0));
+        if (start) onsets.push_back(start);
+    }
+    if (onsets.empty()) return false;
+    std::vector<GNote> hits;   // the style's hits: one per step (its longest note, its loudest velocity)
+    for (const GNote &n : g.notes) {
+        if (!hits.empty() && hits.back().s == n.s) { hits.back().len = std::max(hits.back().len, n.len); hits.back().vel = std::max(hits.back().vel, n.vel); }
+        else hits.push_back(n);
+    }
+    StyleGrid out;
+    out.len = g.len;
+    for (size_t i = 0; i < hits.size(); i++) {
+        const uint16_t rows = onsets[i % onsets.size()];
+        for (int r = 0; r < 16; r++) {
+            if (!(rows >> r & 1)) continue;
+            GNote n{hits[i].s, hits[i].len, r, hits[i].vel};
+            n.chord = true;
+            out.notes.push_back(n);
+            for (int k = n.s; k < n.s + n.len && k < 64; k++) out.mask[k] = uint16_t(out.mask[k] | (1u << r));
+        }
+    }
+    if (out.notes.empty()) return false;
+    g = out;
+    return true;
+}
+
+// [G] the style's step: the MC-909 data has none, so its name says it where it can (1/4, 1/8, 1/12 = 1/8 T, 1/16, 1/32);
+// every other style plays in sixteenths
+int mc909_style_rate(int id) {
+    const char *n = id >= 1 && id <= 128 ? mv8800_arp::STYLE_NAMES[id - 1] : "";
+    if (!std::strncmp(n, "1/4", 3)) return 0;
+    if (!std::strncmp(n, "1/8", 3)) return 1;
+    if (!std::strncmp(n, "1/12", 4)) return 4;
+    if (!std::strncmp(n, "1/32", 4)) return 3;
+    return 2;
 }
 
 void arp_gen(Omni *o, const char *what) {
@@ -3326,12 +3497,38 @@ void arp_gen(Omni *o, const char *what) {
     arp_snapshot(o, o->arp_undo);
     arp_select(o, false);
     char msg[160] = "";
-    if (!std::strcmp(what, "generate")) {   // 2.4.9: arp_compose, from the MIDI file loaded when there is one
+    const int style = int(num(o, "arp_g_style") + 0.5f);   // 2.4.37: 0 Off, 1..128 an MC-909 style
+    if (!std::strcmp(what, "generate") && int(num(o, "arp_g_contour") + 0.5f) == AM_STYLE) {   // 2.4.37: the style as stored
+        StyleGrid sg;
+        if (!mc909_style_grid(style, sg)) std::snprintf(msg, sizeof msg, "STYLE  ·  pick an OMNI STYLE first (the knob beside GHOSTS)");
+        else {
+            const bool with_file = style_with_midi(o, sg);   // 2.4.40: the loaded MIDI file's notes on the style's rhythm
+            const int rate = mc909_style_rate(style);
+            arp_set_num(o, "arp_rate", float(rate));
+            arp_set_num(o, "arp_length", float(sg.len));
+            arp_set_num(o, "arp_tie", 1);   // (a tie holds its note)
+            apply_settings(o);
+            o->arp_undo.timing = true;   // (UNDO puts the step and LENGTH back)
+            const int n = arp_write(o, sg.len, sg.notes);
+            std::snprintf(msg, sizeof msg, "OMNI STYLE  ·  %03d %s%s  ·  %d steps of %s  ·  %d notes  ·  UNDO to go back", style,
+                          mv8800_arp::STYLE_NAMES[style - 1], with_file ? " + the MIDI file's notes" : "", sg.len, Arp::RATE_NAMES[rate], n);
+        }
+    } else if (!std::strcmp(what, "generate")) {   // 2.4.9: arp_compose, from the MIDI file loaded when there is one
         const int mode = std::max(0, std::min(AM_COUNT - 1, int(num(o, "arp_g_contour") + 0.5f)));
         uint16_t raw[64] = {};
         int raw_len = 0, raw_rate = 2;
         std::string file;
-        {
+        StyleGrid sg;   // 2.4.37: an Omni Style chosen is the material, read at the grid's step; 2.4.40: with a MIDI file loaded,
+                        // the style's rhythm carrying the file's notes
+        if (mc909_style_grid(style, sg)) {
+            const bool with_file = style_with_midi(o, sg);
+            raw_len = sg.len;
+            raw_rate = int(num(o, "arp_rate") + 0.5f);
+            std::copy(sg.mask, sg.mask + 64, raw);
+            char t[64];
+            std::snprintf(t, sizeof t, "Omni Style %s%s.", mv8800_arp::STYLE_NAMES[style - 1], with_file ? " + MIDI" : "");
+            file = t;
+        } else {
             std::lock_guard<std::mutex> lock(o->syn_mutex);
             if (o->arp_src.set) {
                 raw_len = std::max(1, std::min(Arp::STEPS, o->arp_src.length));
@@ -3381,6 +3578,8 @@ void arp_gen(Omni *o, const char *what) {
     } else if (!std::strcmp(what, "invert")) {   // upside down within the rows used
         int lo = 15, hi = 0;
         for (const ArpRun &rn : arp_runs(o, len)) lo = std::min(lo, rn.r), hi = std::max(hi, rn.r);
+        // 2.4.40: one row only (it had nothing to flip): mirrored within GENERATE's RANGE (row 0 <-> the range's top)
+        if (lo == hi) { const int top = std::max(1, std::min(15, int(num(o, "arp_g_range") + 0.5f) - 1)); lo = 0; hi = std::max(top, hi); }
         arp_remap(o, len, [&](ArpRun r) { r.r = lo + hi - r.r; return r; });
         std::snprintf(msg, sizeof msg, "INVERTED");
     } else if (!std::strcmp(what, "reverse")) {
@@ -5036,6 +5235,7 @@ void lfo_route_tap(Omni *o, int lfo, int route, const char *val) {
 // is dropped. A user's own change is never that soon after a project loads
 bool grown_opt(const char *key) {
     if (!std::strcmp(key, "syn_me_dest") || !std::strcmp(key, "arp_g_contour")) return true;
+    if (!std::strcmp(key, "fxb_prog")) return true;   // 2.4.39 (public 2.3.1): + the MV-8800 programs
     if (!std::strcmp(key, "syn_me2_dest") || !std::strcmp(key, "syn_me3_dest")) return true;   // 2.4.35: + Level A / B (all dests)
     if (!std::strcmp(key, "syn_lfo1_shape") || !std::strcmp(key, "syn_lfo2_shape")) return true;   // 2.4.13: + Custom
     if (!std::strncmp(key, "syn_macro", 9) && key[9] >= '1' && key[9] <= '4' && !std::strcmp(key + 10, "_dest")) return true;
@@ -5796,6 +5996,8 @@ int get_param(void *inst, const char *key, char *buf, int len) {
         }
         const int opt = int(num(o, "fxb_prog") + 0.5f), cat = fxb_catalog(opt);
         if (cat <= 0) return put(buf, len, "NO CARD  -  FX BANK OFF");
+        if (cat > MV_A_BASE)   // 2.4.39 (public): an MV-8800 program (not in the factory catalog)
+            return std::snprintf(buf, size_t(len), "MV CARD  MODE %03d / %03d  %s", opt, fxb_catalog_count(), num(o, "fxb_bypass") > 0.5f ? "BYPASS" : "ON");
         std::size_t n = 0;
         const omnisampler::fxbank::Program *list = omnisampler::fxbank::programs(n);
         const std::string bank = list[cat].bank;

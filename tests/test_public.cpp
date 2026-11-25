@@ -5,6 +5,7 @@
 //   3. SAVE TO LIBRARY: a Serum preset (a synth's preset) and a Decent library preset save a REFERENCE .omni (no samples);
 //      an Ableton preset saves an .omni WITH its samples; a reference .omni loads its source again and plays
 //   4. a patch with a reference slot and a sample slot: each saved the right way, reopened in a fresh instance
+//   5. (2.3.1) bank A's MV-8800 programs (options 118-147): named, shown as an MV card, heard
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -187,6 +188,31 @@ int main(int argc, char **argv) {
         settle(b, 3000);
         check(get(b, "slot1_name") != "(empty)" && get(b, "slot2_name") != "(empty)", "the patch's project reopens both slots: " + get(b, "slot1_name") + " / " + get(b, "slot2_name"));
         e->destroy(b);
+    }
+
+    // 5. (2.3.1) FX BANK bank A: options 118..147 = the 30 MV-8800 programs: each is named, plays and is shown as an MV card
+    {
+        void *m = e->create("/tmp/omni-public-test/mv");
+        e->set_param(m, "syn_on", "1"); e->set_param(m, "rev_mix", "0"); e->set_param(m, "fxb_mix", "100");
+        run(m, 50);
+        int dry = 0;   // the SYNTH starts in the background (wall clock): wait until a dry note is heard
+        for (int w = 0; w < 100 && (dry = peak_of(m, 60)) <= 50; w++) std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        check(dry > 50, "a dry note is heard before the MV programs (peak " + std::to_string(dry) + ")");
+        int named = 0, plays = 0, card = 0;
+        std::string silent;
+        for (int k = 118; k <= 147; k++) {
+            e->set_param(m, "fxb_prog", std::to_string(k).c_str());
+            run(m, 4);
+            if (get(m, "fxb_info").find("MV CARD") != std::string::npos) card++;
+            if (get(m, "fxb_pname").rfind("MV ", 0) == 0) named++;
+            const int pk5 = peak_of(m, 60);
+            if (pk5 > 50) plays++; else silent += " " + get(m, "fxb_pname") + " (" + std::to_string(pk5) + ")";
+        }
+        check(card == 30, "MV programs 118-147 show the MV card on the OLED (" + std::to_string(card) + " of 30)");
+        check(named == 30, "MV programs 118-147 are named MV ... (" + std::to_string(named) + " of 30, last: " + get(m, "fxb_pname") + ")");
+        check(plays == 30, "a note through each MV program is heard (" + std::to_string(plays) + " of 30)" + (silent.empty() ? "" : ": not heard:" + silent));
+        e->set_param(m, "fxb_prog", "0");
+        e->destroy(m);
     }
     std::printf("%s\n", fails ? "FAILED" : "PASSED");
     return fails ? 1 : 0;

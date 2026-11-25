@@ -37,6 +37,10 @@ using FxExpansionFactory = std::unique_ptr<FxExpansion> (*)(int slot);   // slot
 std::unique_ptr<FxExpansion> make_fx_expansion(int slot);
 // 2.4.35: all three slots at once (B and C share one hardware rack: only one slot plays at a time). out[0..2] = B..D
 void make_fx_expansions(std::unique_ptr<FxExpansion> out[3]);
+// 2.4.39 / public 2.3.1: the MV-8800 effects as FX BANK slot A's programs after the factory ones (the PUBLIC build: the
+// sampler creates it only with OMNI_PUBLIC; private keeps them in slot B). Light ones first (mv8800_bank_a.hpp); on 32-bit
+// ARM the heavy ones are listed but play dry
+std::unique_ptr<FxExpansion> make_mv_bank_a();
 // tests only: another factory for the Sampler instances created after it (nullptr = the built-in one)
 void set_fx_expansion_factory(FxExpansionFactory f);
 

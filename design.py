@@ -103,6 +103,9 @@ def fxb_programs():
 
 
 FXB_OPTIONS = ["Off"] + ["%s %s" % p for p in fxb_programs()]
+if os.environ.get("OMNI_PUBLIC") == "1":   # 2.4.39 (public 2.3.1): + the MV-8800 programs (src/engine/mv8800_names.hpp order)
+    _mvn = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "src", "engine", "mv8800_names.hpp")).read()
+    FXB_OPTIONS += ["MV " + n for n in re.findall(r'"([^"]+)"', _mvn.split("MV8800_BANK_A[] = {")[1].split("};")[0])]
 TREM_MODES = ["Tremolo", "Auto-Pan"]
 TREM_SHAPES = ["Sine", "Square"]
 SOUND_KEYS = {"volume", "pan", "transpose", "tune", "cutoff", "resonance", "filter_type", "filter_vel", "attack", "decay",
@@ -193,7 +196,11 @@ ARP_DRAWS = ["Tap", "Draw"]
 ARP_DIRS = ["Forward", "Back", "Ping-Pong", "Random"]
 ARP_CONTOURS = ["Rise", "Fall", "Arch", "Valley", "Wave", "Random",
                 # 2.4.9 (appended: plugin.cpp ArpMode, GROWN_OPTS): the MOTIF modes the user asked for, and two more
-                "Ostinato", "Orch Riff", "High to Low", "Low to High", "Call + Answer", "Pedal", "Arpeggio"]
+                "Ostinato", "Orch Riff", "High to Low", "Low to High", "Call + Answer", "Pedal", "Arpeggio",
+                "Style"]   # 2.4.37 (appended: plugin.cpp AM_STYLE): the MC-909 style chosen by arp_g_style, as stored
+# 2.4.37: the MC-909's 128 arpeggio styles (src/engine/mc909_arp.hpp STYLE_NAMES, same order): GENERATE's material
+MC909_STYLES = ['1/4', '1/6', '1/8', '1/12', '1/16 1', '1/16 2', '1/16 3', '1/32 1', '1/32 2', '1/32 3', 'PORTA-A 01', 'PORTA-A 02', 'PORTA-A 03', 'PORTA-A 04', 'PORTA-A 05', 'PORTA-A 06', 'PORTA-A 07', 'PORTA-A 08', 'PORTA-A 09', 'PORTA-A 10', 'PORTA-A 11', 'PORTA-B 01', 'PORTA-B 02', 'PORTA-B 03', 'PORTA-B 04', 'PORTA-B 05', 'PORTA-B 06', 'PORTA-B 07', 'PORTA-B 08', 'PORTA-B 09', 'PORTA-B 10', 'PORTA-B 11', 'PORTA-B 12', 'PORTA-B 13', 'PORTA-B 14', 'PORTA-B 15', 'SEQ-A 1', 'SEQ-A 2', 'SEQ-A 3', 'SEQ-A 4', 'SEQ-A 5', 'SEQ-A 6', 'SEQ-A 7', 'SEQ-B 1', 'SEQ-B 2', 'SEQ-B 3', 'SEQ-B 4', 'SEQ-B 5', 'SEQ-C 1', 'SEQ-C 2', 'SEQ-D 1', 'SEQ-D 2', 'SEQ-D 3', 'SEQ-D 4', 'SEQ-D 5', 'SEQ-D 6', 'SEQ-D 7', 'SEQ-D 8', 'ECHO 01', 'ECHO 02', 'ECHO 03', 'MUTE 01', 'MUTE 02', 'MUTE 03', 'MUTE 04', 'MUTE 05', 'MUTE 06', 'MUTE 07', 'MUTE 08', 'MUTE 09', 'MUTE 10', 'MUTE 11', 'MUTE 12', 'MUTE 13', 'MUTE 14', 'MUTE 15', 'MUTE 16', 'STRUM 1', 'STRUM 2', 'STRUM 3', 'STRUM 4', 'STRUM 5', 'STRUM 6', 'STRUM 7', 'STRUM 8', 'REGGAE 1', 'REGGAE 2', 'REF 1', 'REF 2', 'PERC 1', 'PERC 2', 'PERC 3', 'PERC 4', 'WALKBS', 'HARP', 'BOUND', 'RANDOM', 'BOSSA NOVA', 'SALSA 1', 'SALSA 2', 'SALSA 3', 'SALSA 4', 'MAMBO 1', 'MAMBO 2', 'CLAVE', 'REV CLA', 'GUIRO', 'AGOGO', 'SAMBA', 'TANGO 1', 'TANGO 2', 'TANGO 3', 'TANGO 4', 'HOUSE 1', 'HOUSE 2', 'Style 116', 'Style 117', 'Style 118', 'Style 119', 'Style 120', 'Style 121', 'Style 122', 'Style 123', 'Style 124', 'Style 125', 'Style 126', 'Style 127', 'Style 128']
+ARP_STYLES = ["Off"] + ["%03d %s" % (i + 1, n) for i, n in enumerate(MC909_STYLES)]
 ARP_CHAIN = ["-", "A", "B", "C", "D"]
 MUT_AMOUNTS = ["Subtle", "Medium", "Wild"]   # 2.4.12
 MUT_KEYS = [("mut_store_a", "STORE A"), ("mut_store_b", "STORE B"), ("mut_breed", "BREED"), ("mut_go", "MUTATE"), ("mut_undo", "UNDO")]
@@ -771,6 +778,8 @@ def params():
     for sl_ in "bcd":
         add("fxb_prog_%s" % sl_, "FX Bank Slot %s Program" % sl_.upper(), min=0, max=999, default=0, display="int", live=True)   # 2.4.35: was 256
     text("fxb_pname", "FX Bank Program Name")
+    # 2.4.37 (appended): GENERATE's MC-909 style (Off = the MIDI file loaded, or its own melody)
+    add("arp_g_style", "Arp Gen Style", options=ARP_STYLES, default=0)
     # 2.0 (OMNI_PUBLIC=1, the public release): public 1.8.1 ended with br_enter, br_wheel at 297/298; the private line
     # (1.8.12, the user's MPC) inserted its new params before them and was relocked. The public build keeps 1.8.1's
     # order so public users' projects restore: those two go back right after mod8_slot, everything newer follows.
@@ -1804,7 +1813,7 @@ def bg_arp2():
         knob_label(c, x + 80 + i * 150, 206, lab)
     c.text(x + 16, 334, "MOTIF", 11, INK_DIM, "SemiBold", "lm")
     # 2.4.11: the help lines made room for GENERATE's expression knobs (applied on the next GENERATE)
-    for i, lab in enumerate(("ARTICULATION", "EXPRESSION", "GHOSTS + FILLS")):
+    for i, lab in enumerate(("ARTICULATION", "EXPRESSION", "GHOSTS + FILLS", "OMNI STYLE")):   # 2.4.37: + STYLE (2.4.40: "OMNI STYLE")
         knob_label(c, x + 80 + i * 150, 470, lab)
     x, yy, w, h = AG2_R
     panel(c, x, yy, w, h, None, colour=SM_CYAN)
@@ -3359,7 +3368,7 @@ def layout():
     G.append('button cx=%d cy=%d label="" key=arp_v_go img=art/b_arp_v_go_off.png img_on=art/b_arp_v_go_on.png w=130 h=40'
              % (gx + 85 + 3 * 148, y(374 + 56)))   # 2.4.14 VOICE: the 8th MOTIF slot
     G.append('popup cx=%d cy=%d w=190 h=28 label="" key=arp_v_mode text_size=14' % (gx + 300, y(334)))
-    for i, k in enumerate(("arp_g_artic", "arp_g_expr", "arp_g_ghost")):   # 2.4.11
+    for i, k in enumerate(("arp_g_artic", "arp_g_expr", "arp_g_ghost", "arp_g_style")):   # 2.4.11; 2.4.37: + STYLE
         G.append(knob_line(gx + 80 + i * 150, 516, 26, k, GREEN, 140))
     G.append('readout cx=%d cy=%d w=580 h=24 label="" key=arp_info text_size=13' % (gx + 308, y(596)))
     rx = AG2_R[0]

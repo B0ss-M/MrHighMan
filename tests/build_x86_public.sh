@@ -33,4 +33,12 @@ g++ "${FLAGS[@]}" "${WARN[@]}" "${P[@]}" "$PORT/tests/test_public.cpp" "$PORT/sr
 g++ "${FLAGS[@]}" "${WARN[@]}" "${P[@]}" "$PORT/tests/test_tap.cpp" "$PORT/src/plugin.cpp" "${OBJS[@]}" -lpthread -o "$OUT/test_tap-public"
 g++ "${FLAGS[@]}" "${WARN[@]}" -I"$PORT/src" "$PORT/tests/test_serum_map.cpp" "${OBJS[@]}" -lpthread -o "$OUT/test_serum_map-public"
 g++ "${FLAGS[@]}" "${WARN[@]}" "${P[@]}" "$PORT/tests/test_fx_bank.cpp" "$PORT/src/plugin.cpp" "${OBJS[@]}" -lpthread -o "$OUT/test_fx_bank-public"
-echo "built $OUT/probe-public test_public test_tap-public test_serum_map-public test_fx_bank-public"
+# 2.3.1: what the update adds (Omni Style arp, GENERATE / VOICE, the Live III internal drive, Decent full mapping, FX BANK knobs + MV bank A)
+g++ "${FLAGS[@]}" "${WARN[@]}" "${P[@]}" "$PORT/tests/test_arp.cpp" "$PORT/src/plugin.cpp" "${OBJS[@]}" -lpthread -o "$OUT/test_arp-public"
+g++ "${FLAGS[@]}" "${WARN[@]}" -DOMNI_OFFICIAL=1 "${P[@]}" "$PORT/tests/test_drives.cpp" "$PORT/src/plugin.cpp" "${OBJS[@]}" -lpthread -o "$OUT/test_drives-public-official"
+g++ "${FLAGS[@]}" "${WARN[@]}" "${P[@]}" "$PORT/tests/test_drives.cpp" "$PORT/src/plugin.cpp" "${OBJS[@]}" -lpthread -o "$OUT/test_drives-public"
+g++ "${FLAGS[@]}" "${WARN[@]}" "${P[@]}" -DPLUGIN_CPP="\"$PORT/src/plugin.cpp\"" "$PORT/tests/test_mc909_style.cpp" "${OBJS[@]}" -lpthread -o "$OUT/test_mc909_style-public"
+g++ "${FLAGS[@]}" "${WARN[@]}" "${P[@]}" -DPLUGIN_CPP="\"$PORT/src/plugin.cpp\"" "$PORT/tests/test_gen_audit.cpp" "${OBJS[@]}" -lpthread -o "$OUT/test_gen_audit-public"
+g++ "${FLAGS[@]}" "${WARN[@]}" -I"$PORT/src" "$PORT/tests/test_decent_map.cpp" "${OBJS[@]}" -lpthread -o "$OUT/test_decent_map-public"
+g++ -std=gnu++17 -O2 -DOMNI_PUBLIC=1 -I"$PORT/src" "$PORT/tests/test_fx_knobs.cpp" "$PORT/src/engine/fx_expansion.cpp" -o "$OUT/test_fx_knobs-public"
+echo "built $OUT/probe-public test_public test_tap-public test_serum_map-public test_fx_bank-public + 2.3.1: arp drives(-official) mc909_style gen_audit decent_map fx_knobs"
